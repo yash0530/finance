@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 from typing import Dict, List, Optional
 import pandas as pd
+import numpy as np
 
 # Import from companies.py
 from companies import (
@@ -22,7 +23,40 @@ from companies import (
     CACHE_DIR
 )
 
+
+class NumpyEncoder(json.JSONEncoder):
+    """Custom JSON encoder for numpy types."""
+    def default(self, obj):
+        if isinstance(obj, (np.integer, np.int64)):
+            return int(obj)
+        if isinstance(obj, (np.floating, np.float64)):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if pd.isna(obj):
+            return None
+        return super().default(obj)
+
+
+def convert_numpy_types(obj):
+    """Recursively convert numpy types to Python native types."""
+    if isinstance(obj, dict):
+        return {k: convert_numpy_types(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    elif isinstance(obj, (np.integer, np.int64)):
+        return int(obj)
+    elif isinstance(obj, (np.floating, np.float64)):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif pd.isna(obj) if not isinstance(obj, (list, dict, str)) else False:
+        return None
+    return obj
+
+
 app = Flask(__name__)
+app.json.encoder = NumpyEncoder
 CORS(app)  # Enable CORS for React frontend
 
 # Cache file path
@@ -68,10 +102,10 @@ def get_companies():
         df = df.sort_values(f'{sort_by}_sort', ascending=ascending, na_position='last')
         df = df.drop(columns=[f'{sort_by}_sort'])
     
-    return jsonify({
+    return jsonify(convert_numpy_types({
         'count': len(df),
         'data': df.to_dict(orient='records')
-    })
+    }))
 
 
 @app.route('/api/sectors', methods=['GET'])
@@ -91,17 +125,17 @@ def get_sectors():
         
         sectors.append({
             'name': sector,
-            'count': len(sector_df),
-            'avg_forward_pe': round(pe_values.mean(), 2) if pe_values.notna().any() else None,
-            'median_forward_pe': round(pe_values.median(), 2) if pe_values.notna().any() else None,
-            'total_market_cap': market_cap.sum() if market_cap.notna().any() else 0,
-            'total_market_cap_fmt': f"${market_cap.sum()/1e12:.2f}T" if market_cap.notna().any() else 'N/A'
+            'count': int(len(sector_df)),
+            'avg_forward_pe': float(round(pe_values.mean(), 2)) if pe_values.notna().any() else None,
+            'median_forward_pe': float(round(pe_values.median(), 2)) if pe_values.notna().any() else None,
+            'total_market_cap': float(market_cap.sum()) if market_cap.notna().any() else 0,
+            'total_market_cap_fmt': f"${float(market_cap.sum())/1e12:.2f}T" if market_cap.notna().any() else 'N/A'
         })
     
-    return jsonify({
+    return jsonify(convert_numpy_types({
         'count': len(sectors),
         'data': sectors
-    })
+    }))
 
 
 @app.route('/api/companies/<path:sector>', methods=['GET'])
@@ -122,11 +156,11 @@ def get_companies_by_sector(sector: str):
     sector_df = sector_df.sort_values('forward_pe_sort', na_position='last')
     sector_df = sector_df.drop(columns=['forward_pe_sort'])
     
-    return jsonify({
+    return jsonify(convert_numpy_types({
         'sector': sector,
         'count': len(sector_df),
         'data': sector_df.to_dict(orient='records')
-    })
+    }))
 
 
 @app.route('/api/stats', methods=['GET'])
@@ -164,20 +198,20 @@ def get_stats():
         ['ticker', 'company_name', 'sector', 'revenue_growth_fmt', 'current_price_fmt']
     ].to_dict(orient='records')
     
-    return jsonify({
-        'total_companies': len(df),
-        'total_market_cap': market_cap.sum(),
-        'total_market_cap_fmt': f"${market_cap.sum()/1e12:.2f}T",
-        'avg_forward_pe': round(pe_values.mean(), 2) if pe_values.notna().any() else None,
-        'median_forward_pe': round(pe_values.median(), 2) if pe_values.notna().any() else None,
-        'avg_trailing_pe': round(trailing_pe.mean(), 2) if trailing_pe.notna().any() else None,
-        'avg_profit_margin': round(profit_margin.mean() * 100, 2) if profit_margin.notna().any() else None,
-        'avg_revenue_growth': round(revenue_growth.mean() * 100, 2) if revenue_growth.notna().any() else None,
-        'sector_count': df['sector'].nunique(),
+    return jsonify(convert_numpy_types({
+        'total_companies': int(len(df)),
+        'total_market_cap': float(market_cap.sum()),
+        'total_market_cap_fmt': f"${float(market_cap.sum())/1e12:.2f}T",
+        'avg_forward_pe': float(round(pe_values.mean(), 2)) if pe_values.notna().any() else None,
+        'median_forward_pe': float(round(pe_values.median(), 2)) if pe_values.notna().any() else None,
+        'avg_trailing_pe': float(round(trailing_pe.mean(), 2)) if trailing_pe.notna().any() else None,
+        'avg_profit_margin': float(round(profit_margin.mean() * 100, 2)) if profit_margin.notna().any() else None,
+        'avg_revenue_growth': float(round(revenue_growth.mean() * 100, 2)) if revenue_growth.notna().any() else None,
+        'sector_count': int(df['sector'].nunique()),
         'top_by_market_cap': top_by_market_cap,
         'lowest_forward_pe': lowest_pe,
         'highest_growth': highest_growth
-    })
+    }))
 
 
 @app.route('/api/search', methods=['GET'])
@@ -201,11 +235,11 @@ def search_companies():
     
     results = df[mask].head(20).to_dict(orient='records')
     
-    return jsonify({
+    return jsonify(convert_numpy_types({
         'query': query,
         'count': len(results),
         'data': results
-    })
+    }))
 
 
 @app.route('/api/refresh', methods=['POST'])
