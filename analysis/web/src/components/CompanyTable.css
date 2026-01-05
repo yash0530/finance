@@ -1,0 +1,86 @@
+.company-table-wrapper {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.table-header {
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.table-header h3 {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.table-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-xl) * 2;
+    gap: var(--spacing-md);
+    color: var(--text-secondary);
+}
+
+.company-table {
+    min-width: 1200px;
+}
+
+.company-table th {
+    white-space: nowrap;
+    user-select: none;
+}
+
+.company-table th:hover {
+    background: var(--bg-card-hover);
+}
+
+.sort-icon {
+    margin-left: var(--spacing-xs);
+    opacity: 0.3;
+    font-size: 0.75rem;
+}
+
+.sort-icon.active {
+    opacity: 1;
+    color: var(--accent-blue);
+}
+
+.ticker-badge {
+    display: inline-block;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: var(--accent-cyan);
+}
+
+.company-name {
+    max-width: 250px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sector-badge {
+    display: inline-block;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    font-size: 0.7rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+@media (max-width: 1200px) {
+    .table-container {
+        overflow-x: auto;
+    }
+}
