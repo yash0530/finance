@@ -5,7 +5,7 @@ import CompanyTable from './components/CompanyTable';
 import SectorChart from './components/SectorChart';
 import SearchBar from './components/SearchBar';
 import MetricsPanel from './components/MetricsPanel';
-import { fetchSectors, fetchStats, healthCheck } from './utils/api';
+import { fetchSectors, fetchStats, healthCheck, refreshData } from './utils/api';
 
 function App() {
   const [sectors, setSectors] = useState([]);
@@ -14,6 +14,9 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchResults, setSearchResults] = useState(null);
+  const [showAllCompanies, setShowAllCompanies] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState(null);
 
   useEffect(() => {
     async function loadData() {
@@ -55,6 +58,35 @@ function App() {
   const handleBackToDashboard = () => {
     setSelectedSector(null);
     setSearchResults(null);
+    setShowAllCompanies(false);
+  };
+
+  const handleShowAllCompanies = () => {
+    setShowAllCompanies(true);
+    setSelectedSector(null);
+    setSearchResults(null);
+  };
+
+  const handleRefresh = async () => {
+    try {
+      setRefreshing(true);
+      setRefreshMessage(null);
+      const result = await refreshData();
+      setRefreshMessage({ type: 'success', text: result.message });
+      // Reload data after refresh
+      const [sectorsData, statsData] = await Promise.all([
+        fetchSectors(),
+        fetchStats()
+      ]);
+      setSectors(sectorsData.data);
+      setStats(statsData);
+    } catch (err) {
+      setRefreshMessage({ type: 'error', text: err.message || 'Failed to refresh data' });
+    } finally {
+      setRefreshing(false);
+      // Clear message after 5 seconds
+      setTimeout(() => setRefreshMessage(null), 5000);
+    }
   };
 
   if (loading) {
@@ -91,13 +123,33 @@ function App() {
             <h1>📊 S&P 500 Analysis</h1>
             <span className="tagline">Interactive Financial Playground</span>
           </div>
-          <SearchBar onResults={handleSearchResults} />
+          <div className="header-controls">
+            <SearchBar onResults={handleSearchResults} />
+            <button
+              className={`btn btn-refresh ${refreshing ? 'refreshing' : ''}`}
+              onClick={handleRefresh}
+              disabled={refreshing}
+              title="Force refresh data from Yahoo Finance"
+            >
+              {refreshing ? '⏳ Refreshing...' : '🔄 Refresh Data'}
+            </button>
+          </div>
         </div>
+        {refreshMessage && (
+          <div className={`refresh-message ${refreshMessage.type}`}>
+            {refreshMessage.type === 'success' ? '✅' : '❌'} {refreshMessage.text}
+          </div>
+        )}
       </header>
 
       <main className="app-main">
-        {!selectedSector && !searchResults ? (
+        {!selectedSector && !searchResults && !showAllCompanies ? (
           <>
+            <div className="dashboard-actions">
+              <button className="btn btn-primary btn-all-companies" onClick={handleShowAllCompanies}>
+                📋 View All Companies
+              </button>
+            </div>
             <MetricsPanel stats={stats} />
             <Dashboard
               sectors={sectors}
@@ -114,12 +166,15 @@ function App() {
               <h2>
                 {searchResults
                   ? `Search Results (${searchResults.count})`
-                  : selectedSector}
+                  : showAllCompanies
+                    ? 'All Companies'
+                    : selectedSector}
               </h2>
             </div>
             <CompanyTable
               sector={selectedSector}
               searchResults={searchResults?.data}
+              showAll={showAllCompanies}
             />
           </>
         )}

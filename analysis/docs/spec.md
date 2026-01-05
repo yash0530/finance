@@ -109,10 +109,20 @@ npm run dev
 ### Frontend Features
 
 - **Dashboard** - Sector overview with market cap and P/E metrics
-- **Company Table** - Sortable table with all financial metrics
+- **All Companies View** - Browse all 500 companies with full filtering capabilities
+- **Company Table** - Sortable table with all financial metrics including P/E Ratio (trailing/forward)
+- **Filter Panel** - Filter companies by:
+  - Sector (dropdown)
+  - Forward P/E (min/max range)
+  - Trailing P/E (min/max range)
+  - P/E Ratio: trailing ÷ forward (>1 = earnings growth expected)
+  - Market Cap in billions (min/max range)
+  - Profit Margin % (min/max range)
+  - Revenue Growth % (min/max range)
 - **Charts** - Pie chart (market cap), bar chart (P/E by sector)
 - **Search** - Autocomplete search by ticker or company name
 - **Metrics Panel** - Top companies by market cap, lowest P/E, highest growth
+- **Force Refresh** - Button to manually trigger fresh data fetch from Yahoo Finance
 
 ### Project Structure
 

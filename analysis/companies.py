@@ -176,6 +176,20 @@ def get_ticker_data_with_retry(symbol: str, delay: float = REQUEST_DELAY) -> Dic
             forward_pe = safe_get('forwardPE')
             trailing_pe = safe_get('trailingPE')
             
+            # Calculate P/E ratio (trailing / forward)
+            # > 1 means earnings expected to grow, < 1 means expected decline
+            pe_ratio = None
+            if forward_pe and trailing_pe and forward_pe > 0:
+                pe_ratio = trailing_pe / forward_pe
+            
+            def format_ratio(value):
+                if value is None:
+                    return 'N/A'
+                try:
+                    return f"{float(value):.2f}x"
+                except:
+                    return 'N/A'
+            
             return {
                 'symbol': symbol,
                 'success': True,
@@ -186,6 +200,8 @@ def get_ticker_data_with_retry(symbol: str, delay: float = REQUEST_DELAY) -> Dic
                     'market_cap_fmt': format_currency(market_cap),
                     'forward_pe': forward_pe,
                     'trailing_pe': trailing_pe,
+                    'pe_ratio': pe_ratio,
+                    'pe_ratio_fmt': format_ratio(pe_ratio),
                     'peg_ratio': safe_get('pegRatio'),
                     'price_to_sales': safe_get('priceToSalesTrailing12Months'),
                     'price_to_book': safe_get('priceToBook'),
@@ -360,7 +376,7 @@ def export_to_csv(data: List[Dict], filename: str = "sp500_analysis.csv") -> Non
     export_columns = [
         'ticker', 'company_name', 'sector', 'industry',
         'current_price', 'market_cap', 
-        'forward_pe', 'trailing_pe', 'peg_ratio',
+        'forward_pe', 'trailing_pe', 'pe_ratio', 'peg_ratio',
         'price_to_sales', 'price_to_book', 'ev_to_revenue', 'ev_to_ebitda',
         'total_revenue', 'net_income',
         'profit_margin', 'operating_margin', 'gross_margin',
