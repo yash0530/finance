@@ -188,13 +188,35 @@
     font-weight: 600;
     font-size: 0.8rem;
     color: var(--accent-cyan);
+    transition: all 0.2s ease;
+}
+
+.ticker-link {
+    text-decoration: none;
+}
+
+.ticker-link:hover .ticker-badge {
+    background: var(--accent-cyan);
+    color: var(--bg-primary);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(6, 182, 212, 0.3);
 }
 
 .company-name {
-    max-width: 250px;
-    white-space: nowrap;
+    max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.clickable-cell {
+    cursor: pointer;
+    transition: color var(--transition-fast);
+}
+
+.clickable-cell:hover {
+    color: var(--accent-cyan);
+    text-decoration: underline;
 }
 
 .sector-badge {

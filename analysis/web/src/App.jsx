@@ -5,6 +5,9 @@ import CompanyTable from './components/CompanyTable';
 import SectorChart from './components/SectorChart';
 import SearchBar from './components/SearchBar';
 import MetricsPanel from './components/MetricsPanel';
+import SpotlightPanel from './components/SpotlightPanel';
+import SpotlightDashboard from './components/SpotlightDashboard';
+import CompanyDetail from './components/CompanyDetail';
 import { fetchSectors, fetchStats, healthCheck, refreshData } from './utils/api';
 
 function App() {
@@ -17,6 +20,9 @@ function App() {
   const [showAllCompanies, setShowAllCompanies] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [selectedSpotlightCategory, setSelectedSpotlightCategory] = useState(null);
 
   useEffect(() => {
     async function loadData() {
@@ -25,7 +31,10 @@ function App() {
         setError(null);
 
         // Check API health first
-        await healthCheck();
+        const health = await healthCheck();
+        if (health.last_updated) {
+          setLastUpdated(health.last_updated);
+        }
 
         // Fetch all data
         const [sectorsData, statsData] = await Promise.all([
@@ -59,6 +68,16 @@ function App() {
     setSelectedSector(null);
     setSearchResults(null);
     setShowAllCompanies(false);
+    setSelectedCompany(null);
+    setSelectedSpotlightCategory(null);
+  };
+
+  const handleCompanySelect = (ticker) => {
+    setSelectedCompany(ticker);
+  };
+
+  const handleCategorySelect = (category) => {
+    setSelectedSpotlightCategory(category);
   };
 
   const handleShowAllCompanies = () => {
@@ -74,12 +93,16 @@ function App() {
       const result = await refreshData();
       setRefreshMessage({ type: 'success', text: result.message });
       // Reload data after refresh
-      const [sectorsData, statsData] = await Promise.all([
+      const [sectorsData, statsData, health] = await Promise.all([
         fetchSectors(),
-        fetchStats()
+        fetchStats(),
+        healthCheck()
       ]);
       setSectors(sectorsData.data);
       setStats(statsData);
+      if (health.last_updated) {
+        setLastUpdated(health.last_updated);
+      }
     } catch (err) {
       setRefreshMessage({ type: 'error', text: err.message || 'Failed to refresh data' });
     } finally {
@@ -143,14 +166,29 @@ function App() {
       </header>
 
       <main className="app-main">
-        {!selectedSector && !searchResults && !showAllCompanies ? (
+        {selectedCompany ? (
+          <CompanyDetail
+            ticker={selectedCompany}
+            onBack={handleBackToDashboard}
+          />
+        ) : selectedSpotlightCategory ? (
+          <SpotlightDashboard
+            category={selectedSpotlightCategory}
+            onBack={handleBackToDashboard}
+            onCompanySelect={handleCompanySelect}
+          />
+        ) : !selectedSector && !searchResults && !showAllCompanies ? (
           <>
             <div className="dashboard-actions">
               <button className="btn btn-primary btn-all-companies" onClick={handleShowAllCompanies}>
                 📋 View All Companies
               </button>
             </div>
-            <MetricsPanel stats={stats} />
+            <SpotlightPanel
+              onCompanySelect={handleCompanySelect}
+              onCategorySelect={handleCategorySelect}
+            />
+            <MetricsPanel stats={stats} onCompanySelect={handleCompanySelect} />
             <Dashboard
               sectors={sectors}
               onSectorSelect={handleSectorSelect}
@@ -175,6 +213,7 @@ function App() {
               sector={selectedSector}
               searchResults={searchResults?.data}
               showAll={showAllCompanies}
+              onCompanySelect={handleCompanySelect}
             />
           </>
         )}
@@ -184,6 +223,11 @@ function App() {
         <p>
           Data source: Wikipedia + Yahoo Finance (yfinance) |
           {stats && ` ${stats.total_companies} companies tracked`}
+          {lastUpdated && (
+            <span className="last-updated">
+              {' '}| Last updated: {new Date(lastUpdated).toLocaleString()}
+            </span>
+          )}
         </p>
       </footer>
     </div>
@@ -191,3 +235,4 @@ function App() {
 }
 
 export default App;
+

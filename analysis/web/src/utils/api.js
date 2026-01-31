@@ -30,6 +30,12 @@ export async function searchCompanies(query) {
     return response.json();
 }
 
+export async function fetchCompanyByTicker(ticker) {
+    const response = await fetch(`${API_BASE}/company/${encodeURIComponent(ticker)}`);
+    if (!response.ok) throw new Error('Failed to fetch company');
+    return response.json();
+}
+
 export async function refreshData() {
     const response = await fetch(`${API_BASE}/refresh`, { method: 'POST' });
     if (!response.ok) throw new Error('Failed to refresh data');
@@ -39,6 +45,26 @@ export async function refreshData() {
 export async function healthCheck() {
     const response = await fetch(`${API_BASE}/health`);
     if (!response.ok) throw new Error('API not available');
+    return response.json();
+}
+
+export async function fetchStockHistory(ticker, refresh = false) {
+    const params = refresh ? '?refresh=true' : '';
+    const response = await fetch(`${API_BASE}/company/${encodeURIComponent(ticker)}/history${params}`);
+    if (!response.ok) throw new Error('Failed to fetch stock history');
+    return response.json();
+}
+
+export async function fetchFinancials(ticker, refresh = false) {
+    const params = refresh ? '?refresh=true' : '';
+    const response = await fetch(`${API_BASE}/company/${encodeURIComponent(ticker)}/financials${params}`);
+    if (!response.ok) throw new Error('Failed to fetch financials');
+    return response.json();
+}
+
+export async function fetchSpotlight() {
+    const response = await fetch(`${API_BASE}/spotlight`);
+    if (!response.ok) throw new Error('Failed to fetch spotlight companies');
     return response.json();
 }
 

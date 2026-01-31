@@ -1,0 +1,147 @@
+.spotlight-panel {
+    margin-bottom: 2rem;
+}
+
+.spotlight-loading {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+}
+
+.spotlight-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.25rem;
+}
+
+.spotlight-card {
+    border-top: 3px solid;
+    padding: 1.25rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.spotlight-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.spotlight-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.spotlight-header.clickable-header {
+    cursor: pointer;
+    padding: 0.5rem;
+    margin: -0.5rem -0.5rem 0.5rem -0.5rem;
+    border-radius: 6px;
+    transition: background 0.2s ease;
+}
+
+.spotlight-header.clickable-header:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.spotlight-header.clickable-header:hover .spotlight-expand-icon {
+    transform: translateX(3px);
+    opacity: 1;
+}
+
+.spotlight-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.spotlight-expand-icon {
+    font-size: 1.1rem;
+    opacity: 0.5;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.spotlight-description {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin: 0 0 1rem 0;
+    line-height: 1.4;
+}
+
+.spotlight-companies {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.spotlight-company {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    transition: background 0.2s ease;
+}
+
+.spotlight-company.clickable {
+    cursor: pointer;
+}
+
+.spotlight-company.clickable:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.spotlight-rank {
+    font-weight: 600;
+    font-size: 0.85rem;
+    min-width: 24px;
+}
+
+.spotlight-company-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.spotlight-ticker {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.spotlight-name {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.spotlight-metric {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    text-align: right;
+}
+
+.spotlight-metric .metric-value {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.spotlight-metric .metric-label {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .spotlight-grid {
+        grid-template-columns: 1fr;
+    }
+}

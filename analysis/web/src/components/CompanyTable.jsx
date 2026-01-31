@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { fetchCompaniesBySector, fetchCompanies, getSectorColor, formatNumber, SECTOR_COLORS } from '../utils/api';
 import './CompanyTable.css';
 
-function CompanyTable({ sector, searchResults, showAll }) {
+function CompanyTable({ sector, searchResults, showAll, onCompanySelect }) {
     const [companies, setCompanies] = useState([]);
     const [loading, setLoading] = useState(true);
     const [sortField, setSortField] = useState('forward_pe');
@@ -23,6 +23,8 @@ function CompanyTable({ sector, searchResults, showAll }) {
         profitMarginMax: '',
         revenueGrowthMin: '',
         revenueGrowthMax: '',
+        yearChangeMin: '',
+        yearChangeMax: '',
     });
     const [showFilters, setShowFilters] = useState(false);
 
@@ -87,6 +89,8 @@ function CompanyTable({ sector, searchResults, showAll }) {
             profitMarginMax: '',
             revenueGrowthMin: '',
             revenueGrowthMax: '',
+            yearChangeMin: '',
+            yearChangeMax: '',
         });
     };
 
@@ -174,6 +178,15 @@ function CompanyTable({ sector, searchResults, showAll }) {
                 if (isNaN(ratio)) return false;
                 if (filters.peRatioMin && ratio < parseFloat(filters.peRatioMin)) return false;
                 if (filters.peRatioMax && ratio > parseFloat(filters.peRatioMax)) return false;
+            }
+
+            // Year Change filter (as percentage)
+            if (filters.yearChangeMin || filters.yearChangeMax) {
+                const change = parseFloat(company.year_change);
+                if (isNaN(change)) return false;
+                const changePct = change * 100;
+                if (filters.yearChangeMin && changePct < parseFloat(filters.yearChangeMin)) return false;
+                if (filters.yearChangeMax && changePct > parseFloat(filters.yearChangeMax)) return false;
             }
 
             return true;
@@ -374,6 +387,27 @@ function CompanyTable({ sector, searchResults, showAll }) {
                                 />
                             </div>
                         </div>
+
+                        <div className="filter-group">
+                            <label>52W Change (%)</label>
+                            <div className="range-inputs">
+                                <input
+                                    type="number"
+                                    name="yearChangeMin"
+                                    placeholder="Min"
+                                    value={filters.yearChangeMin}
+                                    onChange={handleFilterChange}
+                                />
+                                <span>to</span>
+                                <input
+                                    type="number"
+                                    name="yearChangeMax"
+                                    placeholder="Max"
+                                    value={filters.yearChangeMax}
+                                    onChange={handleFilterChange}
+                                />
+                            </div>
+                        </div>
                     </div>
 
                     {hasActiveFilters && (
@@ -420,17 +454,38 @@ function CompanyTable({ sector, searchResults, showAll }) {
                             <th onClick={() => handleSort('revenue_growth')} className="text-right">
                                 Rev Growth <SortIcon field="revenue_growth" />
                             </th>
+                            <th onClick={() => handleSort('day_change_percent')} className="text-right">
+                                Day Chg <SortIcon field="day_change_percent" />
+                            </th>
+                            <th onClick={() => handleSort('year_change')} className="text-right">
+                                52W Change <SortIcon field="year_change" />
+                            </th>
+                            <th onClick={() => handleSort('pct_from_high')} className="text-right">
+                                From High <SortIcon field="pct_from_high" />
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
                         {sortedCompanies.map((company) => (
                             <tr key={company.ticker}>
                                 <td>
-                                    <span className="ticker-badge font-mono">
-                                        {company.ticker}
-                                    </span>
+                                    <a
+                                        href={`https://finance.yahoo.com/quote/${company.ticker}/key-statistics/`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="ticker-link"
+                                    >
+                                        <span className="ticker-badge font-mono">
+                                            {company.ticker}
+                                        </span>
+                                    </a>
                                 </td>
-                                <td className="company-name">{company.company_name}</td>
+                                <td
+                                    className="company-name clickable-cell"
+                                    onClick={() => onCompanySelect?.(company.ticker)}
+                                >
+                                    {company.company_name}
+                                </td>
                                 <td>
                                     <span
                                         className="sector-badge"
@@ -467,6 +522,21 @@ function CompanyTable({ sector, searchResults, showAll }) {
                                 <td className="text-right font-mono">
                                     <span className={company.revenue_growth > 0 ? 'value-positive' : 'value-negative'}>
                                         {company.revenue_growth_fmt || 'N/A'}
+                                    </span>
+                                </td>
+                                <td className="text-right font-mono">
+                                    <span className={company.day_change_percent > 0 ? 'value-positive' : company.day_change_percent < 0 ? 'value-negative' : ''}>
+                                        {company.day_change_percent != null ? (company.day_change_percent > 0 ? '+' : '') + company.day_change_percent.toFixed(2) + '%' : 'N/A'}
+                                    </span>
+                                </td>
+                                <td className="text-right font-mono">
+                                    <span className={company.year_change > 0 ? 'value-positive' : company.year_change < 0 ? 'value-negative' : ''}>
+                                        {company.year_change_fmt || (company.year_change ? (company.year_change * 100).toFixed(2) + '%' : 'N/A')}
+                                    </span>
+                                </td>
+                                <td className="text-right font-mono">
+                                    <span className={company.pct_from_high > -0.1 ? 'value-near-high' : company.pct_from_high < -0.2 ? 'value-negative' : 'value-neutral'}>
+                                        {company.pct_from_high != null ? (company.pct_from_high * 100).toFixed(1) + '%' : 'N/A'}
                                     </span>
                                 </td>
                             </tr>

@@ -1,0 +1,391 @@
+.company-detail {
+    padding: 1.5rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.company-detail-loading,
+.company-detail-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    gap: 1rem;
+    color: var(--text-secondary);
+}
+
+.company-detail-header {
+    margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.btn-refresh {
+    background: linear-gradient(135deg, var(--accent-secondary), #6366f1);
+    border: none;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn-refresh:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+.btn-refresh:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Hero Section */
+.company-hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+    gap: 2rem;
+}
+
+.hero-main {
+    flex: 1;
+}
+
+.hero-ticker {
+    font-family: var(--font-mono);
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+.hero-name {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0.5rem 0 1rem;
+    line-height: 1.2;
+}
+
+.hero-tags {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.tag {
+    display: inline-block;
+    padding: 0.375rem 0.875rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.sector-tag {
+    color: white;
+}
+
+.industry-tag {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+}
+
+.hero-price {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.current-price {
+    font-family: var(--font-mono);
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.year-change {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 0.25rem 0.75rem;
+    border-radius: 6px;
+}
+
+.year-change.positive {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success);
+}
+
+.year-change.negative {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger);
+}
+
+/* Detail Grid */
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.25rem;
+}
+
+.detail-section {
+    padding: 1.5rem;
+}
+
+.section-heading {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.metrics-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+}
+
+.metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.metric-name {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.metric-value {
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.metric-value.positive {
+    color: var(--success);
+}
+
+.metric-value.negative {
+    color: var(--danger);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .company-hero {
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .hero-price {
+        text-align: left;
+    }
+
+    .hero-name {
+        font-size: 1.5rem;
+    }
+
+    .current-price {
+        font-size: 2rem;
+    }
+
+    .detail-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Stock Chart Section */
+.stock-chart-section {
+    margin-bottom: 1.5rem;
+    padding: 1.5rem;
+}
+
+.section-header-with-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.section-header-with-controls .section-heading {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.period-selector {
+    display: flex;
+    gap: 0.25rem;
+    background: var(--bg-secondary);
+    padding: 0.25rem;
+    border-radius: 8px;
+}
+
+.period-btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.period-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.period-btn.active {
+    background: var(--accent);
+    color: white;
+}
+
+/* 52-Week Range Indicator */
+.price-range-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+}
+
+.range-label {
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.range-low,
+.range-high {
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.range-bar {
+    flex: 1;
+    height: 6px;
+    background: linear-gradient(90deg, var(--danger), #f59e0b, var(--success));
+    border-radius: 3px;
+    position: relative;
+    min-width: 100px;
+}
+
+.range-current {
+    position: absolute;
+    top: -4px;
+    width: 14px;
+    height: 14px;
+    background: white;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    transform: translateX(-50%);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.stock-chart-container {
+    height: 300px;
+    width: 100%;
+}
+
+.chart-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+/* Chart Tooltips */
+.chart-tooltip {
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.tooltip-date {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    margin: 0 0 0.25rem;
+}
+
+.tooltip-price {
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+/* Time Period Labels */
+.metric-period {
+    color: var(--text-muted, #6b7280);
+    font-size: 0.75rem;
+    font-weight: 400;
+    opacity: 0.7;
+}
+
+/* Quarterly/Annual Financials */
+.financials-section {
+    margin-top: 1.5rem;
+}
+
+.financials-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+}
+
+.financials-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.25rem;
+}
+
+.chart-card {
+    padding: 1.25rem;
+}
+
+.chart-card .section-heading {
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+    .section-header-with-controls {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .period-selector {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .price-range-info {
+        flex-wrap: wrap;
+    }
+
+    .financials-grid {
+        grid-template-columns: 1fr;
+    }
+}

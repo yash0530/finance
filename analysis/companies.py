@@ -222,6 +222,17 @@ def get_ticker_data_with_retry(symbol: str, delay: float = REQUEST_DELAY) -> Dic
                     'eps': safe_get('trailingEps'),
                     'revenue_growth': safe_get('revenueGrowth'),
                     'revenue_growth_fmt': format_percent(safe_get('revenueGrowth')),
+                    'year_change': safe_get('52WeekChange'),
+                    'year_change_fmt': format_percent(safe_get('52WeekChange')),
+                    # Additional stock movement metrics
+                    'fifty_two_week_high': safe_get('fiftyTwoWeekHigh'),
+                    'fifty_two_week_low': safe_get('fiftyTwoWeekLow'),
+                    'day_change_percent': safe_get('regularMarketChangePercent'),
+                    'day_change_percent_fmt': format_percent(safe_get('regularMarketChangePercent') / 100 if safe_get('regularMarketChangePercent') else None),
+                    'fifty_day_average': safe_get('fiftyDayAverage'),
+                    'two_hundred_day_average': safe_get('twoHundredDayAverage'),
+                    # Compute percent from 52-week high
+                    'pct_from_high': ((price - safe_get('fiftyTwoWeekHigh')) / safe_get('fiftyTwoWeekHigh')) if price and safe_get('fiftyTwoWeekHigh') else None,
                 }
             }
             
@@ -380,7 +391,9 @@ def export_to_csv(data: List[Dict], filename: str = "sp500_analysis.csv") -> Non
         'price_to_sales', 'price_to_book', 'ev_to_revenue', 'ev_to_ebitda',
         'total_revenue', 'net_income',
         'profit_margin', 'operating_margin', 'gross_margin',
-        'revenue_growth', 'dividend_yield', 'beta', 'eps'
+        'revenue_growth', 'year_change', 'dividend_yield', 'beta', 'eps',
+        'fifty_two_week_high', 'fifty_two_week_low', 'day_change_percent',
+        'fifty_day_average', 'two_hundred_day_average', 'pct_from_high'
     ]
     
     export_columns = [col for col in export_columns if col in df.columns]

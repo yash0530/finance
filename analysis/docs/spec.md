@@ -97,10 +97,15 @@ npm run dev
 ### REST API Endpoints
 
 | Endpoint | Method | Description |
-|----------|--------|-------------|
+|----------|--------|---------|
 | `/api/companies` | GET | All S&P 500 companies (sortable) |
 | `/api/sectors` | GET | Sector list with stats |
 | `/api/companies/<sector>` | GET | Companies filtered by sector |
+| `/api/company/<ticker>` | GET | Single company by ticker symbol |
+| `/api/company/<ticker>/history` | GET | 5 years of historical stock prices (cached 4h, `?refresh=true` to bypass cache) |
+| `/api/company/<ticker>/financials` | GET | Quarterly/annual revenue/earnings (cached 24h, `?refresh=true` to bypass cache) |
+| `/api/spotlight` | GET | Spotlight companies by fundamental analysis heuristics (top 5 per category) |
+| `/api/spotlight/<category>` | GET | All companies matching a spotlight category's criteria |
 | `/api/stats` | GET | Summary statistics |
 | `/api/search?q=<query>` | GET | Search by ticker/name |
 | `/api/refresh` | POST | Trigger fresh data fetch |
@@ -108,9 +113,32 @@ npm run dev
 
 ### Frontend Features
 
+- **Spotlight Companies** - Potential buy candidates based on fundamental analysis (click card header to see all):
+  - 🚀 Growth Stocks: High revenue growth (>15%) with positive 52-week momentum
+  - 🔥 Hot Stocks: Strongest 52-week performance (>20% gains)
+  - 💰 Value Plays: Low forward P/E (<15) with expected earnings growth (sorted low→high)
+  - 📈 Momentum Leaders: P/E ratio >1.2x indicating earnings acceleration
+  - 🏆 Quality Gems: High profit margins (>15%) with solid revenue growth (>5%)
+  - 💵 Dividend Champions: High dividend yield (>3%) for income investors
+  - 📉 Low Volatility: Stable stocks with beta <0.8 for conservative investors
+  - 🏛️ Mega Caps: Largest companies with market cap >$200B
+  - 🔄 Turnaround Plays: Down >10% YTD but still profitable (contrarian picks)
+  - ⚡ High Beta Movers: High volatility stocks (beta >1.5) for aggressive traders
 - **Dashboard** - Sector overview with market cap and P/E metrics
 - **All Companies View** - Browse all 500 companies with full filtering capabilities
-- **Company Table** - Sortable table with all financial metrics including P/E Ratio (trailing/forward)
+- **Company Detail Page** - Click any company to view comprehensive data:
+  - Stock price history chart with period selector (1M, 3M, 6M, 1Y, 5Y) - data filtered client-side from single API call
+  - 52-week high/low range indicator
+  - Quarterly financials (revenue, net income by quarter)
+  - Annual financials (revenue, net income trends)
+  - Clear time period labels: Revenue (TTM), Revenue Growth (YoY)
+  - **Refresh Data button** to force fresh data fetch (bypasses cache)
+- **Company Table** - Sortable table with financial metrics including:
+  - Core metrics: Price, Market Cap, Forward P/E, Trailing P/E, P/E Ratio
+  - Profitability: Profit Margin, Revenue Growth
+  - **Stock Movement**: Day Change %, 52-Week Change %, % From 52-Week High
+  - Ticker symbols link to Yahoo Finance; company names link to detail page
+  - Additional data available via API: 52-Week High/Low, 50-Day & 200-Day Moving Averages
 - **Filter Panel** - Filter companies by:
   - Sector (dropdown)
   - Forward P/E (min/max range)
@@ -119,9 +147,10 @@ npm run dev
   - Market Cap in billions (min/max range)
   - Profit Margin % (min/max range)
   - Revenue Growth % (min/max range)
+  - 52-Week Price Change % (min/max range)
 - **Charts** - Pie chart (market cap), bar chart (P/E by sector)
 - **Search** - Autocomplete search by ticker or company name
-- **Metrics Panel** - Top companies by market cap, lowest P/E, highest growth
+- **Metrics Panel** - Top companies by market cap, lowest P/E, highest growth (all clickable)
 - **Force Refresh** - Button to manually trigger fresh data fetch from Yahoo Finance
 
 ### Project Structure
@@ -142,8 +171,11 @@ finance/analysis/
 │       ├── components/
 │       │   ├── Dashboard.jsx
 │       │   ├── CompanyTable.jsx
+│       │   ├── CompanyDetail.jsx
 │       │   ├── SectorChart.jsx
 │       │   ├── MetricsPanel.jsx
+│       │   ├── SpotlightPanel.jsx      # Spotlight categories overview
+│       │   ├── SpotlightDashboard.jsx  # Full category company list
 │       │   └── SearchBar.jsx
 │       └── utils/
 │           └── api.js

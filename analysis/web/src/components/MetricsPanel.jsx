@@ -1,6 +1,6 @@
 import './MetricsPanel.css';
 
-function MetricsPanel({ stats }) {
+function MetricsPanel({ stats, onCompanySelect }) {
     if (!stats) return null;
 
     const metrics = [
@@ -60,7 +60,11 @@ function MetricsPanel({ stats }) {
                     <h3>🏆 Top by Market Cap</h3>
                     <div className="top-items">
                         {stats.top_by_market_cap?.slice(0, 5).map((company, i) => (
-                            <div key={company.ticker} className="top-item">
+                            <div
+                                key={company.ticker}
+                                className="top-item clickable"
+                                onClick={() => onCompanySelect?.(company.ticker)}
+                            >
                                 <span className="rank">#{i + 1}</span>
                                 <span className="ticker font-mono">{company.ticker}</span>
                                 <span className="name">{company.company_name}</span>
@@ -74,7 +78,11 @@ function MetricsPanel({ stats }) {
                     <h3>📉 Lowest Forward P/E</h3>
                     <div className="top-items">
                         {stats.lowest_forward_pe?.slice(0, 5).map((company, i) => (
-                            <div key={company.ticker} className="top-item">
+                            <div
+                                key={company.ticker}
+                                className="top-item clickable"
+                                onClick={() => onCompanySelect?.(company.ticker)}
+                            >
                                 <span className="rank">#{i + 1}</span>
                                 <span className="ticker font-mono">{company.ticker}</span>
                                 <span className="name">{company.company_name}</span>
@@ -90,7 +98,11 @@ function MetricsPanel({ stats }) {
                     <h3>🚀 Highest Growth</h3>
                     <div className="top-items">
                         {stats.highest_growth?.slice(0, 5).map((company, i) => (
-                            <div key={company.ticker} className="top-item">
+                            <div
+                                key={company.ticker}
+                                className="top-item clickable"
+                                onClick={() => onCompanySelect?.(company.ticker)}
+                            >
                                 <span className="rank">#{i + 1}</span>
                                 <span className="ticker font-mono">{company.ticker}</span>
                                 <span className="name">{company.company_name}</span>
