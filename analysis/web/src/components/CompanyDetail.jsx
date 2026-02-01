@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid, ReferenceLine } from 'recharts';
-import { fetchCompanyByTicker, fetchStockHistory, fetchFinancials, getSectorColor, formatPercent, formatNumber } from '../utils/api';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid, ReferenceLine, ReferenceDot } from 'recharts';
+import { fetchCompanyByTicker, fetchStockHistory, fetchFinancials, fetchAllPatternsForTicker, getSectorColor, formatPercent, formatNumber } from '../utils/api';
+import { getPatternConfig, renderPatternDots, renderPatternLines, getPatternLegend, PATTERN_COLORS } from './PatternVisualization';
 import './CompanyDetail.css';
 
 function CompanyDetail({ ticker, onBack }) {
@@ -15,6 +16,11 @@ function CompanyDetail({ ticker, onBack }) {
 
     // Financials state
     const [financials, setFinancials] = useState(null);
+
+    // Pattern detection state - stores all detected patterns
+    const [allPatterns, setAllPatterns] = useState([]);
+    const [patternLoading, setPatternLoading] = useState(false);
+    const [activePatternIndex, setActivePatternIndex] = useState(0);
 
     // Refreshing state
     const [refreshing, setRefreshing] = useState(false);
@@ -63,6 +69,28 @@ function CompanyDetail({ ticker, onBack }) {
         }
         loadFinancials();
     }, [ticker]);
+
+    // Load all pattern types for this ticker
+    useEffect(() => {
+        async function loadPatterns() {
+            try {
+                setPatternLoading(true);
+                const patterns = await fetchAllPatternsForTicker(ticker);
+                setAllPatterns(patterns);
+                setActivePatternIndex(0);
+            } catch (err) {
+                console.error('Failed to load pattern data:', err);
+                setAllPatterns([]);
+            } finally {
+                setPatternLoading(false);
+            }
+        }
+        loadPatterns();
+    }, [ticker]);
+
+    // Get currently active pattern (highest confidence by default)
+    const patternData = allPatterns.length > 0 ? allPatterns[activePatternIndex] : null;
+    const patternConfig = patternData ? getPatternConfig(patternData.pattern_type) : null;
 
     // Filter history data based on selected period (client-side)
     const filteredHistoryData = useMemo(() => {
@@ -131,10 +159,21 @@ function CompanyDetail({ ticker, onBack }) {
     // Custom tooltip for stock chart
     const StockTooltip = ({ active, payload, label }) => {
         if (active && payload && payload.length) {
+            // Check if this is a pattern point
+            const dataPoint = payload[0].payload;
+            const isPatternPoint = dataPoint.isLeftShoulder || dataPoint.isHead || dataPoint.isRightShoulder;
+
             return (
                 <div className="chart-tooltip">
                     <p className="tooltip-date">{label}</p>
                     <p className="tooltip-price">${payload[0].value.toFixed(2)}</p>
+                    {isPatternPoint && (
+                        <p className="tooltip-pattern">
+                            {dataPoint.isLeftShoulder && '📍 Left Shoulder'}
+                            {dataPoint.isHead && '📍 Head'}
+                            {dataPoint.isRightShoulder && '📍 Right Shoulder'}
+                        </p>
+                    )}
                 </div>
             );
         }
@@ -208,6 +247,67 @@ function CompanyDetail({ ticker, onBack }) {
                     </div>
                 </div>
 
+                {/* Pattern Alert - Dynamic for all pattern types */}
+                {patternData?.detected && patternConfig && (
+                    <div className={`pattern-alert ${patternConfig.signal}`}>
+                        <div className="pattern-alert-header">
+                            <span className="pattern-alert-icon">{patternConfig.signal === 'bullish' ? '📈' : '📉'}</span>
+                            <span className="pattern-alert-title">{patternConfig.name} Pattern Detected</span>
+                            <span className={`pattern-confidence ${patternData.confidence >= 70 ? 'high' : patternData.confidence >= 50 ? 'medium' : 'low'}`}>
+                                {patternData.confidence}% Confidence
+                            </span>
+                        </div>
+                        {allPatterns.length > 1 && (
+                            <div className="pattern-selector">
+                                <span className="pattern-selector-label">Patterns found: </span>
+                                {allPatterns.map((p, idx) => (
+                                    <button
+                                        key={p.pattern_type}
+                                        className={`pattern-selector-btn ${idx === activePatternIndex ? 'active' : ''}`}
+                                        onClick={() => setActivePatternIndex(idx)}
+                                    >
+                                        {getPatternConfig(p.pattern_type)?.name || p.pattern_name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        <div className="pattern-alert-details">
+                            {/* Current Price */}
+                            <div className="pattern-detail">
+                                <span className="detail-label">Current Price</span>
+                                <span className="detail-value">${patternData.current_price}</span>
+                            </div>
+                            {/* Key levels based on pattern type */}
+                            {patternData.neckline && (
+                                <div className="pattern-detail neckline-detail">
+                                    <span className="detail-label">Neckline</span>
+                                    <span className="detail-value">${patternData.neckline}</span>
+                                </div>
+                            )}
+                            {patternData.resistance && (
+                                <div className="pattern-detail">
+                                    <span className="detail-label">Resistance</span>
+                                    <span className="detail-value">${patternData.resistance}</span>
+                                </div>
+                            )}
+                            {patternData.support && (
+                                <div className="pattern-detail">
+                                    <span className="detail-label">Support</span>
+                                    <span className="detail-value">${patternData.support}</span>
+                                </div>
+                            )}
+                            {/* Target Price */}
+                            <div className="pattern-detail target-detail">
+                                <span className="detail-label">Target Price</span>
+                                <span className={`detail-value target-price ${patternConfig.signal}`}>${patternData.target_price}</span>
+                            </div>
+                        </div>
+                        <p className="pattern-alert-note">
+                            {patternConfig.signal === 'bullish' ? '📈' : '⚠️'} {patternConfig.description}
+                        </p>
+                    </div>
+                )}
+
                 {historyData && (
                     <div className="price-range-info">
                         <span className="range-label">52-Week Range:</span>
@@ -257,6 +357,10 @@ function CompanyDetail({ ticker, onBack }) {
                                     width={60}
                                 />
                                 <Tooltip content={<StockTooltip />} />
+
+                                {/* Pattern reference lines (neckline, target, support, resistance) */}
+                                {patternData?.detected && renderPatternLines(patternData)}
+
                                 <Line
                                     type="monotone"
                                     dataKey="close"
@@ -265,12 +369,34 @@ function CompanyDetail({ ticker, onBack }) {
                                     dot={false}
                                     activeDot={{ r: 4, fill: sectorColor }}
                                 />
+
+                                {/* Pattern markers (peaks, troughs, key points) */}
+                                {patternData?.detected && renderPatternDots(patternData)}
                             </LineChart>
                         </ResponsiveContainer>
                     ) : (
                         <div className="chart-loading">No historical data available</div>
                     )}
                 </div>
+
+                {/* Pattern legend when detected */}
+                {patternData?.detected && (
+                    <div className="pattern-legend">
+                        {getPatternLegend(patternData).map((item, idx) => (
+                            <span key={idx} className="legend-item">
+                                {item.type === 'dot' ? (
+                                    <span className="legend-dot" style={{ backgroundColor: item.color }} />
+                                ) : (
+                                    <span
+                                        className={`legend-line ${item.dashed ? 'dashed' : ''}`}
+                                        style={{ backgroundColor: item.color }}
+                                    />
+                                )}
+                                {item.label}
+                            </span>
+                        ))}
+                    </div>
+                )}
             </div>
 
             <div className="detail-grid">

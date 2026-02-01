@@ -106,6 +106,11 @@ npm run dev
 | `/api/company/<ticker>/financials` | GET | Quarterly/annual revenue/earnings (cached 24h, `?refresh=true` to bypass cache) |
 | `/api/spotlight` | GET | Spotlight companies by fundamental analysis heuristics (top 5 per category) |
 | `/api/spotlight/<category>` | GET | All companies matching a spotlight category's criteria |
+| `/api/patterns/all` | GET | All detected chart patterns across S&P 500 stocks (cached 4h) |
+| `/api/patterns/<pattern_type>` | GET | Stocks with specific pattern type (see list below) |
+| `/api/patterns/<pattern_type>/<ticker>` | GET | Pattern analysis for a specific stock |
+| `/api/patterns/head-shoulders` | GET | Stocks with detected Head & Shoulders reversal patterns (cached 4h) |
+| `/api/patterns/head-shoulders/<ticker>` | GET | Pattern analysis for a specific stock |
 | `/api/stats` | GET | Summary statistics |
 | `/api/search?q=<query>` | GET | Search by ticker/name |
 | `/api/refresh` | POST | Trigger fresh data fetch |
@@ -124,10 +129,26 @@ npm run dev
   - 🏛️ Mega Caps: Largest companies with market cap >$200B
   - 🔄 Turnaround Plays: Down >10% YTD but still profitable (contrarian picks)
   - ⚡ High Beta Movers: High volatility stocks (beta >1.5) for aggressive traders
+- **Technical Patterns Dashboard** - Consolidated chart pattern detection:
+  - Scans all S&P 500 stocks for 11 pattern types:
+    - **Reversal (Bearish)**: Head & Shoulders, Double Top, Triple Top, Descending Triangle
+    - **Reversal (Bullish)**: Inverse Head & Shoulders, Double Bottom, Triple Bottom, Falling Wedge
+    - **Continuation (Bullish)**: Ascending Triangle, Cup and Handle, Bullish Flag
+  - Each pattern shows: confidence score, key price levels, target price
+  - Filter by pattern type or signal (bullish/bearish)
+  - Click "📊 Technical Patterns" button on main dashboard to access
+  - Valid pattern types: `head_shoulders`, `inverse_head_shoulders`, `double_top`, `double_bottom`, `triple_top`, `triple_bottom`, `ascending_triangle`, `descending_triangle`, `cup_and_handle`, `bullish_flag`, `falling_wedge`
 - **Dashboard** - Sector overview with market cap and P/E metrics
 - **All Companies View** - Browse all 500 companies with full filtering capabilities
 - **Company Detail Page** - Click any company to view comprehensive data:
   - Stock price history chart with period selector (1M, 3M, 6M, 1Y, 5Y) - data filtered client-side from single API call
+  - **Pattern Visualization** - Full chart visualization for all detected patterns:
+    - Supports all 11 pattern types with pattern-specific markers and reference lines
+    - Alert banner with pattern name, confidence score, and key price levels (neckline/support/resistance/target)
+    - Visual markers on chart: dots for peaks/troughs, lines for support/resistance/target
+    - Pattern selector to switch between multiple detected patterns
+    - Bullish patterns show green accents; bearish patterns show red/amber accents
+    - Dynamic legend explaining pattern elements
   - 52-week high/low range indicator
   - Quarterly financials (revenue, net income by quarter)
   - Annual financials (revenue, net income trends)
@@ -176,6 +197,8 @@ finance/analysis/
 │       │   ├── MetricsPanel.jsx
 │       │   ├── SpotlightPanel.jsx      # Spotlight categories overview
 │       │   ├── SpotlightDashboard.jsx  # Full category company list
+│       │   ├── HeadShouldersDashboard.jsx  # Legacy H&S pattern view
+│       │   ├── TechnicalPatternsDashboard.jsx  # Consolidated patterns dashboard
 │       │   └── SearchBar.jsx
 │       └── utils/
 │           └── api.js

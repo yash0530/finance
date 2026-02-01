@@ -7,6 +7,7 @@ import SearchBar from './components/SearchBar';
 import MetricsPanel from './components/MetricsPanel';
 import SpotlightPanel from './components/SpotlightPanel';
 import SpotlightDashboard from './components/SpotlightDashboard';
+import TechnicalPatternsDashboard from './components/TechnicalPatternsDashboard';
 import CompanyDetail from './components/CompanyDetail';
 import { fetchSectors, fetchStats, healthCheck, refreshData } from './utils/api';
 
@@ -23,6 +24,7 @@ function App() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [selectedSpotlightCategory, setSelectedSpotlightCategory] = useState(null);
+  const [showPatternsDashboard, setShowPatternsDashboard] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -70,6 +72,11 @@ function App() {
     setShowAllCompanies(false);
     setSelectedCompany(null);
     setSelectedSpotlightCategory(null);
+    setShowPatternsDashboard(false);
+  };
+
+  const handleShowPatterns = () => {
+    setShowPatternsDashboard(true);
   };
 
   const handleCompanySelect = (ticker) => {
@@ -177,11 +184,19 @@ function App() {
             onBack={handleBackToDashboard}
             onCompanySelect={handleCompanySelect}
           />
+        ) : showPatternsDashboard ? (
+          <TechnicalPatternsDashboard
+            onBack={handleBackToDashboard}
+            onCompanySelect={handleCompanySelect}
+          />
         ) : !selectedSector && !searchResults && !showAllCompanies ? (
           <>
             <div className="dashboard-actions">
               <button className="btn btn-primary btn-all-companies" onClick={handleShowAllCompanies}>
                 📋 View All Companies
+              </button>
+              <button className="btn btn-secondary btn-patterns" onClick={handleShowPatterns}>
+                📊 Technical Patterns
               </button>
             </div>
             <SpotlightPanel

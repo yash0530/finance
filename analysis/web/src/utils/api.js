@@ -68,6 +68,45 @@ export async function fetchSpotlight() {
     return response.json();
 }
 
+export async function fetchHeadShouldersPatterns() {
+    const response = await fetch(`${API_BASE}/patterns/head-shoulders`);
+    if (!response.ok) throw new Error('Failed to fetch Head & Shoulders patterns');
+    return response.json();
+}
+
+export async function fetchHeadShouldersForTicker(ticker) {
+    const response = await fetch(`${API_BASE}/patterns/head-shoulders/${encodeURIComponent(ticker)}`);
+    if (!response.ok) throw new Error('Failed to fetch pattern for ticker');
+    return response.json();
+}
+
+export async function fetchAllPatternsForTicker(ticker) {
+    // Fetch all pattern types for a single ticker
+    const patternTypes = [
+        'head-shoulders', 'inverse-head-shoulders', 'double-top', 'double-bottom',
+        'triple-top', 'triple-bottom', 'ascending-triangle', 'descending-triangle',
+        'cup-and-handle', 'bullish-flag', 'falling-wedge'
+    ];
+
+    const results = await Promise.all(
+        patternTypes.map(async (type) => {
+            try {
+                const response = await fetch(`${API_BASE}/patterns/${type}/${encodeURIComponent(ticker)}`);
+                if (!response.ok) return null;
+                const data = await response.json();
+                return data.detected ? data : null;
+            } catch {
+                return null;
+            }
+        })
+    );
+
+    // Filter out null results and sort by confidence
+    return results
+        .filter(p => p !== null)
+        .sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+}
+
 // Sector color mapping
 export const SECTOR_COLORS = {
     'Information Technology': '#3b82f6',

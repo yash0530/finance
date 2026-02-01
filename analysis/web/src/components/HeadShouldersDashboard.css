@@ -1,0 +1,255 @@
+.hs-dashboard {
+    padding: 0 1rem;
+}
+
+.hs-dashboard-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+}
+
+.hs-dashboard-title h2 {
+    margin: 0 0 0.25rem 0;
+    font-size: 1.75rem;
+    color: var(--text-primary);
+}
+
+.hs-dashboard-desc {
+    color: var(--text-secondary);
+    margin: 0 0 0.5rem 0;
+}
+
+.hs-dashboard-count {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    background: var(--accent-primary);
+    color: white;
+    border-radius: 1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.hs-dashboard-loading {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-secondary);
+}
+
+.hs-dashboard-loading .spinner {
+    margin: 0 auto 1rem;
+}
+
+.hs-dashboard-error {
+    text-align: center;
+    padding: 2rem;
+    color: var(--error-color);
+    background: rgba(239, 68, 68, 0.1);
+    border-radius: 0.5rem;
+}
+
+.hs-no-patterns {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: var(--card-bg);
+    border-radius: 1rem;
+    border: 1px solid var(--border-color);
+}
+
+.hs-no-patterns-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.hs-no-patterns h3 {
+    margin: 0 0 0.5rem 0;
+    color: var(--text-primary);
+}
+
+.hs-no-patterns p {
+    color: var(--text-secondary);
+    margin: 0.25rem 0;
+}
+
+.hs-note {
+    font-size: 0.85rem;
+    opacity: 0.7;
+}
+
+.hs-dashboard-table-container {
+    overflow-x: auto;
+    border-radius: 0.75rem;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+}
+
+.hs-dashboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.hs-dashboard-table th,
+.hs-dashboard-table td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.hs-dashboard-table th {
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+.hs-dashboard-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.hs-dashboard-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.clickable-row {
+    cursor: pointer;
+}
+
+.rank-col {
+    color: var(--text-secondary);
+    font-weight: 500;
+    width: 3rem;
+}
+
+.ticker-col {
+    font-weight: 600;
+}
+
+.ticker-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    background: var(--accent-primary);
+    color: white;
+    border-radius: 0.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+}
+
+.company-col {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sector-col {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.confidence-col {
+    white-space: nowrap;
+}
+
+.confidence-badge {
+    display: inline-block;
+    padding: 0.25rem 0.6rem;
+    border-radius: 0.25rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.confidence-high {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+}
+
+.confidence-medium {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+}
+
+.confidence-low {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.price-col {
+    font-family: var(--font-mono);
+    text-align: right;
+}
+
+.target-price {
+    color: #ef4444;
+    font-weight: 600;
+}
+
+.pct-col {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    text-align: right;
+}
+
+.pct-col.above {
+    color: #10b981;
+}
+
+.pct-col.below {
+    color: #ef4444;
+}
+
+.hs-info-panel {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: var(--card-bg);
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-color);
+}
+
+.hs-info-panel h4 {
+    margin: 0 0 0.75rem 0;
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.hs-info-panel p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0 0 1rem 0;
+}
+
+.hs-legend {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.legend-item .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.dot.confidence-high {
+    background: #10b981;
+}
+
+.dot.confidence-medium {
+    background: #f59e0b;
+}
+
+.dot.confidence-low {
+    background: #ef4444;
+}
