@@ -25,6 +25,18 @@ function CompanyTable({ sector, searchResults, showAll, onCompanySelect }) {
         revenueGrowthMax: '',
         yearChangeMin: '',
         yearChangeMax: '',
+        epsMin: '',
+        epsMax: '',
+        betaMin: '',
+        betaMax: '',
+        fiftyTwoWeekHighMin: '',
+        fiftyTwoWeekHighMax: '',
+        fiftyTwoWeekLowMin: '',
+        fiftyTwoWeekLowMax: '',
+        dividendYieldMin: '',
+        dividendYieldMax: '',
+        dayChangePercentMin: '',
+        dayChangePercentMax: '',
     });
     const [showFilters, setShowFilters] = useState(false);
 
@@ -91,6 +103,18 @@ function CompanyTable({ sector, searchResults, showAll, onCompanySelect }) {
             revenueGrowthMax: '',
             yearChangeMin: '',
             yearChangeMax: '',
+            epsMin: '',
+            epsMax: '',
+            betaMin: '',
+            betaMax: '',
+            fiftyTwoWeekHighMin: '',
+            fiftyTwoWeekHighMax: '',
+            fiftyTwoWeekLowMin: '',
+            fiftyTwoWeekLowMax: '',
+            dividendYieldMin: '',
+            dividendYieldMax: '',
+            dayChangePercentMin: '',
+            dayChangePercentMax: '',
         });
     };
 
@@ -187,6 +211,55 @@ function CompanyTable({ sector, searchResults, showAll, onCompanySelect }) {
                 const changePct = change * 100;
                 if (filters.yearChangeMin && changePct < parseFloat(filters.yearChangeMin)) return false;
                 if (filters.yearChangeMax && changePct > parseFloat(filters.yearChangeMax)) return false;
+            }
+
+            // EPS filter
+            if (filters.epsMin || filters.epsMax) {
+                const eps = parseFloat(company.eps);
+                if (isNaN(eps)) return false;
+                if (filters.epsMin && eps < parseFloat(filters.epsMin)) return false;
+                if (filters.epsMax && eps > parseFloat(filters.epsMax)) return false;
+            }
+
+            // Beta filter
+            if (filters.betaMin || filters.betaMax) {
+                const beta = parseFloat(company.beta);
+                if (isNaN(beta)) return false;
+                if (filters.betaMin && beta < parseFloat(filters.betaMin)) return false;
+                if (filters.betaMax && beta > parseFloat(filters.betaMax)) return false;
+            }
+
+            // 52 Week High filter
+            if (filters.fiftyTwoWeekHighMin || filters.fiftyTwoWeekHighMax) {
+                const high = parseFloat(company.fifty_two_week_high);
+                if (isNaN(high)) return false;
+                if (filters.fiftyTwoWeekHighMin && high < parseFloat(filters.fiftyTwoWeekHighMin)) return false;
+                if (filters.fiftyTwoWeekHighMax && high > parseFloat(filters.fiftyTwoWeekHighMax)) return false;
+            }
+
+            // 52 Week Low filter
+            if (filters.fiftyTwoWeekLowMin || filters.fiftyTwoWeekLowMax) {
+                const low = parseFloat(company.fifty_two_week_low);
+                if (isNaN(low)) return false;
+                if (filters.fiftyTwoWeekLowMin && low < parseFloat(filters.fiftyTwoWeekLowMin)) return false;
+                if (filters.fiftyTwoWeekLowMax && low > parseFloat(filters.fiftyTwoWeekLowMax)) return false;
+            }
+
+            // Dividend Yield filter (as percentage)
+            if (filters.dividendYieldMin || filters.dividendYieldMax) {
+                const yieldVal = parseFloat(company.dividend_yield);
+                if (isNaN(yieldVal)) return false;
+                const yieldPct = yieldVal * 100;
+                if (filters.dividendYieldMin && yieldPct < parseFloat(filters.dividendYieldMin)) return false;
+                if (filters.dividendYieldMax && yieldPct > parseFloat(filters.dividendYieldMax)) return false;
+            }
+
+            // Day Change filter (as percentage)
+            if (filters.dayChangePercentMin || filters.dayChangePercentMax) {
+                const dayChange = parseFloat(company.day_change_percent);
+                if (isNaN(dayChange)) return false;
+                if (filters.dayChangePercentMin && dayChange < parseFloat(filters.dayChangePercentMin)) return false;
+                if (filters.dayChangePercentMax && dayChange > parseFloat(filters.dayChangePercentMax)) return false;
             }
 
             return true;
@@ -410,6 +483,144 @@ function CompanyTable({ sector, searchResults, showAll, onCompanySelect }) {
                         </div>
                     </div>
 
+                    <div className="filter-row">
+                        <div className="filter-group">
+                            <label>Beta</label>
+                            <div className="range-inputs">
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    name="betaMin"
+                                    placeholder="Min"
+                                    value={filters.betaMin}
+                                    onChange={handleFilterChange}
+                                />
+                                <span>to</span>
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    name="betaMax"
+                                    placeholder="Max"
+                                    value={filters.betaMax}
+                                    onChange={handleFilterChange}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="filter-group">
+                            <label>EPS ($)</label>
+                            <div className="range-inputs">
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    name="epsMin"
+                                    placeholder="Min"
+                                    value={filters.epsMin}
+                                    onChange={handleFilterChange}
+                                />
+                                <span>to</span>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    name="epsMax"
+                                    placeholder="Max"
+                                    value={filters.epsMax}
+                                    onChange={handleFilterChange}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="filter-group">
+                            <label>Div Yield (%)</label>
+                            <div className="range-inputs">
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    name="dividendYieldMin"
+                                    placeholder="Min"
+                                    value={filters.dividendYieldMin}
+                                    onChange={handleFilterChange}
+                                />
+                                <span>to</span>
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    name="dividendYieldMax"
+                                    placeholder="Max"
+                                    value={filters.dividendYieldMax}
+                                    onChange={handleFilterChange}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="filter-row">
+                        <div className="filter-group">
+                            <label>52W High ($)</label>
+                            <div className="range-inputs">
+                                <input
+                                    type="number"
+                                    name="fiftyTwoWeekHighMin"
+                                    placeholder="Min"
+                                    value={filters.fiftyTwoWeekHighMin}
+                                    onChange={handleFilterChange}
+                                />
+                                <span>to</span>
+                                <input
+                                    type="number"
+                                    name="fiftyTwoWeekHighMax"
+                                    placeholder="Max"
+                                    value={filters.fiftyTwoWeekHighMax}
+                                    onChange={handleFilterChange}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="filter-group">
+                            <label>52W Low ($)</label>
+                            <div className="range-inputs">
+                                <input
+                                    type="number"
+                                    name="fiftyTwoWeekLowMin"
+                                    placeholder="Min"
+                                    value={filters.fiftyTwoWeekLowMin}
+                                    onChange={handleFilterChange}
+                                />
+                                <span>to</span>
+                                <input
+                                    type="number"
+                                    name="fiftyTwoWeekLowMax"
+                                    placeholder="Max"
+                                    value={filters.fiftyTwoWeekLowMax}
+                                    onChange={handleFilterChange}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="filter-group">
+                            <label>Day Change (%)</label>
+                            <div className="range-inputs">
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    name="dayChangePercentMin"
+                                    placeholder="Min"
+                                    value={filters.dayChangePercentMin}
+                                    onChange={handleFilterChange}
+                                />
+                                <span>to</span>
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    name="dayChangePercentMax"
+                                    placeholder="Max"
+                                    value={filters.dayChangePercentMax}
+                                    onChange={handleFilterChange}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                     {hasActiveFilters && (
                         <div className="filter-actions">
                             <button className="btn btn-clear" onClick={clearFilters}>
@@ -462,6 +673,21 @@ function CompanyTable({ sector, searchResults, showAll, onCompanySelect }) {
                             </th>
                             <th onClick={() => handleSort('pct_from_high')} className="text-right">
                                 From High <SortIcon field="pct_from_high" />
+                            </th>
+                            <th onClick={() => handleSort('fifty_two_week_high')} className="text-right">
+                                52W High <SortIcon field="fifty_two_week_high" />
+                            </th>
+                            <th onClick={() => handleSort('fifty_two_week_low')} className="text-right">
+                                52W Low <SortIcon field="fifty_two_week_low" />
+                            </th>
+                            <th onClick={() => handleSort('beta')} className="text-right">
+                                Beta <SortIcon field="beta" />
+                            </th>
+                            <th onClick={() => handleSort('eps')} className="text-right">
+                                EPS <SortIcon field="eps" />
+                            </th>
+                            <th onClick={() => handleSort('dividend_yield')} className="text-right">
+                                Div Yield <SortIcon field="dividend_yield" />
                             </th>
                         </tr>
                     </thead>
@@ -538,6 +764,21 @@ function CompanyTable({ sector, searchResults, showAll, onCompanySelect }) {
                                     <span className={company.pct_from_high > -0.1 ? 'value-near-high' : company.pct_from_high < -0.2 ? 'value-negative' : 'value-neutral'}>
                                         {company.pct_from_high != null ? (company.pct_from_high * 100).toFixed(1) + '%' : 'N/A'}
                                     </span>
+                                </td>
+                                <td className="text-right font-mono">
+                                    {company.fifty_two_week_high != null ? '$' + company.fifty_two_week_high.toFixed(2) : 'N/A'}
+                                </td>
+                                <td className="text-right font-mono">
+                                    {company.fifty_two_week_low != null ? '$' + company.fifty_two_week_low.toFixed(2) : 'N/A'}
+                                </td>
+                                <td className="text-right font-mono">
+                                    {company.beta != null ? company.beta.toFixed(2) : 'N/A'}
+                                </td>
+                                <td className="text-right font-mono">
+                                    {company.eps != null ? '$' + company.eps.toFixed(2) : 'N/A'}
+                                </td>
+                                <td className="text-right font-mono">
+                                    {company.dividend_yield_fmt || 'N/A'}
                                 </td>
                             </tr>
                         ))}

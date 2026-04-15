@@ -724,10 +724,10 @@ def get_head_shoulders_patterns():
         result = scan_stock_for_pattern(ticker)
         if result:
             # Add company info
-            company_info = df[df['ticker'] == ticker].iloc[0]
-            result['company_name'] = company_info.get('company_name', '')
-            result['sector'] = company_info.get('sector', '')
-            result['current_price_fmt'] = company_info.get('current_price_fmt', '')
+            company_info = df[df['ticker'] == ticker].iloc[0].to_dict()
+            for key, value in company_info.items():
+                if key not in result:
+                    result[key] = value
             patterns.append(result)
     
     # Sort by confidence (highest first)
@@ -767,9 +767,9 @@ def get_head_shoulders_for_ticker(ticker: str):
     result = scan_stock_for_pattern(ticker.upper())
     
     if result:
-        result['company_name'] = company_info.get('company_name', '')
-        result['sector'] = company_info.get('sector', '')
-        result['current_price_fmt'] = company_info.get('current_price_fmt', '')
+        for key, value in company_info.to_dict().items():
+            if key not in result:
+                result[key] = value
         return jsonify(convert_numpy_types(result))
     else:
         return jsonify({
@@ -1746,10 +1746,10 @@ def get_all_patterns():
         patterns = scan_stock_for_all_patterns(ticker)
         for pattern in patterns:
             # Add company info
-            company_info = df[df['ticker'] == ticker].iloc[0]
-            pattern['company_name'] = company_info.get('company_name', '')
-            pattern['sector'] = company_info.get('sector', '')
-            pattern['current_price_fmt'] = company_info.get('current_price_fmt', '')
+            company_info = df[df['ticker'] == ticker].iloc[0].to_dict()
+            for key, value in company_info.items():
+                if key not in pattern:
+                    pattern[key] = value
             
             pattern_type = pattern.get('pattern_type', '')
             if pattern_type in patterns_by_type:

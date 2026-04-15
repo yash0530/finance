@@ -140,6 +140,11 @@ npm run dev
   - Valid pattern types: `head_shoulders`, `inverse_head_shoulders`, `double_top`, `double_bottom`, `triple_top`, `triple_bottom`, `ascending_triangle`, `descending_triangle`, `cup_and_handle`, `bullish_flag`, `falling_wedge`
 - **Dashboard** - Sector overview with market cap and P/E metrics
 - **All Companies View** - Browse all 500 companies with full filtering capabilities
+- **Comprehensive Smart Filters** - Available across all dashboards (All Companies, Spotlight, Technical Patterns, Head & Shoulders):
+  - Advanced Min/Max range inputs for all numeric data (Market Cap, P/E Ratios, Profit Margin, Revenue Growth, Beta, EPS, Div Yield, 52W High/Low, Day Change %, 52W Change %)
+  - Dropdown selectors for categorical data (Sector, Pattern Type, Signal)
+  - Dark-themed, dynamic filter panel with "Clear All" functionality
+  - All dashboard tables include columns for these comprehensive data points where applicable
 - **Company Detail Page** - Click any company to view comprehensive data:
   - Stock price history chart with period selector (1M, 3M, 6M, 1Y, 5Y) - data filtered client-side from single API call
   - **Pattern Visualization** - Full chart visualization for all detected patterns:
@@ -160,15 +165,15 @@ npm run dev
   - **Stock Movement**: Day Change %, 52-Week Change %, % From 52-Week High
   - Ticker symbols link to Yahoo Finance; company names link to detail page
   - Additional data available via API: 52-Week High/Low, 50-Day & 200-Day Moving Averages
-- **Filter Panel** - Filter companies by:
+- **Filter Panel** - Smart filters available on All Companies, Spotlight, and Pattern dashboards:
   - Sector (dropdown)
-  - Forward P/E (min/max range)
-  - Trailing P/E (min/max range)
-  - P/E Ratio: trailing ÷ forward (>1 = earnings growth expected)
+  - P/E, Forward P/E, Trailing P/E (min/max range)
   - Market Cap in billions (min/max range)
   - Profit Margin % (min/max range)
   - Revenue Growth % (min/max range)
-  - 52-Week Price Change % (min/max range)
+  - EPS, Beta, Div Yield % (min/max range)
+  - 52-Week High/Low, 52-Week Price Change %, Day Change % (min/max range)
+  - Pattern-specific filters: Confidence Score, Signal, Target Potential %
 - **Charts** - Pie chart (market cap), bar chart (P/E by sector)
 - **Search** - Autocomplete search by ticker or company name
 - **Metrics Panel** - Top companies by market cap, lowest P/E, highest growth (all clickable)

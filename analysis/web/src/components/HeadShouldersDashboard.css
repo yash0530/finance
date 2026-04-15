@@ -253,3 +253,45 @@
 .dot.confidence-low {
     background: #ef4444;
 }
+
+.clickable-header {
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s;
+}
+
+.clickable-header:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.sort-icon {
+    font-size: 0.8em;
+    opacity: 0.4;
+    margin-left: 4px;
+}
+
+.sort-icon.active {
+    opacity: 1;
+    color: var(--accent-primary);
+}
+
+.filter-row-inline th {
+    padding: 0.25rem 0.5rem;
+    background-color: var(--bg-secondary);
+}
+
+.inline-filter-input {
+    width: 100%;
+    min-width: 60px;
+    padding: 4px 6px;
+    font-size: 0.8em;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: 4px;
+}
+
+.inline-filter-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
