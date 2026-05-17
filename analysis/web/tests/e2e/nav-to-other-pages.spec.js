@@ -10,9 +10,11 @@ import { test, expect } from '@playwright/test';
  */
 const PAGES = [
     { id: 'nav-portfolio',     label: 'Portfolio' },
+    { id: 'nav-advisor',       label: 'Advisor' },
     { id: 'nav-research',      label: 'Quick Research' },
     { id: 'nav-watchlist',     label: 'Watchlist' },
     { id: 'nav-rebalance',     label: 'Rebalance' },
+    { id: 'nav-calibration',   label: 'Calibration' },
     { id: 'nav-alerts',        label: 'Alerts' },
 ];
 

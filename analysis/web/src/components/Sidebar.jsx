@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 const NAV_ITEMS = [
+    { id: 'advisor',        icon: '🧭', label: 'Advisor',        section: 'main' },
     { id: 'portfolio',      icon: '💼', label: 'Portfolio',      section: 'main' },
     { id: 'deep-research-v2', icon: '🚀', label: 'Deep Research v2', section: 'main' },
     { id: 'deep-research',  icon: '🧠', label: 'Deep Research',  section: 'main' },
@@ -8,6 +9,7 @@ const NAV_ITEMS = [
     { id: 'history',        icon: '🕰️', label: 'History',        section: 'main' },
     { id: 'watchlist',      icon: '👁️',  label: 'Watchlist',     section: 'main' },
     { id: 'rebalance',      icon: '⚖️',  label: 'Rebalance',     section: 'main' },
+    { id: 'calibration',    icon: '🎯', label: 'Calibration',    section: 'main' },
     { id: 'alerts',         icon: '🔔', label: 'Alerts',         section: 'main' },
     { id: 'market',         icon: '📊', label: 'S&P 500',        section: 'tools' },
     { id: 'settings',       icon: '⚙️',  label: 'LLM Settings',  section: 'tools' },

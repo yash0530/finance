@@ -108,6 +108,19 @@ export const getRebalanceAnalysis = (profile = 'moderate') =>
     apiFetch(`${API_BASE}/portfolio/rebalance?profile=${encodeURIComponent(profile)}`);
 
 // ──────────────────────────────────────────────────────────
+// Advisor (digest + calibration)
+// ──────────────────────────────────────────────────────────
+
+export const getAdvisorDigest = (days = 7) =>
+    apiFetch(`${API_BASE}/advisor/digest?days=${days}`);
+
+export const runAdvisorDigest = () =>
+    apiFetch(`${API_BASE}/advisor/run-digest`, { method: 'POST' });
+
+export const getCalibration = (backfill = false) =>
+    apiFetch(`${API_BASE}/advisor/calibration${backfill ? '?backfill=1' : ''}`);
+
+// ──────────────────────────────────────────────────────────
 // Research
 // ──────────────────────────────────────────────────────────
 
