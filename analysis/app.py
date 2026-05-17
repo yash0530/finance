@@ -2826,6 +2826,229 @@ def get_etf_research(ticker: str):
         return jsonify({'error': str(e), 'ticker': ticker.upper()}), 500
 
 
+# ============================================================================
+# v2 "Living Analyst" routes — agentic loop + Living Memo + calibration
+# ============================================================================
+
+@app.route('/api/research/<ticker>/v2/stream', methods=['GET'])
+def research_v2_stream(ticker):
+    """SSE stream for v2 deep research (agentic loop + multi-agent debate)."""
+    try:
+        from agent_loop import stream_deep_research
+    except ImportError as e:
+        return jsonify({'error': f'v2 agent loop unavailable: {e}'}), 500
+
+    profile = request.args.get('budget', 'normal')
+    force = request.args.get('refresh', 'false').lower() == 'true'
+
+    # Best-effort portfolio context
+    portfolio_context = None
+    if PORTFOLIO_ENABLED:
+        try:
+            from portfolio_service import get_enriched_holdings
+            holdings = get_enriched_holdings()
+            for h in holdings:
+                if h.get('ticker', '').upper() == ticker.upper():
+                    portfolio_context = {
+                        'weight_pct': h.get('weight_pct'),
+                        'avg_cost': h.get('avg_cost'),
+                        'unrealized_pnl_pct': h.get('unrealized_pnl_pct'),
+                    }
+                    break
+        except Exception:
+            pass
+
+    return Response(
+        stream_deep_research(
+            ticker=ticker.upper().strip(),
+            portfolio_context=portfolio_context,
+            budget_profile=profile,
+            force_refresh=force,
+        ),
+        mimetype='text/event-stream',
+        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
+    )
+
+
+@app.route('/api/research/<ticker>/memo', methods=['GET'])
+def get_memo(ticker):
+    try:
+        import living_memo
+        memo = living_memo.load(ticker)
+        if not memo:
+            return jsonify({'exists': False, 'ticker': ticker.upper()}), 404
+        return jsonify({'exists': True, **memo})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/research/<ticker>/memo', methods=['PUT'])
+def update_memo(ticker):
+    try:
+        import living_memo
+        body = request.get_json() or {}
+        content_json = body.get('content_json')
+        delta_summary = body.get('delta_summary', 'manual edit')
+        if not content_json:
+            return jsonify({'error': 'content_json required'}), 400
+        version = living_memo.save(
+            ticker=ticker,
+            content_json=content_json,
+            delta_summary=delta_summary,
+            user_edited=True,
+        )
+        return jsonify({'success': True, 'new_version': version})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/research/<ticker>/memo/history', methods=['GET'])
+def memo_history(ticker):
+    try:
+        import living_memo
+        limit = int(request.args.get('limit', 20))
+        return jsonify({'ticker': ticker.upper(), 'versions': living_memo.history(ticker, limit)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/research/<ticker>/memo/version/<int:version>', methods=['GET'])
+def memo_version(ticker, version):
+    try:
+        import living_memo
+        v = living_memo.get_version(ticker, version)
+        if not v:
+            return jsonify({'error': 'version not found'}), 404
+        return jsonify(v)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/research/<ticker>/tool-log/<report_id>', methods=['GET'])
+def tool_log(ticker, report_id):
+    try:
+        from db import get_tool_call_log
+        log = get_tool_call_log(report_id)
+        return jsonify({'report_id': report_id, 'ticker': ticker.upper(), 'count': len(log), 'log': log})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/research/<ticker>/calibration', methods=['GET'])
+def ticker_calibration(ticker):
+    try:
+        from db import get_recommendations
+        recs = get_recommendations(ticker)
+        return jsonify({'ticker': ticker.upper(), 'count': len(recs), 'recommendations': recs})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/calibration/dashboard', methods=['GET'])
+def calibration_dashboard():
+    try:
+        from db import get_recommendations
+        all_recs = get_recommendations(limit=1000)
+
+        by_conviction = {'HIGH': [], 'MEDIUM': [], 'LOW': []}
+        for r in all_recs:
+            conv = r.get('conviction', 'LOW').upper()
+            if conv in by_conviction:
+                by_conviction[conv].append(r)
+
+        def _stats(recs):
+            outcomes = [r.get('outcome_3m_return_pct') for r in recs if r.get('outcome_3m_return_pct') is not None]
+            avg = sum(outcomes) / len(outcomes) if outcomes else None
+            hit_rate = sum(1 for o in outcomes if o > 0) / len(outcomes) if outcomes else None
+            return {
+                'count': len(recs),
+                'with_3m_outcome': len(outcomes),
+                'avg_3m_return_pct': avg,
+                'hit_rate_3m': hit_rate,
+            }
+
+        return jsonify({
+            'total_recommendations': len(all_recs),
+            'by_conviction': {k: _stats(v) for k, v in by_conviction.items()},
+            'recent': all_recs[:20],
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/sectors/classify/<ticker>', methods=['GET'])
+def sector_classify(ticker):
+    try:
+        import sector_router
+        cls = sector_router.classify(ticker)
+        return jsonify(cls)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/sectors/classify/<ticker>', methods=['POST'])
+def sector_classify_manual(ticker):
+    """User-driven manual override of sector classification."""
+    try:
+        import sector_router
+        body = request.get_json() or {}
+        sector_key = body.get('sector_key')
+        gics = body.get('gics_industry', '')
+        if not sector_key:
+            return jsonify({'error': 'sector_key required'}), 400
+        result = sector_router.manual_classify(ticker, sector_key, gics)
+        return jsonify(result)
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/catalysts', methods=['GET'])
+def catalysts():
+    try:
+        from db import get_catalysts
+        tickers_param = request.args.get('tickers', '')
+        tickers = [t.strip().upper() for t in tickers_param.split(',') if t.strip()] or None
+        days = int(request.args.get('days_ahead', 90))
+        return jsonify({'count': len(get_catalysts(tickers, days)),
+                        'catalysts': get_catalysts(tickers, days)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/research/<ticker>/monitor', methods=['POST'])
+def toggle_monitor(ticker):
+    """Toggle daily-digest monitoring for a ticker."""
+    try:
+        from db import enable_monitoring, disable_monitoring, get_monitored_tickers
+        body = request.get_json() or {}
+        enabled = bool(body.get('enabled', True))
+        if enabled:
+            enable_monitoring(ticker)
+        else:
+            disable_monitoring(ticker)
+        return jsonify({
+            'ticker': ticker.upper(),
+            'enabled': enabled,
+            'all_monitored': get_monitored_tickers(),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/monitoring/status', methods=['GET'])
+def monitoring_status():
+    try:
+        from db import get_monitored_tickers, get_recent_digests
+        return jsonify({
+            'monitored': get_monitored_tickers(),
+            'recent_digests': get_recent_digests(days=7),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     if PORTFOLIO_ENABLED:
         import alert_worker
