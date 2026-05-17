@@ -19,7 +19,6 @@ echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━�
 # Check if dependencies are installed
 if ! pip3 show flask >/dev/null 2>&1; then
     echo -e "${YELLOW}Installing Python dependencies...${NC}"
-    pip3 install -r "$PROJECT_DIR/requirements.txt"
 fi
 
 if [ ! -d "$WEB_DIR/node_modules" ]; then

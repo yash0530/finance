@@ -1,146 +1,219 @@
+/**
+ * api.js — Unified API client for all backend endpoints.
+ * Extends the existing S&P 500 calls with portfolio, research, settings, watchlist, alerts.
+ */
+
 const API_BASE = 'http://localhost:5001/api';
 
-export async function fetchCompanies(sortBy = 'forward_pe', order = 'asc') {
-    const response = await fetch(`${API_BASE}/companies?sort_by=${sortBy}&order=${order}`);
-    if (!response.ok) throw new Error('Failed to fetch companies');
-    return response.json();
+// ──────────────────────────────────────────────────────────
+// Helpers
+// ──────────────────────────────────────────────────────────
+
+async function apiFetch(url, options = {}) {
+    const res = await fetch(url, {
+        headers: { 'Content-Type': 'application/json', ...options.headers },
+        ...options,
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json();
 }
 
-export async function fetchSectors() {
-    const response = await fetch(`${API_BASE}/sectors`);
-    if (!response.ok) throw new Error('Failed to fetch sectors');
-    return response.json();
-}
+// ──────────────────────────────────────────────────────────
+// Existing S&P 500 Endpoints (unchanged)
+// ──────────────────────────────────────────────────────────
 
-export async function fetchCompaniesBySector(sector) {
-    const response = await fetch(`${API_BASE}/companies/${encodeURIComponent(sector)}`);
-    if (!response.ok) throw new Error('Failed to fetch sector companies');
-    return response.json();
-}
+export const fetchCompanies = (sortBy = 'forward_pe', order = 'asc') =>
+    apiFetch(`${API_BASE}/companies?sort_by=${sortBy}&order=${order}`);
 
-export async function fetchStats() {
-    const response = await fetch(`${API_BASE}/stats`);
-    if (!response.ok) throw new Error('Failed to fetch stats');
-    return response.json();
-}
+export const fetchSectors = () => apiFetch(`${API_BASE}/sectors`);
 
-export async function searchCompanies(query) {
-    const response = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
-    if (!response.ok) throw new Error('Failed to search companies');
-    return response.json();
-}
+export const fetchCompaniesBySector = (sector) =>
+    apiFetch(`${API_BASE}/companies/${encodeURIComponent(sector)}`);
 
-export async function fetchCompanyByTicker(ticker) {
-    const response = await fetch(`${API_BASE}/company/${encodeURIComponent(ticker)}`);
-    if (!response.ok) throw new Error('Failed to fetch company');
-    return response.json();
-}
+export const fetchStats = () => apiFetch(`${API_BASE}/stats`);
 
-export async function refreshData() {
-    const response = await fetch(`${API_BASE}/refresh`, { method: 'POST' });
-    if (!response.ok) throw new Error('Failed to refresh data');
-    return response.json();
-}
+export const searchCompanies = (query) =>
+    apiFetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
 
-export async function healthCheck() {
-    const response = await fetch(`${API_BASE}/health`);
-    if (!response.ok) throw new Error('API not available');
-    return response.json();
-}
+export const fetchCompanyByTicker = (ticker) =>
+    apiFetch(`${API_BASE}/company/${encodeURIComponent(ticker)}`);
 
-export async function fetchStockHistory(ticker, refresh = false) {
-    const params = refresh ? '?refresh=true' : '';
-    const response = await fetch(`${API_BASE}/company/${encodeURIComponent(ticker)}/history${params}`);
-    if (!response.ok) throw new Error('Failed to fetch stock history');
-    return response.json();
-}
+export const refreshData = () =>
+    apiFetch(`${API_BASE}/refresh`, { method: 'POST' });
 
-export async function fetchFinancials(ticker, refresh = false) {
-    const params = refresh ? '?refresh=true' : '';
-    const response = await fetch(`${API_BASE}/company/${encodeURIComponent(ticker)}/financials${params}`);
-    if (!response.ok) throw new Error('Failed to fetch financials');
-    return response.json();
-}
+export const healthCheck = () => apiFetch(`${API_BASE}/health`);
 
-export async function fetchSpotlight() {
-    const response = await fetch(`${API_BASE}/spotlight`);
-    if (!response.ok) throw new Error('Failed to fetch spotlight companies');
-    return response.json();
-}
+export const fetchStockHistory = (ticker, refresh = false) =>
+    apiFetch(`${API_BASE}/company/${encodeURIComponent(ticker)}/history${refresh ? '?refresh=true' : ''}`);
 
-export async function fetchHeadShouldersPatterns() {
-    const response = await fetch(`${API_BASE}/patterns/head-shoulders`);
-    if (!response.ok) throw new Error('Failed to fetch Head & Shoulders patterns');
-    return response.json();
-}
+export const fetchFinancials = (ticker, refresh = false) =>
+    apiFetch(`${API_BASE}/company/${encodeURIComponent(ticker)}/financials${refresh ? '?refresh=true' : ''}`);
 
-export async function fetchHeadShouldersForTicker(ticker) {
-    const response = await fetch(`${API_BASE}/patterns/head-shoulders/${encodeURIComponent(ticker)}`);
-    if (!response.ok) throw new Error('Failed to fetch pattern for ticker');
-    return response.json();
-}
+export const fetchSpotlight = () => apiFetch(`${API_BASE}/spotlight`);
+
+export const fetchHeadShouldersPatterns = () =>
+    apiFetch(`${API_BASE}/patterns/head-shoulders`);
+
+export const fetchHeadShouldersForTicker = (ticker) =>
+    apiFetch(`${API_BASE}/patterns/head-shoulders/${encodeURIComponent(ticker)}`);
 
 export async function fetchAllPatternsForTicker(ticker) {
-    // Fetch all pattern types for a single ticker
     const patternTypes = [
         'head-shoulders', 'inverse-head-shoulders', 'double-top', 'double-bottom',
         'triple-top', 'triple-bottom', 'ascending-triangle', 'descending-triangle',
-        'cup-and-handle', 'bullish-flag', 'falling-wedge'
+        'cup-and-handle', 'bullish-flag', 'falling-wedge',
     ];
-
     const results = await Promise.all(
         patternTypes.map(async (type) => {
             try {
-                const response = await fetch(`${API_BASE}/patterns/${type}/${encodeURIComponent(ticker)}`);
-                if (!response.ok) return null;
-                const data = await response.json();
+                const data = await apiFetch(`${API_BASE}/patterns/${type}/${encodeURIComponent(ticker)}`);
                 return data.detected ? data : null;
-            } catch {
-                return null;
-            }
+            } catch { return null; }
         })
     );
-
-    // Filter out null results and sort by confidence
-    return results
-        .filter(p => p !== null)
-        .sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+    return results.filter(Boolean).sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
 }
 
-// Sector color mapping
+// ──────────────────────────────────────────────────────────
+// Portfolio
+// ──────────────────────────────────────────────────────────
+
+export const getPortfolioStatus = () => apiFetch(`${API_BASE}/portfolio/status`);
+
+export const connectRobinhood = (username, password, otp) =>
+    apiFetch(`${API_BASE}/portfolio/connect`, {
+        method: 'POST',
+        body: JSON.stringify({ username, password, otp }),
+    });
+
+export const disconnectRobinhood = () =>
+    apiFetch(`${API_BASE}/portfolio/disconnect`, { method: 'POST' });
+
+export const syncPortfolio = () =>
+    apiFetch(`${API_BASE}/portfolio/sync`, { method: 'POST' });
+
+export const importPortfolioCSV = (csv) =>
+    apiFetch(`${API_BASE}/portfolio/import`, {
+        method: 'POST',
+        body: JSON.stringify({ csv }),
+    });
+
+export const getPortfolioHoldings = () => apiFetch(`${API_BASE}/portfolio/holdings`);
+export const getPortfolioSummary = () => apiFetch(`${API_BASE}/portfolio/summary`);
+
+// ──────────────────────────────────────────────────────────
+// Research
+// ──────────────────────────────────────────────────────────
+
+export const getResearchReport = (ticker, { refresh = false, noEdgar = false } = {}) => {
+    const params = new URLSearchParams();
+    if (refresh) params.set('refresh', 'true');
+    if (noEdgar) params.set('no_edgar', 'true');
+    const qs = params.toString();
+    return apiFetch(`${API_BASE}/research/${encodeURIComponent(ticker)}${qs ? '?' + qs : ''}`);
+};
+
+export const getTicker = (ticker) =>
+    apiFetch(`${API_BASE}/research/${encodeURIComponent(ticker)}/thesis`);
+
+export const compareTickers = (tickers) =>
+    apiFetch(`${API_BASE}/research/compare`, {
+        method: 'POST',
+        body: JSON.stringify({ tickers }),
+    });
+
+export const getSectorResearch = (sector) =>
+    apiFetch(`${API_BASE}/research/sector/${encodeURIComponent(sector)}`);
+
+// ──────────────────────────────────────────────────────────
+// LLM Settings
+// ──────────────────────────────────────────────────────────
+
+export const getLLMSettings = () => apiFetch(`${API_BASE}/settings/llm`);
+
+export const saveLLMSettings = (settings) =>
+    apiFetch(`${API_BASE}/settings/llm`, {
+        method: 'POST',
+        body: JSON.stringify(settings),
+    });
+
+export const testLLMConnection = () =>
+    apiFetch(`${API_BASE}/settings/llm/test`, { method: 'POST' });
+
+// ──────────────────────────────────────────────────────────
+// Watchlist
+// ──────────────────────────────────────────────────────────
+
+export const getWatchlist = () => apiFetch(`${API_BASE}/watchlist`);
+
+export const addToWatchlist = (ticker, notes = '') =>
+    apiFetch(`${API_BASE}/watchlist`, {
+        method: 'POST',
+        body: JSON.stringify({ ticker, notes }),
+    });
+
+export const removeFromWatchlist = (ticker) =>
+    apiFetch(`${API_BASE}/watchlist/${encodeURIComponent(ticker)}`, { method: 'DELETE' });
+
+// ──────────────────────────────────────────────────────────
+// Alerts
+// ──────────────────────────────────────────────────────────
+
+export const getAlerts = (activeOnly = true) =>
+    apiFetch(`${API_BASE}/alerts?active_only=${activeOnly}`);
+
+export const createAlert = (ticker, condition, threshold) =>
+    apiFetch(`${API_BASE}/alerts`, {
+        method: 'POST',
+        body: JSON.stringify({ ticker, condition, threshold }),
+    });
+
+export const deleteAlert = (alertId) =>
+    apiFetch(`${API_BASE}/alerts/${alertId}`, { method: 'DELETE' });
+
+// ──────────────────────────────────────────────────────────
+// Formatting & Color Helpers
+// ──────────────────────────────────────────────────────────
+
 export const SECTOR_COLORS = {
-    'Information Technology': '#3b82f6',
-    'Health Care': '#10b981',
+    'Information Technology': '#2d7ef7',
+    'Health Care': '#10d9a0',
     'Financials': '#f59e0b',
     'Consumer Discretionary': '#ec4899',
-    'Industrials': '#8b5cf6',
-    'Consumer Staples': '#06b6d4',
-    'Energy': '#ef4444',
+    'Industrials': '#7c3aed',
+    'Consumer Staples': '#06d6f0',
+    'Energy': '#f43f5e',
     'Utilities': '#14b8a6',
     'Real Estate': '#6366f1',
     'Materials': '#f97316',
-    'Communication Services': '#a855f7'
+    'Communication Services': '#a855f7',
 };
 
-export function getSectorColor(sector) {
-    return SECTOR_COLORS[sector] || '#6b7280';
-}
+export const getSectorColor = (sector) => SECTOR_COLORS[sector] || '#6b7280';
 
-// Format helpers
-export function formatCurrency(value) {
-    if (!value) return 'N/A';
-    if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
-    if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
-    if (value >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
+export const formatCurrency = (value) => {
+    if (value == null) return 'N/A';
+    if (Math.abs(value) >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
+    if (Math.abs(value) >= 1e9)  return `$${(value / 1e9).toFixed(2)}B`;
+    if (Math.abs(value) >= 1e6)  return `$${(value / 1e6).toFixed(2)}M`;
     return `$${value.toLocaleString()}`;
-}
+};
 
-export function formatPercent(value) {
-    if (value === null || value === undefined) return 'N/A';
-    return `${(value * 100).toFixed(2)}%`;
-}
+export const formatPercent = (value, alreadyPct = false) => {
+    if (value == null) return 'N/A';
+    const num = alreadyPct ? value : value * 100;
+    return `${num >= 0 ? '+' : ''}${num.toFixed(2)}%`;
+};
 
-export function formatNumber(value, decimals = 2) {
-    if (value === null || value === undefined) return 'N/A';
+export const formatNumber = (value, decimals = 2) => {
+    if (value == null) return 'N/A';
     return Number(value).toFixed(decimals);
-}
+};
+
+export const pnlClass = (value) => {
+    if (value == null) return '';
+    return value >= 0 ? 'pnl-positive' : 'pnl-negative';
+};

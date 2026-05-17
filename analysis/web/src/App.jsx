@@ -1,253 +1,75 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
+import './index.css';
 import './App.css';
-import Dashboard from './components/Dashboard';
-import CompanyTable from './components/CompanyTable';
-import SectorChart from './components/SectorChart';
-import SearchBar from './components/SearchBar';
-import MetricsPanel from './components/MetricsPanel';
-import SpotlightPanel from './components/SpotlightPanel';
-import SpotlightDashboard from './components/SpotlightDashboard';
-import TechnicalPatternsDashboard from './components/TechnicalPatternsDashboard';
-import CompanyDetail from './components/CompanyDetail';
-import { fetchSectors, fetchStats, healthCheck, refreshData } from './utils/api';
+import Sidebar from './components/Sidebar';
+import { getPortfolioStatus } from './utils/api';
 
-function App() {
-  const [sectors, setSectors] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [selectedSector, setSelectedSector] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [searchResults, setSearchResults] = useState(null);
-  const [showAllCompanies, setShowAllCompanies] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [refreshMessage, setRefreshMessage] = useState(null);
-  const [lastUpdated, setLastUpdated] = useState(null);
-  const [selectedCompany, setSelectedCompany] = useState(null);
-  const [selectedSpotlightCategory, setSelectedSpotlightCategory] = useState(null);
-  const [showPatternsDashboard, setShowPatternsDashboard] = useState(false);
+// Lazy-load pages for fast initial load
+const PortfolioPage   = lazy(() => import('./pages/PortfolioPage'));
+const ResearchPage    = lazy(() => import('./pages/ResearchPage'));
+const WatchlistPage   = lazy(() => import('./pages/WatchlistPage'));
+const RebalancePage   = lazy(() => import('./pages/RebalancePage'));
+const AlertsPage      = lazy(() => import('./pages/AlertsPage'));
+const LLMSettingsPage = lazy(() => import('./pages/LLMSettingsPage'));
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        setLoading(true);
-        setError(null);
+// Legacy S&P 500 pages (existing components wrapped)
+const MarketPage = lazy(() => import('./pages/MarketPage'));
 
-        // Check API health first
-        const health = await healthCheck();
-        if (health.last_updated) {
-          setLastUpdated(health.last_updated);
-        }
-
-        // Fetch all data
-        const [sectorsData, statsData] = await Promise.all([
-          fetchSectors(),
-          fetchStats()
-        ]);
-
-        setSectors(sectorsData.data);
-        setStats(statsData);
-      } catch (err) {
-        setError(err.message || 'Failed to connect to API. Make sure Flask server is running on port 5000.');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadData();
-  }, []);
-
-  const handleSectorSelect = (sector) => {
-    setSelectedSector(sector);
-    setSearchResults(null);
-  };
-
-  const handleSearchResults = (results) => {
-    setSearchResults(results);
-    setSelectedSector(null);
-  };
-
-  const handleBackToDashboard = () => {
-    setSelectedSector(null);
-    setSearchResults(null);
-    setShowAllCompanies(false);
-    setSelectedCompany(null);
-    setSelectedSpotlightCategory(null);
-    setShowPatternsDashboard(false);
-  };
-
-  const handleShowPatterns = () => {
-    setShowPatternsDashboard(true);
-  };
-
-  const handleCompanySelect = (ticker) => {
-    setSelectedCompany(ticker);
-  };
-
-  const handleCategorySelect = (category) => {
-    setSelectedSpotlightCategory(category);
-  };
-
-  const handleShowAllCompanies = () => {
-    setShowAllCompanies(true);
-    setSelectedSector(null);
-    setSearchResults(null);
-  };
-
-  const handleRefresh = async () => {
-    try {
-      setRefreshing(true);
-      setRefreshMessage(null);
-      const result = await refreshData();
-      setRefreshMessage({ type: 'success', text: result.message });
-      // Reload data after refresh
-      const [sectorsData, statsData, health] = await Promise.all([
-        fetchSectors(),
-        fetchStats(),
-        healthCheck()
-      ]);
-      setSectors(sectorsData.data);
-      setStats(statsData);
-      if (health.last_updated) {
-        setLastUpdated(health.last_updated);
-      }
-    } catch (err) {
-      setRefreshMessage({ type: 'error', text: err.message || 'Failed to refresh data' });
-    } finally {
-      setRefreshing(false);
-      // Clear message after 5 seconds
-      setTimeout(() => setRefreshMessage(null), 5000);
-    }
-  };
-
-  if (loading) {
+function PageLoader() {
     return (
-      <div className="app-loading">
-        <div className="spinner"></div>
-        <p>Loading S&P 500 data...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="app-error">
-        <div className="error-icon">⚠️</div>
-        <h2>Connection Error</h2>
-        <p>{error}</p>
-        <div className="error-hint">
-          <p>Start the Flask server:</p>
-          <code>python3 app.py</code>
+        <div className="loading-state" style={{ minHeight: '60vh' }}>
+            <div className="spinner" />
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.825rem' }}>Loading…</span>
         </div>
-        <button className="btn btn-primary" onClick={() => window.location.reload()}>
-          Retry Connection
-        </button>
-      </div>
     );
-  }
-
-  return (
-    <div className="app">
-      <header className="app-header">
-        <div className="header-content">
-          <div className="logo-section">
-            <h1>📊 S&P 500 Analysis</h1>
-            <span className="tagline">Interactive Financial Playground</span>
-          </div>
-          <div className="header-controls">
-            <SearchBar onResults={handleSearchResults} />
-            <button
-              className={`btn btn-refresh ${refreshing ? 'refreshing' : ''}`}
-              onClick={handleRefresh}
-              disabled={refreshing}
-              title="Force refresh data from Yahoo Finance"
-            >
-              {refreshing ? '⏳ Refreshing...' : '🔄 Refresh Data'}
-            </button>
-          </div>
-        </div>
-        {refreshMessage && (
-          <div className={`refresh-message ${refreshMessage.type}`}>
-            {refreshMessage.type === 'success' ? '✅' : '❌'} {refreshMessage.text}
-          </div>
-        )}
-      </header>
-
-      <main className="app-main">
-        {selectedCompany ? (
-          <CompanyDetail
-            ticker={selectedCompany}
-            onBack={handleBackToDashboard}
-          />
-        ) : selectedSpotlightCategory ? (
-          <SpotlightDashboard
-            category={selectedSpotlightCategory}
-            onBack={handleBackToDashboard}
-            onCompanySelect={handleCompanySelect}
-          />
-        ) : showPatternsDashboard ? (
-          <TechnicalPatternsDashboard
-            onBack={handleBackToDashboard}
-            onCompanySelect={handleCompanySelect}
-          />
-        ) : !selectedSector && !searchResults && !showAllCompanies ? (
-          <>
-            <div className="dashboard-actions">
-              <button className="btn btn-primary btn-all-companies" onClick={handleShowAllCompanies}>
-                📋 View All Companies
-              </button>
-              <button className="btn btn-secondary btn-patterns" onClick={handleShowPatterns}>
-                📊 Technical Patterns
-              </button>
-            </div>
-            <SpotlightPanel
-              onCompanySelect={handleCompanySelect}
-              onCategorySelect={handleCategorySelect}
-            />
-            <MetricsPanel stats={stats} onCompanySelect={handleCompanySelect} />
-            <Dashboard
-              sectors={sectors}
-              onSectorSelect={handleSectorSelect}
-            />
-            <SectorChart sectors={sectors} />
-          </>
-        ) : (
-          <>
-            <div className="breadcrumb">
-              <button className="btn btn-secondary" onClick={handleBackToDashboard}>
-                ← Back to Dashboard
-              </button>
-              <h2>
-                {searchResults
-                  ? `Search Results (${searchResults.count})`
-                  : showAllCompanies
-                    ? 'All Companies'
-                    : selectedSector}
-              </h2>
-            </div>
-            <CompanyTable
-              sector={selectedSector}
-              searchResults={searchResults?.data}
-              showAll={showAllCompanies}
-              onCompanySelect={handleCompanySelect}
-            />
-          </>
-        )}
-      </main>
-
-      <footer className="app-footer">
-        <p>
-          Data source: Wikipedia + Yahoo Finance (yfinance) |
-          {stats && ` ${stats.total_companies} companies tracked`}
-          {lastUpdated && (
-            <span className="last-updated">
-              {' '}| Last updated: {new Date(lastUpdated).toLocaleString()}
-            </span>
-          )}
-        </p>
-      </footer>
-    </div>
-  );
 }
 
-export default App;
+export default function App() {
+    const [page, setPage] = useState('portfolio');
+    const [portfolioConnected, setPortfolioConnected] = useState(false);
 
+    // Poll portfolio connection status
+    useEffect(() => {
+        async function checkStatus() {
+            try {
+                const status = await getPortfolioStatus();
+                setPortfolioConnected(status.connected && status.holdings_count > 0);
+            } catch {
+                setPortfolioConnected(false);
+            }
+        }
+        checkStatus();
+        const interval = setInterval(checkStatus, 60_000);
+        return () => clearInterval(interval);
+    }, []);
+
+    function renderPage() {
+        switch (page) {
+            case 'portfolio':  return <PortfolioPage onConnected={() => setPortfolioConnected(true)} />;
+            case 'research':   return <ResearchPage />;
+            case 'watchlist':  return <WatchlistPage onResearch={(t) => setPage('research')} />;
+            case 'rebalance':  return <RebalancePage />;
+            case 'alerts':     return <AlertsPage />;
+            case 'market':     return <MarketPage />;
+            case 'settings':   return <LLMSettingsPage />;
+            default:           return <PortfolioPage onConnected={() => setPortfolioConnected(true)} />;
+        }
+    }
+
+    return (
+        <div className="app-shell">
+            <Sidebar
+                currentPage={page}
+                onNavigate={setPage}
+                portfolioConnected={portfolioConnected}
+            />
+            <main className="main-content">
+                <div className="page-content">
+                    <Suspense fallback={<PageLoader />}>
+                        {renderPage()}
+                    </Suspense>
+                </div>
+            </main>
+        </div>
+    );
+}

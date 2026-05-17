@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-S&P 500 Analysis Playground - Flask Backend API
+S&P 500 Analysis Playground + Portfolio Intelligence Tool — Flask Backend API
 
-REST API for the S&P 500 company analysis web application.
-Serves data from companies.py to the React frontend.
+All original S&P 500 analysis endpoints are preserved.
+New routes for portfolio, research, settings, watchlist, and alerts are added below.
 """
 
 from flask import Flask, jsonify, request
@@ -16,12 +16,32 @@ import numpy as np
 
 # Import from companies.py
 from companies import (
-    load_cache, 
-    save_cache, 
-    get_sp500_companies, 
+    load_cache,
+    save_cache,
+    get_sp500_companies,
     fetch_all_data,
     CACHE_DIR
 )
+
+# Load .env file if present
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).parent / ".env")
+except ImportError:
+    pass
+
+# New service modules
+try:
+    import db
+    import portfolio_service as portfolio_svc
+    import llm_service
+    import research_engine
+    import alert_worker
+    PORTFOLIO_ENABLED = True
+except ImportError as _e:
+    PORTFOLIO_ENABLED = False
+    import logging
+    logging.getLogger(__name__).warning(f"Portfolio services unavailable: {_e}")
 
 
 class NumpyEncoder(json.JSONEncoder):
@@ -2248,9 +2268,492 @@ def health_check():
     })
 
 
+# ============================================================================
+# Portfolio Routes (Phase 1)
+# ============================================================================
+
+def _portfolio_unavailable():
+    return jsonify({'error': 'Portfolio services not available. Check server logs.'}), 503
+
+
+@app.route('/api/portfolio/status', methods=['GET'])
+def portfolio_status():
+    """Return Robinhood connection status and holdings count."""
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+    session = portfolio_svc.get_session_info()
+    holdings = db.get_holdings()
+    return jsonify({
+        **session,
+        'holdings_count': len(holdings)
+    })
+
+
+@app.route('/api/portfolio/connect', methods=['POST'])
+def portfolio_connect():
+    """Authenticate with Robinhood using username, password, and OTP.
+
+    Body: { "username": "...", "password": "...", "otp": "123456" }
+    """
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+
+    body = request.get_json() or {}
+    username = body.get('username', '').strip()
+    password = body.get('password', '').strip()
+    otp = body.get('otp', '').strip()
+
+    if not username or not password:
+        return jsonify({'error': 'username and password are required'}), 400
+
+    result = portfolio_svc.connect_robinhood(username, password, otp)
+
+    if result.get('success'):
+        # Immediately sync holdings after successful login
+        sync_result = portfolio_svc.sync_robinhood_portfolio()
+        result['sync'] = sync_result
+
+    status_code = 200 if result.get('success') else 401
+    return jsonify(result), status_code
+
+
+@app.route('/api/portfolio/disconnect', methods=['POST'])
+def portfolio_disconnect():
+    """Log out from Robinhood and clear session."""
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+    portfolio_svc.disconnect_robinhood()
+    db.clear_holdings()
+    return jsonify({'success': True, 'message': 'Disconnected from Robinhood'})
+
+
+@app.route('/api/portfolio/sync', methods=['POST'])
+def portfolio_sync():
+    """Re-sync holdings from Robinhood."""
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+    result = portfolio_svc.sync_robinhood_portfolio()
+    status = 200 if result.get('success') else 400
+    return jsonify(result), status
+
+
+@app.route('/api/portfolio/import', methods=['POST'])
+def portfolio_import_csv():
+    """Import portfolio from CSV text.
+
+    Body: { "csv": "ticker,shares,avg_cost\nAAPL,10,145.50\n..." }
+    """
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+
+    body = request.get_json() or {}
+    csv_text = body.get('csv', '').strip()
+
+    if not csv_text:
+        return jsonify({'error': 'csv field is required'}), 400
+
+    result = portfolio_svc.import_from_csv(csv_text)
+    status = 200 if result.get('success') else 400
+    return jsonify(result), status
+
+
+@app.route('/api/portfolio/holdings', methods=['GET'])
+def portfolio_holdings():
+    """Return all holdings enriched with live prices and P&L."""
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+
+    holdings = portfolio_svc.get_enriched_holdings()
+    summary = portfolio_svc.get_portfolio_summary(holdings)
+
+    return jsonify(convert_numpy_types({
+        'holdings': holdings,
+        'summary': summary
+    }))
+
+
+@app.route('/api/portfolio/summary', methods=['GET'])
+def portfolio_summary():
+    """Return portfolio summary statistics only (faster than /holdings)."""
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+    summary = portfolio_svc.get_portfolio_summary()
+    return jsonify(convert_numpy_types(summary))
+
+
+# ============================================================================
+# LLM Settings Routes
+# ============================================================================
+
+@app.route('/api/settings/llm', methods=['GET'])
+def get_llm_settings():
+    """Return current LLM provider settings (API key is masked)."""
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+    settings = db.get_llm_settings()
+    return jsonify(settings)
+
+
+@app.route('/api/settings/llm', methods=['POST'])
+def save_llm_settings():
+    """Update LLM provider settings.
+
+    Body: {
+        "provider": "claude" | "gemini" | "ollama",
+        "model_fast": "claude-3-5-haiku-20241022",
+        "model_deep": "claude-opus-4-5",
+        "api_key": "sk-ant-...",
+        "base_url": "http://localhost:11434"  // Ollama only
+    }
+    """
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+
+    body = request.get_json() or {}
+    provider = body.get('provider', 'ollama')
+
+    if provider not in ('claude', 'gemini', 'ollama'):
+        return jsonify({'error': 'provider must be claude, gemini, or ollama'}), 400
+
+    settings = db.save_llm_settings(
+        provider=provider,
+        model_fast=body.get('model_fast', 'llama3.2'),
+        model_deep=body.get('model_deep', 'llama3.2'),
+        api_key=body.get('api_key', ''),
+        base_url=body.get('base_url', 'http://localhost:11434')
+    )
+    return jsonify({'success': True, 'settings': settings})
+
+
+@app.route('/api/settings/llm/test', methods=['POST'])
+def test_llm_connection():
+    """Send a quick test prompt to verify LLM connectivity."""
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+    try:
+        result = llm_service.score_sentiment(
+            ["Markets rally on strong earnings reports"],
+            ticker="TEST"
+        )
+        if 'error' in result:
+            return jsonify({'success': False, 'error': result['error']}), 400
+        return jsonify({'success': True, 'test_result': result})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+# ============================================================================
+# Watchlist Routes
+# ============================================================================
+
+@app.route('/api/watchlist', methods=['GET'])
+def get_watchlist():
+    """Return all watchlist tickers."""
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+    items = db.get_watchlist()
+    return jsonify({'count': len(items), 'data': items})
+
+
+@app.route('/api/watchlist', methods=['POST'])
+def add_to_watchlist():
+    """Add a ticker to the watchlist.
+
+    Body: { "ticker": "NVDA", "notes": "optional note" }
+    """
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+
+    body = request.get_json() or {}
+    ticker = body.get('ticker', '').strip().upper()
+    notes = body.get('notes', '').strip()
+
+    if not ticker:
+        return jsonify({'error': 'ticker is required'}), 400
+
+    item = db.add_to_watchlist(ticker, notes)
+    return jsonify({'success': True, 'item': item})
+
+
+@app.route('/api/watchlist/<ticker>', methods=['DELETE'])
+def remove_from_watchlist(ticker: str):
+    """Remove a ticker from the watchlist."""
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+    removed = db.remove_from_watchlist(ticker.upper())
+    if removed:
+        return jsonify({'success': True})
+    return jsonify({'error': f'{ticker} not found in watchlist'}), 404
+
+
+@app.route('/api/watchlist/<ticker>/status', methods=['GET'])
+def watchlist_status(ticker: str):
+    """Check if a ticker is on the watchlist."""
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+    return jsonify({'ticker': ticker.upper(), 'on_watchlist': db.is_on_watchlist(ticker)})
+
+
+# ============================================================================
+# Alerts Routes
+# ============================================================================
+
+@app.route('/api/alerts', methods=['GET'])
+def get_alerts():
+    """Return all active (non-triggered) alerts."""
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+    active_only = request.args.get('active_only', 'true').lower() != 'false'
+    alerts = db.get_alerts(active_only=active_only)
+    return jsonify({'count': len(alerts), 'data': alerts})
+
+
+@app.route('/api/alerts', methods=['POST'])
+def create_alert():
+    """Create a new price alert.
+
+    Body: {
+        "ticker": "NVDA",
+        "condition": "above" | "below" | "change_pct_up" | "change_pct_down",
+        "threshold": 150.0
+    }
+    """
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+
+    body = request.get_json() or {}
+    ticker = body.get('ticker', '').strip().upper()
+    condition = body.get('condition', '').strip()
+    threshold = body.get('threshold')
+
+    valid_conditions = ('above', 'below', 'change_pct_up', 'change_pct_down')
+    if not ticker:
+        return jsonify({'error': 'ticker is required'}), 400
+    if condition not in valid_conditions:
+        return jsonify({'error': f'condition must be one of: {valid_conditions}'}), 400
+    if threshold is None:
+        return jsonify({'error': 'threshold is required'}), 400
+
+    alert = db.create_alert(ticker, condition, float(threshold))
+    return jsonify({'success': True, 'alert': alert}), 201
+
+
+@app.route('/api/alerts/<int:alert_id>', methods=['DELETE'])
+def delete_alert(alert_id: int):
+    """Delete an alert by ID."""
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+    deleted = db.delete_alert(alert_id)
+    if deleted:
+        return jsonify({'success': True})
+    return jsonify({'error': f'Alert {alert_id} not found'}), 404
+
+
+@app.route('/api/alerts/triggered', methods=['GET'])
+def get_triggered_alerts():
+    """Poll endpoint — returns recently triggered alerts for in-app notifications."""
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+    # Return all alerts including triggered ones for notification display
+    all_alerts = db.get_alerts(active_only=False)
+    triggered = [a for a in all_alerts if a.get('is_triggered')]
+    return jsonify({'count': len(triggered), 'data': triggered})
+
+
+# ============================================================================
+# Research Routes (Phase 2)
+# ============================================================================
+
+@app.route('/api/research/<ticker>', methods=['GET'])
+def get_research_report(ticker: str):
+    """Get a full deep research report for any US stock or ETF.
+
+    Runs: fundamentals + technicals + sentiment + SEC EDGAR + LLM thesis.
+    Results are cached for 24 hours.
+
+    Query params:
+        refresh: 'true' to force regeneration
+        no_edgar: 'true' to skip SEC filing (faster, ~5s vs ~20s)
+    """
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+
+    force_refresh = request.args.get('refresh', '').lower() == 'true'
+    skip_edgar = request.args.get('no_edgar', '').lower() == 'true'
+
+    # Check if this ticker is in the portfolio for context
+    portfolio_context = None
+    try:
+        holdings = db.get_holdings()
+        for h in holdings:
+            if h['ticker'].upper() == ticker.upper():
+                portfolio_context = {
+                    'weight_pct': None,  # Enriched separately
+                    'avg_cost': h.get('avg_cost'),
+                    'shares': h.get('shares'),
+                }
+                break
+    except Exception:
+        pass
+
+    try:
+        report = research_engine.run_full_research(
+            ticker=ticker,
+            portfolio_context=portfolio_context,
+            force_refresh=force_refresh,
+            include_edgar=not skip_edgar,
+        )
+        return jsonify(convert_numpy_types(report))
+    except Exception as e:
+        return jsonify({'error': str(e), 'ticker': ticker.upper()}), 500
+
+
+@app.route('/api/research/<ticker>/thesis', methods=['GET'])
+def get_thesis_only(ticker: str):
+    """Get just the LLM thesis for a ticker (uses cached report if available).
+
+    Much faster than the full research endpoint if a cached report exists.
+    """
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+
+    # Try cache first
+    try:
+        cached = db.get_research_cache(ticker)
+        if cached and 'thesis' in cached:
+            return jsonify(convert_numpy_types({
+                'ticker': ticker.upper(),
+                'thesis': cached['thesis'],
+                'generated_at': cached.get('generated_at'),
+                'from_cache': True,
+            }))
+    except Exception:
+        pass
+
+    # Full run but skip EDGAR for speed
+    try:
+        report = research_engine.run_full_research(
+            ticker=ticker,
+            include_edgar=False,
+        )
+        return jsonify(convert_numpy_types({
+            'ticker': ticker.upper(),
+            'thesis': report.get('thesis', {}),
+            'generated_at': report.get('generated_at'),
+            'from_cache': False,
+        }))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/research/compare', methods=['POST'])
+def compare_tickers_research():
+    """Compare multiple tickers side-by-side.
+
+    Body: { "tickers": ["NVDA", "AMD", "INTC"] }  (max 4)
+    """
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+
+    body = request.get_json() or {}
+    tickers = body.get('tickers', [])
+
+    if not tickers or not isinstance(tickers, list):
+        return jsonify({'error': 'tickers array is required'}), 400
+
+    if len(tickers) > 4:
+        return jsonify({'error': 'Maximum 4 tickers for comparison'}), 400
+
+    # Get portfolio holdings for context
+    holdings = []
+    try:
+        from portfolio_service import get_enriched_holdings
+        holdings = get_enriched_holdings()
+    except Exception:
+        pass
+
+    try:
+        result = research_engine.compare_tickers(tickers, holdings or None)
+        return jsonify(convert_numpy_types(result))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/research/sector/<path:sector_name>', methods=['GET'])
+def get_sector_research(sector_name: str):
+    """Get research summary for a sector — top stocks + ETFs.
+
+    Returns top 5 performing stocks in the sector (from cached S&P 500 data)
+    plus relevant sector ETFs with their current metrics.
+    """
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+
+    data = get_cached_data()
+    if not data:
+        return jsonify({'error': 'No S&P 500 data available. Run /api/refresh first.'}), 404
+
+    df = pd.DataFrame(data)
+    sector_df = df[df['sector'].str.lower() == sector_name.lower()].copy()
+
+    if sector_df.empty:
+        return jsonify({'error': f'Sector "{sector_name}" not found'}), 404
+
+    # Top 5 by market cap, lowest P/E, highest growth
+    market_cap_col = pd.to_numeric(sector_df['market_cap'], errors='coerce')
+    top_by_cap = sector_df.nlargest(5, 'market_cap')[[
+        'ticker', 'company_name', 'market_cap_fmt', 'forward_pe', 'current_price_fmt'
+    ]].to_dict(orient='records')
+
+    growth_col = pd.to_numeric(sector_df['revenue_growth'], errors='coerce')
+    sector_df['_growth'] = growth_col
+    top_by_growth = sector_df.nlargest(5, '_growth')[[
+        'ticker', 'company_name', 'revenue_growth_fmt', 'forward_pe', 'current_price_fmt'
+    ]].to_dict(orient='records')
+
+    avg_pe = float(pd.to_numeric(sector_df['forward_pe'], errors='coerce').mean())
+    total_cap = float(market_cap_col.sum())
+
+    return jsonify(convert_numpy_types({
+        'sector': sector_name,
+        'company_count': int(len(sector_df)),
+        'total_market_cap_fmt': f'${total_cap / 1e12:.2f}T' if total_cap >= 1e12 else f'${total_cap / 1e9:.1f}B',
+        'avg_forward_pe': round(avg_pe, 2) if avg_pe == avg_pe else None,
+        'top_by_market_cap': top_by_cap,
+        'top_by_growth': top_by_growth,
+    }))
+
+
+@app.route('/api/research/etf/<ticker>', methods=['GET'])
+def get_etf_research(ticker: str):
+    """Get research report for an ETF.
+
+    Same as /api/research/<ticker> but always skips EDGAR (ETFs don't file 10-Ks)
+    and adds ETF-specific data (top holdings, category, expense ratio).
+    """
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+
+    force_refresh = request.args.get('refresh', '').lower() == 'true'
+
+    try:
+        report = research_engine.run_full_research(
+            ticker=ticker,
+            force_refresh=force_refresh,
+            include_edgar=False,  # ETFs don't have 10-Ks
+        )
+        return jsonify(convert_numpy_types(report))
+    except Exception as e:
+        return jsonify({'error': str(e), 'ticker': ticker.upper()}), 500
+
+
 if __name__ == '__main__':
+    if PORTFOLIO_ENABLED:
+        import alert_worker
+        alert_worker.start_background_worker()
+
     print("\n" + "=" * 60)
-    print("   S&P 500 Analysis Playground - API Server")
+    print("   Portfolio Intelligence Tool — API Server")
     print("   Running on http://localhost:5001")
     print("=" * 60 + "\n")
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    app.run(debug=True, host='0.0.0.0', port=5001, use_reloader=False)

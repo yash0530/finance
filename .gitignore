@@ -1,0 +1,19 @@
+# Local environment variables (contains API keys)
+analysis/.env
+
+# Python caching
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Node.js dependencies
+node_modules/
+
+# SQLite databases
+*.db
+*.sqlite
