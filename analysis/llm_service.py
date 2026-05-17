@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 # Task routing constants
 # ============================================================================
 
-FAST_TASKS = {"sentiment", "explanation", "summary", "quick"}
+FAST_TASKS = {"sentiment", "explanation", "summary", "quick", "monitor"}
 DEEP_TASKS = {"analysis", "thesis", "edgar", "rebalance", "compare"}
 
 
@@ -388,6 +388,111 @@ Respond ONLY with JSON:
 }}"""
 
     return provider.complete_json(system_prompt, user_prompt, model)
+
+
+def check_thesis_decay(
+    recommendation: Dict,
+    sentiment_snapshot: Optional[Dict] = None,
+) -> Dict:
+    """Cheap LLM check: did anything happen that would falsify the existing thesis?
+
+    Used by `monitoring_worker` for hourly position monitoring.
+
+    Args:
+        recommendation: a row from the `recommendations` table — must include
+            `ticker`, `recommendation`, `conviction`, `thesis_summary`,
+            `what_would_change_mind`.
+        sentiment_snapshot: optional dict from `sentiment_service.get_composite_sentiment`
+            with recent headlines + composite score.
+
+    Returns:
+        {
+          "decayed": bool,
+          "severity": "low" | "medium" | "high",
+          "signal_summary": str,
+          "triggered_criteria": [str],
+          "evidence_summary": str
+        }
+        On error returns {"decayed": False, "error": str}.
+    """
+    provider, model = _get_provider_and_model("monitor")
+
+    ticker = (recommendation.get("ticker") or "").upper()
+    thesis = recommendation.get("thesis_summary") or ""
+    wwcm = recommendation.get("what_would_change_mind") or ""
+    rec_txt = (recommendation.get("recommendation") or "").upper()
+    conv = (recommendation.get("conviction") or "").upper()
+
+    headlines: list[str] = []
+    score = None
+    label = None
+    if sentiment_snapshot:
+        for h in (sentiment_snapshot.get("headlines") or [])[:8]:
+            title = (h.get("title") or "").strip()
+            if title:
+                headlines.append(f"- {title}")
+        score = sentiment_snapshot.get("score")
+        label = sentiment_snapshot.get("label")
+
+    headlines_block = "\n".join(headlines) or "(no recent headlines available)"
+    sentiment_line = (
+        f"Composite sentiment: {label} (score {score}/10)"
+        if score is not None else "Composite sentiment: unavailable"
+    )
+
+    system_prompt = (
+        "You monitor an investor's existing positions for thesis decay. "
+        "You receive the original thesis, the 'what would change my mind' criteria, "
+        "and recent news/sentiment. Decide whether anything in the new information "
+        "materially weakens the thesis. Be conservative — flag DECAY only when a "
+        "specific criterion is plausibly triggered. Return JSON only."
+    )
+
+    user_prompt = f"""TICKER: {ticker}
+CURRENT VERDICT: {rec_txt} ({conv} conviction)
+
+ORIGINAL THESIS:
+{thesis}
+
+WHAT WOULD CHANGE MY MIND:
+{wwcm}
+
+RECENT SENTIMENT:
+{sentiment_line}
+
+RECENT HEADLINES:
+{headlines_block}
+
+Return JSON:
+{{
+  "decayed": <true|false>,
+  "severity": "<low|medium|high>",
+  "signal_summary": "<1 short sentence — what changed and why it matters>",
+  "triggered_criteria": ["<short quote or paraphrase from WWCM that's plausibly triggered>"],
+  "evidence_summary": "<1-2 sentences citing the specific headlines that drove the call>"
+}}
+
+Rules:
+- decayed=false → severity MUST be "low" and triggered_criteria MUST be [].
+- decayed=true → at least one item in triggered_criteria.
+- Do not flag decay on stale headlines or generic macro chatter."""
+
+    try:
+        result = provider.complete_json(system_prompt, user_prompt, model)
+        if not isinstance(result, dict):
+            return {"decayed": False, "error": "non-dict LLM response"}
+        # Normalize
+        result.setdefault("decayed", False)
+        result.setdefault("severity", "low")
+        result.setdefault("signal_summary", "")
+        result.setdefault("triggered_criteria", [])
+        result.setdefault("evidence_summary", "")
+        if not result["decayed"]:
+            result["severity"] = "low"
+            result["triggered_criteria"] = []
+        return result
+    except Exception as e:
+        return {"decayed": False, "error": f"{type(e).__name__}: {e}"}
 
 
 # ============================================================================

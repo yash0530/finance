@@ -3076,10 +3076,56 @@ def monitoring_status():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/advisor/run-digest', methods=['POST'])
+def advisor_run_digest():
+    """Trigger a one-off thesis-decay scan across monitored / held tickers.
+
+    Returns only the items that were persisted (decayed = true). Cheap LLM
+    per ticker, so callers should still treat this as ~5–15s for a normal
+    portfolio.
+    """
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+    try:
+        import monitoring_worker
+        items = monitoring_worker.run_digest_once()
+        return jsonify({
+            'ran_at': pd.Timestamp.now().isoformat(),
+            'items': items,
+            'count': len(items),
+        })
+    except Exception as e:
+        logging.getLogger(__name__).exception("advisor_run_digest failed")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/advisor/digest', methods=['GET'])
+def advisor_digest():
+    """Return recent digest entries (default last 7 days)."""
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+    try:
+        from db import get_recent_digests
+        days = int(request.args.get('days', 7))
+        digests = get_recent_digests(days=days)
+        return jsonify({
+            'days': days,
+            'digests': digests,
+            'count': sum(len(d.get('items', [])) for d in digests),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     if PORTFOLIO_ENABLED:
         import alert_worker
         alert_worker.start_background_worker()
+        try:
+            import monitoring_worker
+            monitoring_worker.start_background_worker()
+        except Exception as _e:
+            logging.getLogger(__name__).warning(f"monitoring_worker disabled: {_e}")
 
     print("\n" + "=" * 60)
     print("   Portfolio Intelligence Tool — API Server")
