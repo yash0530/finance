@@ -139,6 +139,65 @@ def _validate_plan(
     }
 
 
+def _seed_macro_and_peers(
+    plan_obj: Dict[str, Any],
+    ticker: str,
+    sector_key: str,
+    ledger,
+    available_names: List[str],
+    iteration: int,
+) -> Dict[str, Any]:
+    """Guarantee macro_context and peer_compare get called when relevant.
+
+    macro_context is global, free, and 1h-cached — every research run should
+    have it. peer_compare is free when the sector is known. We inject either
+    tool only if the planner LLM didn't already pick it AND it hasn't been
+    called this session.
+    """
+    already_called = {r.tool_name for r in ledger.results}
+    already_planned = {c.get("tool") for c in plan_obj.get("next_calls", [])}
+
+    if iteration > 1:
+        return plan_obj  # only seed in the early rounds
+
+    additions: List[Dict[str, Any]] = []
+
+    if (
+        "macro_context" in available_names
+        and "macro_context" not in already_called
+        and "macro_context" not in already_planned
+    ):
+        additions.append({
+            "tool": "macro_context",
+            "args": {"ticker": ticker},
+            "reason": "Always include macro regime — global, free, and 1h-cached.",
+        })
+
+    has_sector_cohort = bool(sector_key) and sector_key.lower() not in ("", "unknown", "other")
+    if (
+        has_sector_cohort
+        and "peer_compare" in available_names
+        and "peer_compare" not in already_called
+        and "peer_compare" not in already_planned
+    ):
+        additions.append({
+            "tool": "peer_compare",
+            "args": {"ticker": ticker, "sector": sector_key},
+            "reason": f"Sector cohort known ({sector_key}); contextualize valuation against peers.",
+        })
+
+    if not additions:
+        return plan_obj
+
+    combined = additions + list(plan_obj.get("next_calls", []))
+    combined = combined[:MAX_CALLS_PER_ROUND]
+    plan_obj["next_calls"] = combined
+    # If we added anything, we shouldn't be 'done' just yet
+    if combined:
+        plan_obj["done"] = False
+    return plan_obj
+
+
 def plan(
     ticker: str,
     memo_open_questions: List[str],
@@ -183,13 +242,16 @@ def plan(
         raw = provider.complete_json(PLANNER_SYSTEM, prompt_user, model)
     except Exception as e:
         logger.warning(f"Planner LLM failed: {e} — falling back to default plan")
-        return _fallback_plan(ticker, ledger, required_tools, available_names)
+        fallback = _fallback_plan(ticker, ledger, required_tools, available_names)
+        return _seed_macro_and_peers(fallback, ticker, sector_key, ledger, available_names, iteration)
 
     if not isinstance(raw, dict) or "next_calls" not in raw:
         logger.warning(f"Planner returned unexpected shape; falling back")
-        return _fallback_plan(ticker, ledger, required_tools, available_names)
+        fallback = _fallback_plan(ticker, ledger, required_tools, available_names)
+        return _seed_macro_and_peers(fallback, ticker, sector_key, ledger, available_names, iteration)
 
-    return _validate_plan(raw, available_names, ticker)
+    validated = _validate_plan(raw, available_names, ticker)
+    return _seed_macro_and_peers(validated, ticker, sector_key, ledger, available_names, iteration)
 
 
 def _fallback_plan(
