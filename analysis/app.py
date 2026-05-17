@@ -3099,6 +3099,22 @@ def advisor_run_digest():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/advisor/calibration', methods=['GET'])
+def advisor_calibration():
+    """Aggregate stats over recommendation outcomes (win rates, avg return)."""
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+    try:
+        import outcome_worker
+        backfill = bool(request.args.get('backfill', '').lower() in ('1', 'true', 'yes'))
+        if backfill:
+            outcome_worker.run_backfill_once()
+        return jsonify(outcome_worker.calibration_summary())
+    except Exception as e:
+        logging.getLogger(__name__).exception("advisor_calibration failed")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/advisor/digest', methods=['GET'])
 def advisor_digest():
     """Return recent digest entries (default last 7 days)."""
@@ -3126,6 +3142,11 @@ if __name__ == '__main__':
             monitoring_worker.start_background_worker()
         except Exception as _e:
             logging.getLogger(__name__).warning(f"monitoring_worker disabled: {_e}")
+        try:
+            import outcome_worker
+            outcome_worker.start_background_worker()
+        except Exception as _e:
+            logging.getLogger(__name__).warning(f"outcome_worker disabled: {_e}")
 
     print("\n" + "=" * 60)
     print("   Portfolio Intelligence Tool — API Server")
