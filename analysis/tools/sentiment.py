@@ -57,14 +57,28 @@ class SentimentTool(Tool):
             )
 
         sources_used = data.get("sources_used", []) or []
-        confidence = "high" if len(sources_used) >= 2 else ("medium" if sources_used else "low")
+        news_method = data.get("news_method", "none")
+
+        # Confidence reflects how the headlines were scored. A keyword fallback
+        # is worse than an LLM scoring; "none" means no headlines at all.
+        if news_method == "llm" and len(sources_used) >= 2:
+            confidence = "high"
+        elif news_method == "llm" or len(sources_used) >= 2:
+            confidence = "medium"
+        elif sources_used:
+            confidence = "low"
+        else:
+            confidence = "low"
+
+        # Charge only when the LLM was actually invoked.
+        actual_cost = self.estimate_cost() if news_method == "llm" else 0.0
 
         return ToolResult(
             tool_name=self.name,
             data=data,
             sources=_build_sources(ticker, data),
             confidence=confidence,
-            cost_usd=self.estimate_cost(),
+            cost_usd=actual_cost,
         )
 
 
@@ -74,12 +88,20 @@ def _build_sources(ticker: str, data: Dict) -> List[Source]:
     sources_used = data.get("sources_used", []) or []
 
     if "news" in sources_used:
+        method = data.get("news_method", "none")
+        n = data.get("news_headlines_scored", 0)
+        if method == "llm":
+            note = f"Finnhub / yfinance company news, LLM-scored ({n} headlines)"
+        elif method == "keyword":
+            note = f"Finnhub / yfinance company news, keyword-scored fallback ({n} headlines)"
+        else:
+            note = "Finnhub / yfinance company news (no scoring method applied)"
         sources.append(Source(
             tool="sentiment",
             field="news_score",
             fetched_at=now,
             url=None,
-            note="Finnhub / yfinance company news, LLM-scored",
+            note=note,
         ))
 
     # Analyst is always queried (may be empty if no Finnhub key)

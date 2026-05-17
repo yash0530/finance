@@ -324,26 +324,33 @@ def get_reddit_sentiment(ticker: str, days_back: int = 3) -> Dict:
 # LLM News Sentiment Scoring
 # ============================================================================
 
-def score_news_with_llm(articles: List[Dict], ticker: str) -> Dict:
+def score_news_with_llm(articles: List[Dict], ticker: str, max_headlines: int = 10) -> Dict:
     """Score a set of news articles using the LLM sentiment scorer.
 
-    Falls back to keyword heuristic if LLM unavailable.
+    Caps headlines at max_headlines (default 10) to bound LLM cost. Falls back
+    to a keyword heuristic if the LLM is unavailable. The returned dict carries
+    a 'method' field ('llm' | 'keyword' | 'none') so callers can honestly
+    surface confidence and cost.
     """
     if not articles:
-        return {"score": 5.0, "label": "neutral", "reasoning": "No news available"}
+        return {"score": 5.0, "label": "neutral", "reasoning": "No news available", "method": "none", "n_headlines": 0}
 
-    headlines = [a["headline"] for a in articles if a.get("headline")]
+    headlines = [a["headline"] for a in articles if a.get("headline")][:max_headlines]
 
     try:
         from llm_service import score_sentiment
         result = score_sentiment(headlines, ticker)
-        if "error" not in result:
+        if isinstance(result, dict) and "error" not in result and "score" in result:
+            result["method"] = "llm"
+            result["n_headlines"] = len(headlines)
             return result
     except Exception as e:
         logger.warning(f"LLM sentiment scoring failed: {e}")
 
-    # Fallback: keyword heuristic
-    return _keyword_sentiment(headlines)
+    fallback = _keyword_sentiment(headlines)
+    fallback["method"] = "keyword"
+    fallback["n_headlines"] = len(headlines)
+    return fallback
 
 
 def _keyword_sentiment(headlines: List[str]) -> Dict:
@@ -451,7 +458,7 @@ def get_composite_sentiment(ticker: str) -> Dict:
             weights_used["news"] = _WEIGHTS["news"] + _WEIGHTS["yf_news"]
             finnhub_articles = yf_articles  # Use for headline display
         else:
-            news_sentiment = {"score": 5.0}
+            news_sentiment = {"score": 5.0, "method": "none", "n_headlines": 0}
 
     # 2. Analyst ratings
     analyst = get_analyst_ratings(ticker)
@@ -487,6 +494,9 @@ def get_composite_sentiment(ticker: str) -> Dict:
         "composite_score": composite,
         "label": label,
         "news_score": round(scores.get("news", 5.0), 2),
+        "news_method": news_sentiment.get("method", "none"),
+        "news_headlines_scored": news_sentiment.get("n_headlines", 0),
+        "news_reasoning": news_sentiment.get("reasoning", ""),
         "analyst_score": round(analyst_score, 2),
         "reddit_score": round(scores.get("reddit", 5.0), 2),
         "analyst_rating": analyst.get("rating", "N/A"),
