@@ -3133,6 +3133,98 @@ def advisor_digest():
         return jsonify({'error': str(e)}), 500
 
 
+# ============================================================================
+# /api/docs — in-app docs surface (D1)
+# ============================================================================
+
+# Whitelist: slug → (filename, title, category, order). Filenames are
+# resolved against analysis/docs/ and the slug→filename mapping prevents
+# path traversal. Only files listed here are served.
+_DOCS_MANIFEST = [
+    {"slug": "getting-started", "file": "getting_started.md",
+     "title": "Getting Started", "category": "Start here", "order": 1},
+    {"slug": "how-to-invest", "file": "how_to_invest.md",
+     "title": "How to Invest with This Tool", "category": "Start here", "order": 2},
+    {"slug": "understanding-outputs", "file": "understanding_outputs.md",
+     "title": "Understanding the Outputs", "category": "Daily use", "order": 3},
+    {"slug": "troubleshooting", "file": "troubleshooting.md",
+     "title": "Troubleshooting", "category": "Daily use", "order": 4},
+    {"slug": "architecture", "file": "architecture.md",
+     "title": "Architecture Overview", "category": "Reference", "order": 5},
+]
+_DOCS_BY_SLUG = {d["slug"]: d for d in _DOCS_MANIFEST}
+
+
+def _docs_dir():
+    import os
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs")
+
+
+@app.route('/api/docs', methods=['GET'])
+def list_docs():
+    """List user-facing guides with metadata. Skips entries whose file is missing."""
+    import os
+    available = []
+    for entry in _DOCS_MANIFEST:
+        path = os.path.join(_docs_dir(), entry["file"])
+        if os.path.isfile(path):
+            available.append({k: entry[k] for k in ("slug", "title", "category", "order")})
+    available.sort(key=lambda d: (d["order"], d["title"]))
+    return jsonify({"docs": available, "count": len(available)})
+
+
+@app.route('/api/docs/<slug>', methods=['GET'])
+def get_doc(slug):
+    """Return the rendered markdown body for a single guide.
+
+    Slug-to-filename lookup is whitelisted in _DOCS_BY_SLUG to prevent path
+    traversal. The response includes a minimal table-of-contents extracted
+    from H2/H3 headings so the UI can render scroll-spy without a markdown
+    parser on the server side.
+    """
+    import os
+    import re
+
+    entry = _DOCS_BY_SLUG.get(slug)
+    if not entry:
+        return jsonify({"error": f"Unknown doc slug '{slug}'"}), 404
+
+    path = os.path.join(_docs_dir(), entry["file"])
+    if not os.path.isfile(path):
+        return jsonify({"error": f"Doc file missing for slug '{slug}'"}), 404
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            body = f.read()
+    except Exception as e:
+        return jsonify({"error": f"Failed to read doc: {e}"}), 500
+
+    # Cheap TOC: pull H2/H3 from raw markdown (ignore lines inside fenced code).
+    toc = []
+    in_fence = False
+    for line in body.splitlines():
+        if line.startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        m = re.match(r"^(#{2,3})\s+(.+?)\s*$", line)
+        if m:
+            level = len(m.group(1))
+            text = m.group(2).strip()
+            anchor = re.sub(r"[^a-z0-9\s-]", "", text.lower()).strip().replace(" ", "-")
+            toc.append({"level": level, "text": text, "anchor": anchor})
+
+    return jsonify({
+        "slug": slug,
+        "title": entry["title"],
+        "category": entry["category"],
+        "order": entry["order"],
+        "body": body,
+        "toc": toc,
+    })
+
+
 if __name__ == '__main__':
     if PORTFOLIO_ENABLED:
         import alert_worker
