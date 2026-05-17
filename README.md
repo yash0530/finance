@@ -567,3 +567,230 @@ Conditions: `above` · `below` · `change_pct_up` · `change_pct_down`
 | `POST` | `/api/refresh` | Force fresh data fetch |
 | `GET` | `/api/spotlight` | Curated spotlight categories |
 | `GET` | `/api/health` | Health check |
+
+---
+
+## Database Schema
+
+SQLite database stored at `~/.portfolio_intelligence/finance.db`. 22 tables total — 5 v1 (unchanged) + 17 v2 (additive).
+
+### v1 Tables (unchanged)
+
+```sql
+portfolio_holdings  (id, ticker, shares, avg_cost, source, synced_at)
+watchlist           (id, ticker UNIQUE, added_at, notes)
+alerts              (id, ticker, condition, threshold, is_active, is_triggered, triggered_at, created_at)
+research_cache      (id, ticker UNIQUE, report_json, llm_provider, generated_at)
+llm_settings        (id=1 singleton, provider, model_fast, model_deep, api_key, base_url, updated_at)
+```
+
+### v2 Tables (new)
+
+```sql
+-- Research
+research_reports            (id UUID, ticker, report_json, llm_conversations, llm_provider, llm_model, generated_at, version)
+tool_call_log               (id, report_id, tool_name, args_json, result_summary, sources_json, confidence, cost_usd, latency_ms, cached, error, called_at)
+recommendations             (id, report_id, ticker, recommendation, conviction, price_at_recommendation, target_low, target_high, stop_loss, what_would_change_mind, outcome_1m/3m/6m/1y_return_pct, ...)
+
+-- Living Memo
+living_memo                 (ticker PK, current_version, content_md, content_json, updated_at)
+living_memo_versions        (id, ticker, version, content_md, content_json, delta_summary, source_report_id, user_edited, created_at)
+
+-- Tool caches
+tool_result_cache           (id, tool_name, cache_key UNIQUE, result_json, fetched_at)
+transcripts_cache           (id, ticker, quarter UNIQUE, transcript_text, source, fetched_at)
+insider_trades_cache        (id, ticker, filing_date, insider_name, insider_role, transaction_type, shares, price, total_value, raw_filing_url, fetched_at)
+institutional_holdings_cache(id, ticker, quarter, holder_name, shares, value_usd, pct_of_holder_portfolio, qoq_delta_shares, fetched_at)
+options_metrics_cache       (id, ticker, snapshot_date UNIQUE, iv_rank, put_call_ratio, skew, unusual_json, fetched_at)
+
+-- Sector + catalysts
+sector_classification_cache (ticker PK, sector_key, gics_industry, method, classified_at, manual_override)
+catalysts                   (id, ticker, event_type, event_date, description, source, created_at)
+
+-- Monitoring
+monitoring_digest           (id, ticker, digest_date UNIQUE, items_json, created_at)
+monitoring_enabled          (ticker PK, enabled_at)
+```
+
+---
+
+## LLM Configuration
+
+Switch providers at any time from the **Settings** page without restarting the server.
+
+### Google Gemini (recommended for cost/quality balance)
+
+1. Get a free API key at [aistudio.google.com](https://aistudio.google.com/app/apikey)
+2. Set `GOOGLE_API_KEY` in `.env` or enter it in Settings
+3. Suggested: Fast = `gemini-2.0-flash`, Deep = `gemini-2.5-pro`
+
+### Anthropic Claude (best reasoning quality)
+
+1. Get an API key at [console.anthropic.com](https://console.anthropic.com/)
+2. Set `ANTHROPIC_API_KEY` in `.env` or enter it in Settings
+3. Suggested: Fast = `claude-3-5-haiku-20241022`, Deep = `claude-opus-4-5`
+
+### Ollama (local, no cost)
+
+1. Install Ollama: [ollama.ai](https://ollama.ai)
+2. Pull a model: `ollama pull llama3.2`
+3. Ensure Ollama is running: `ollama serve`
+4. Set `OLLAMA_BASE_URL=http://localhost:11434` in `.env`
+5. Suggested: Fast = `llama3.2`, Deep = `mistral` or `llama3.1:8b`
+
+> Note: Ollama is only viable for the Quick budget profile. Reasoning quality on the multi-agent debate is materially lower than cloud models.
+
+---
+
+## CLI Usage
+
+`companies.py` runs standalone for S&P 500 data fetching and CSV export.
+
+```bash
+cd analysis
+
+# Standard run (uses 12-hour cache if available)
+python3 companies.py
+
+# Force fresh data fetch from yfinance
+python3 companies.py --no-cache
+```
+
+Output: `sp500_analysis.csv` and `.cache/sp500_data.json`.
+
+---
+
+## Testing
+
+97 tests, all passing. Run with:
+
+```bash
+cd analysis
+python3 -m pytest tests/ -v
+```
+
+Test files:
+
+| File | What it covers |
+|------|---------------|
+| `test_agent_loop.py` | End-to-end agentic pipeline with FakeProvider (no LLM API calls) |
+| `test_living_memo.py` | Memo save/load, versioning, rendering, open question extraction |
+| `test_sector_router.py` | Classification rules, cache, manual override, analyzer interface |
+| `test_tools_foundation.py` | Tool base class, ToolResult, Budget, EvidenceLedger, registry |
+| `test_v1_tool_wrappers.py` | v2 Tool wrappers for v1 functions (fundamentals, technicals, DCF, etc.) |
+| `test_phase1_tools.py` | QoE forensics, macro context, catalyst lookup, alt data |
+| `test_phase1_market_tools.py` | Insider Form 4, institutional 13F, options flow, transcripts |
+| `test_db_v2.py` | All v2 DB CRUD functions |
+
+Tests use `conftest.py` to redirect `HOME` to a temp directory so they never touch your real database.
+
+---
+
+## Project Structure
+
+```
+analysis/
+├── app.py                    # Flask REST API — all routes
+├── agent_loop.py             # v2 agentic orchestrator
+├── living_memo.py            # Per-ticker versioned knowledge document
+├── sector_router.py          # Ticker → sector classification
+├── db.py                     # SQLite abstraction (22 tables)
+├── llm_service.py            # Multi-provider LLM abstraction
+├── research_engine.py        # v1 fixed pipeline functions (preserved)
+├── research_stream.py        # v1 SSE pipeline (preserved)
+├── portfolio_service.py      # Robinhood + CSV ingestion, P&L enrichment
+├── sentiment_service.py      # Composite sentiment scoring
+├── edgar_service.py          # SEC EDGAR filing fetcher + summarizer
+├── rebalancing_engine.py     # Risk-profile portfolio analysis
+├── alert_worker.py           # Background price polling daemon
+├── companies.py              # S&P 500 batch fetch (legacy CLI)
+├── requirements.txt
+├── start.sh                  # One-command launcher (Flask + Vite)
+├── .env.example
+├── CLAUDE.md                 # Backend conventions for Claude Code
+│
+├── agents/
+│   ├── planner.py            # Investigation planner agent
+│   ├── bull.py               # Bull case agent
+│   ├── bear.py               # Bear case + attack agent
+│   ├── judge.py              # Verdict + trade plan agent
+│   ├── self_critique.py      # Adversarial verdict reviewer
+│   ├── memo_synth.py         # Living Memo delta proposer
+│   └── CLAUDE.md             # Agent conventions for Claude Code
+│
+├── tools/
+│   ├── __init__.py           # Tool base class, registry, Budget, EvidenceLedger
+│   ├── fundamentals.py
+│   ├── financial_trends.py
+│   ├── technicals.py
+│   ├── dcf_valuation.py
+│   ├── sentiment.py
+│   ├── edgar_filings.py
+│   ├── qoe_forensics.py
+│   ├── macro_context.py
+│   ├── insider_form4.py
+│   ├── institutional_13f.py
+│   ├── options_flow.py
+│   ├── transcripts.py
+│   ├── catalyst_lookup.py
+│   ├── peer_compare.py
+│   ├── alt_data.py
+│   ├── memo_read.py
+│   └── CLAUDE.md             # Tool conventions for Claude Code
+│
+├── analyzers/
+│   ├── saas.py               # SaaS / cloud software
+│   ├── banks.py              # Banks & capital markets
+│   ├── reits.py              # REITs / real estate
+│   ├── biotech.py            # Biotech & pharma
+│   ├── energy.py             # Oil & gas / energy
+│   ├── semis.py              # Semiconductors
+│   ├── consumer.py           # Consumer / retail
+│   └── generic.py            # Default fallback
+│
+├── tests/
+│   ├── conftest.py
+│   ├── test_agent_loop.py
+│   ├── test_living_memo.py
+│   ├── test_sector_router.py
+│   ├── test_tools_foundation.py
+│   ├── test_v1_tool_wrappers.py
+│   ├── test_phase1_tools.py
+│   ├── test_phase1_market_tools.py
+│   └── test_db_v2.py
+│
+├── docs/
+│   ├── deep_research_guide.md  # Power-user guide to v2 research
+│   ├── next_gen_tool.md        # Full engineering spec
+│   └── spec.md                 # Original v1 spec
+│
+└── web/                        # React frontend
+    ├── src/
+    │   ├── App.jsx             # Root component + routing
+    │   ├── components/         # Reusable UI components
+    │   └── pages/
+    │       ├── PortfolioPage.jsx
+    │       ├── DeepResearchV2Page.jsx   # NEW — v2 agentic UI
+    │       ├── DeepResearchPage.jsx     # v1 fixed pipeline UI
+    │       ├── ResearchPage.jsx
+    │       ├── ResearchHistoryPage.jsx
+    │       ├── WatchlistPage.jsx
+    │       ├── RebalancePage.jsx
+    │       ├── AlertsPage.jsx
+    │       ├── MarketPage.jsx
+    │       └── LLMSettingsPage.jsx
+    ├── tests/e2e/              # Playwright end-to-end tests
+    ├── CLAUDE.md               # Frontend conventions for Claude Code
+    └── package.json
+```
+
+---
+
+## Notes
+
+- The Robinhood integration uses the unofficial `robin_stocks` library. Robinhood does not provide an official public API.
+- SEC EDGAR requests require a descriptive `User-Agent` header per [SEC developer guidelines](https://www.sec.gov/developer). Set `EDGAR_USER_AGENT` in `.env`.
+- yfinance is an unofficial Yahoo Finance client. Data is generally reliable but not guaranteed.
+- Earnings transcripts require a free [Financial Modeling Prep](https://financialmodelingprep.com) API key (`FMP_API_KEY`). The tool degrades gracefully without it.
+- All LLM-generated content (investment theses, recommendations) is for informational purposes only and does not constitute financial advice.
+- The calibration system tracks recommendation outcomes but requires a nightly job (not yet implemented) to backfill `outcome_*` columns in the `recommendations` table.
