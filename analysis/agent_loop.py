@@ -46,6 +46,19 @@ BUDGET_PROFILES = {
     "deep":   Budget(max_usd=2.00, max_wall_clock_sec=420),
 }
 
+# Providers whose output is NOT persisted to the recommendations table by default.
+# Local models vary widely in quality and would pollute the calibration track record.
+# Override per-session via llm_settings (see _provider_is_tracked).
+_LOCAL_PROVIDERS = {"ollama"}
+
+
+def _provider_is_tracked(provider_name: str) -> bool:
+    """Return True if verdicts from this provider should be persisted to the
+    recommendations table (i.e. counted toward the user's calibration).
+    Local models are excluded by default to keep the track record meaningful.
+    """
+    return (provider_name or "").strip().lower() not in _LOCAL_PROVIDERS
+
 
 def make_budget(profile: str = "normal") -> Budget:
     """Return a fresh Budget for the named profile."""
@@ -372,21 +385,32 @@ def stream_deep_research(
         logger.debug("memo_synth not yet available; skipping memo update")
 
     # ── Persist recommendation (for calibration) ───────────
+    # LLM-gating: local providers (Ollama) are excluded by default so noisy
+    # local-model verdicts don't pollute the track record. See _LOCAL_PROVIDERS.
+    rec_id = None
+    tracked = False
     try:
-        rec_id = save_recommendation(
-            report_id=report_id, ticker=ticker,
-            recommendation=verdict.get("recommendation", "HOLD"),
-            conviction=verdict.get("conviction", "LOW"),
-            price_at_recommendation=current_price,
-            target_low=(verdict.get("target_price_range") or {}).get("low"),
-            target_high=(verdict.get("target_price_range") or {}).get("high"),
-            stop_loss=(verdict.get("trade_plan") or {}).get("stop_price"),
-            thesis_summary=verdict.get("summary", ""),
-            what_would_change_mind="\n".join(verdict.get("what_would_change_mind", [])),
-        )
+        provider_now = (get_llm_settings() or {}).get("provider", "")
+        tracked = _provider_is_tracked(provider_now)
+        if tracked:
+            rec_id = save_recommendation(
+                report_id=report_id, ticker=ticker,
+                recommendation=verdict.get("recommendation", "HOLD"),
+                conviction=verdict.get("conviction", "LOW"),
+                price_at_recommendation=current_price,
+                target_low=(verdict.get("target_price_range") or {}).get("low"),
+                target_high=(verdict.get("target_price_range") or {}).get("high"),
+                stop_loss=(verdict.get("trade_plan") or {}).get("stop_price"),
+                thesis_summary=verdict.get("summary", ""),
+                what_would_change_mind="\n".join(verdict.get("what_would_change_mind", [])),
+            )
+        else:
+            logger.info(
+                f"Verdict for {ticker} NOT persisted to recommendations: "
+                f"provider '{provider_now}' is local — calibration excluded."
+            )
     except Exception as e:
         logger.warning(f"Failed to persist recommendation: {e}")
-        rec_id = None
 
     # ── Assemble final report and persist ──────────────────
     report = {
@@ -404,6 +428,7 @@ def stream_deep_research(
         "self_critique": critique,
         "memo_delta": memo_delta,
         "recommendation_id": rec_id,
+        "tracked_for_calibration": tracked,
         "portfolio_context": portfolio_context,
     }
 

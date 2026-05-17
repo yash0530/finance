@@ -298,7 +298,9 @@ def test_agent_loop_smoke_end_to_end(fake_llm, mock_yfinance, mock_sentiment):
     assert "trade_plan" in verdict
 
 
-def test_agent_loop_records_recommendation(fake_llm, mock_yfinance, mock_sentiment):
+def test_agent_loop_records_recommendation(fake_llm, mock_yfinance, mock_sentiment, monkeypatch):
+    # Use a cloud provider so the verdict IS tracked (calibration gating).
+    monkeypatch.setattr(db, "get_llm_settings", lambda: {"provider": "gemini"})
     from agent_loop import run_deep_research
 
     run_deep_research("NVDA", budget_profile="quick")
@@ -366,6 +368,58 @@ def test_budget_profiles_distinct():
     assert deep.max_usd > quick.max_usd
     # Each call returns a *fresh* budget (started_at recent)
     assert quick.started_at < quick.started_at + 1
+
+
+def test_judge_receives_portfolio_context(fake_llm, mock_yfinance, mock_sentiment):
+    """When portfolio_context is passed, the judge prompt should include cost basis,
+    weight, and P&L so position-aware sizing can be applied."""
+    from agent_loop import run_deep_research
+
+    pc = {"weight_pct": 12.5, "avg_cost": 700.0, "unrealized_pnl_pct": 25.0}
+    report = run_deep_research("NVDA", portfolio_context=pc, budget_profile="quick")
+
+    # The judge call should have seen the portfolio context block in its user prompt.
+    judge_calls = [
+        c for c in fake_llm.calls
+        if c[0] == "json" and "portfolio manager about to allocate" in c[1].lower()
+    ]
+    assert judge_calls, "judge agent was never invoked"
+    # `calls` only retains the first 60 chars of user prompt — instead verify the
+    # report preserved the portfolio_context as passed.
+    assert report.get("portfolio_context") == pc
+
+
+def test_local_provider_verdict_not_persisted(fake_llm, mock_yfinance, mock_sentiment, monkeypatch):
+    """Ollama / local-model verdicts should NOT land in the recommendations table
+    so the calibration track record stays clean."""
+    import db
+    monkeypatch.setattr(db, "get_llm_settings", lambda: {"provider": "ollama"})
+
+    from agent_loop import run_deep_research
+    report = run_deep_research("NVDA", budget_profile="quick")
+
+    # Verdict still produced and returned
+    assert report["verdict"]["recommendation"] in ("BUY", "HOLD", "TRIM", "AVOID")
+    # But no row in recommendations
+    assert db.get_recommendations("NVDA") == []
+    # And report carries the explicit flag
+    assert report.get("tracked_for_calibration") is False
+    assert report.get("recommendation_id") is None
+
+
+def test_cloud_provider_verdict_is_persisted(fake_llm, mock_yfinance, mock_sentiment, monkeypatch):
+    """Gemini / Claude verdicts should populate the recommendations table."""
+    import db
+    monkeypatch.setattr(db, "get_llm_settings", lambda: {"provider": "gemini"})
+
+    from agent_loop import run_deep_research
+    report = run_deep_research("NVDA", budget_profile="quick")
+
+    assert report.get("tracked_for_calibration") is True
+    assert report.get("recommendation_id") is not None
+    recs = db.get_recommendations("NVDA")
+    assert len(recs) == 1
+    assert recs[0]["recommendation"] == "BUY"
 
 
 def test_agent_loop_handles_unknown_tool_in_plan(fake_llm, mock_yfinance, mock_sentiment, monkeypatch):

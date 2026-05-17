@@ -12,7 +12,7 @@ from typing import Any, Dict
 logger = logging.getLogger(__name__)
 
 
-JUDGE_SYSTEM = """You are a portfolio manager about to allocate real capital.
+JUDGE_SYSTEM = """You are a portfolio manager about to allocate real capital for an individual investor.
 
 You receive a bull case, a bear case, and the raw evidence. Your job:
 1. Weigh both sides and produce a recommendation
@@ -24,6 +24,12 @@ Conviction calibration:
 - HIGH: multiple independent supports; bear case addressed with evidence; falsifiability conditions clear and distant
 - MEDIUM: thesis reasonable but at least one bear argument partially unresolved, OR key evidence missing
 - LOW: significant unresolved questions; flag for further research not capital deployment
+
+If USER PORTFOLIO CONTEXT is provided, the user already owns this stock — your recommendation MUST be position-aware:
+- Recommendation choice: prefer TRIM over AVOID when an existing position has appreciated and the thesis is only partially impaired; reserve AVOID for thesis-broken cases requiring full exit.
+- Position sizing: position_size_pct is the TARGET weight after acting, not an incremental add. If current weight already exceeds the target, the implicit action is to trim down; if below, it's to add up.
+- Cost-basis sensitivity: if unrealized_pnl_pct is materially positive (>+30%) and the bear case has merit, lean toward TRIM rather than HOLD to crystallize gains.
+- Concentration: never recommend pushing a single name above 15% of portfolio regardless of conviction.
 
 Output STRICT JSON only."""
 
@@ -44,13 +50,31 @@ def _build_judge_prompt(
 
     pc_block = ""
     if portfolio_context:
-        pc_block = f"""
-USER PORTFOLIO CONTEXT:
-- Existing position: {portfolio_context.get('weight_pct', 0)}% weight
-- Total portfolio value: ${portfolio_context.get('total_value', 'unknown')}
-- Sector concentration: {portfolio_context.get('sector_weight_pct', 'unknown')}%
-Use this to size the recommendation appropriately.
-"""
+        weight = portfolio_context.get('weight_pct')
+        cost = portfolio_context.get('avg_cost')
+        pnl = portfolio_context.get('unrealized_pnl_pct')
+        sector_w = portfolio_context.get('sector_weight_pct')
+        total_v = portfolio_context.get('total_value')
+        lines = ["USER PORTFOLIO CONTEXT (the user ALREADY OWNS this position):"]
+        if weight is not None:
+            lines.append(f"- Current weight: {weight:.2f}% of portfolio")
+        if cost is not None:
+            lines.append(f"- Avg cost basis: ${cost}")
+        if pnl is not None:
+            lines.append(f"- Unrealized P&L: {pnl:+.2f}% vs cost")
+        if sector_w is not None:
+            lines.append(f"- Sector concentration: {sector_w}%")
+        if total_v is not None:
+            lines.append(f"- Total portfolio value: ${total_v}")
+        lines.append("")
+        lines.append("Position-aware sizing rules:")
+        lines.append("- position_size_pct is the TARGET weight after the trade (not an incremental add).")
+        lines.append("- If you want to trim: target_weight < current_weight, recommendation TRIM.")
+        lines.append("- If you want to add: target_weight > current_weight, recommendation BUY.")
+        lines.append("- If thesis intact and weight in band (e.g. 5-12%): HOLD with position_size_pct = current_weight.")
+        lines.append("- AVOID/SELL means target weight = 0 (full exit).")
+        lines.append("- Hard cap: never set position_size_pct above 15% regardless of conviction.")
+        pc_block = "\n".join(lines)
 
     return f"""TICKER: {ticker}
 CURRENT PRICE: ${current_price}
