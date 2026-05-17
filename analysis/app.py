@@ -2381,6 +2381,33 @@ def portfolio_summary():
     return jsonify(convert_numpy_types(summary))
 
 
+@app.route('/api/portfolio/rebalance', methods=['GET'])
+def portfolio_rebalance():
+    """Holdings × latest Deep Research recommendation → TRIM/ADD/EXIT/HOLD.
+
+    Query params:
+        profile: 'conservative' | 'moderate' | 'aggressive' (default 'moderate')
+    """
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+
+    import rebalancing_engine
+    profile = request.args.get('profile', 'moderate')
+    holdings = portfolio_svc.get_enriched_holdings()
+    summary = portfolio_svc.get_portfolio_summary(holdings)
+    analysis = rebalancing_engine.analyze_portfolio(holdings, profile)
+
+    return jsonify(convert_numpy_types({
+        'profile': analysis['profile'],
+        'rules': analysis['rules'],
+        'issues': analysis['issues'],
+        'actions': analysis['actions'],
+        'research_coverage': analysis['research_coverage'],
+        'holdings': holdings,
+        'summary': summary,
+    }))
+
+
 # ============================================================================
 # LLM Settings Routes
 # ============================================================================

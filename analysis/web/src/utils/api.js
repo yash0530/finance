@@ -104,6 +104,9 @@ export const importPortfolioCSV = (csv) =>
 export const getPortfolioHoldings = () => apiFetch(`${API_BASE}/portfolio/holdings`);
 export const getPortfolioSummary = () => apiFetch(`${API_BASE}/portfolio/summary`);
 
+export const getRebalanceAnalysis = (profile = 'moderate') =>
+    apiFetch(`${API_BASE}/portfolio/rebalance?profile=${encodeURIComponent(profile)}`);
+
 // ──────────────────────────────────────────────────────────
 // Research
 // ──────────────────────────────────────────────────────────

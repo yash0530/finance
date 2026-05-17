@@ -1,98 +1,110 @@
 import { useState, useEffect } from 'react';
-import { getPortfolioHoldings, getResearchReport } from '../utils/api';
+import { getRebalanceAnalysis } from '../utils/api';
 
-const RISK_PROFILES = {
-    conservative:  { label: 'Conservative',  maxSingle: 10, maxSector: 25, minPositions: 15 },
-    moderate:      { label: 'Moderate',       maxSingle: 15, maxSector: 35, minPositions: 10 },
-    aggressive:    { label: 'Aggressive',     maxSingle: 25, maxSector: 50, minPositions: 5  },
+const PROFILE_LABELS = {
+    conservative: 'Conservative',
+    moderate:     'Moderate',
+    aggressive:   'Aggressive',
 };
 
-function analyzePortfolio(holdings, profile) {
-    if (!holdings?.length) return null;
+const urgencyColors = { high: 'badge-red', medium: 'badge-yellow', low: 'badge-blue' };
+const actionColors  = {
+    TRIM:   'badge-red',
+    EXIT:   'badge-red',
+    ADD:    'badge-green',
+    HOLD:   'badge-gray',
+    REVIEW: 'badge-yellow',
+};
+const sourceLabel = {
+    research:   'Research-driven',
+    mechanical: 'Risk-rule',
+};
 
-    const rules = RISK_PROFILES[profile];
-    const total  = holdings.reduce((s, h) => s + (h.current_value || 0), 0);
-    const issues = [];
-    const actions = [];
-
-    // Over-concentration check
-    for (const h of holdings) {
-        const pct = h.weight_pct || ((h.current_value || 0) / total * 100);
-        if (pct > rules.maxSingle) {
-            issues.push({ type: 'overweight', ticker: h.ticker, pct: pct.toFixed(1) });
-            actions.push({
-                action: 'TRIM',
-                ticker: h.ticker,
-                reason: `${pct.toFixed(1)}% weight exceeds ${rules.maxSingle}% limit`,
-                urgency: pct > rules.maxSingle * 1.5 ? 'high' : 'medium',
-            });
-        }
-    }
-
-    // Under-diversified
-    if (holdings.length < rules.minPositions) {
-        issues.push({ type: 'underdiversified', count: holdings.length, min: rules.minPositions });
-        actions.push({
-            action: 'ADD',
-            ticker: null,
-            reason: `Only ${holdings.length} positions — consider adding more for diversification`,
-            urgency: 'low',
-        });
-    }
-
-    // Biggest losers
-    const bigLosers = holdings
-        .filter(h => h.unrealized_pnl_pct != null && h.unrealized_pnl_pct < -20)
-        .sort((a, b) => a.unrealized_pnl_pct - b.unrealized_pnl_pct);
-
-    for (const h of bigLosers) {
-        actions.push({
-            action: 'REVIEW',
-            ticker: h.ticker,
-            reason: `Down ${h.unrealized_pnl_pct.toFixed(1)}% — evaluate thesis or cut loss`,
-            urgency: h.unrealized_pnl_pct < -35 ? 'high' : 'medium',
-        });
-    }
-
-    return { issues, actions: actions.sort((a, b) => ({ high: 0, medium: 1, low: 2 }[a.urgency] - { high: 0, medium: 1, low: 2 }[b.urgency])) };
+function ResearchChip({ research }) {
+    if (!research) return null;
+    const stale = research.stale;
+    const age = research.age_days != null ? `${research.age_days}d` : '—';
+    return (
+        <details style={{
+            marginTop: 8,
+            background: 'var(--bg-tertiary)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '6px 10px',
+            fontSize: '0.75rem',
+        }}>
+            <summary style={{ cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                <span className="badge badge-purple" style={{ marginRight: 8 }}>
+                    {research.recommendation} · {research.conviction}
+                </span>
+                <span style={{ color: stale ? 'var(--accent-red)' : 'var(--text-muted)' }}>
+                    {stale ? `⚠ stale (${age})` : `Research age: ${age}`}
+                </span>
+            </summary>
+            <div style={{ marginTop: 6, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                {research.thesis_summary && (
+                    <div style={{ marginBottom: 6 }}>
+                        <strong>Thesis:</strong> {research.thesis_summary}
+                    </div>
+                )}
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontFamily: 'JetBrains Mono, monospace' }}>
+                    {research.price_at_recommendation != null && (
+                        <span>Price@rec: ${research.price_at_recommendation.toFixed(2)}</span>
+                    )}
+                    {research.target_low != null && research.target_high != null && (
+                        <span>Target: ${research.target_low}–${research.target_high}</span>
+                    )}
+                    {research.stop_loss != null && (
+                        <span>Stop: ${research.stop_loss}</span>
+                    )}
+                </div>
+                {research.report_id && (
+                    <div style={{ marginTop: 6, color: 'var(--text-muted)' }}>
+                        Report: <code>{research.report_id}</code>
+                    </div>
+                )}
+            </div>
+        </details>
+    );
 }
 
-const urgencyColors = { high: 'badge-red', medium: 'badge-yellow', low: 'badge-blue' };
-const actionColors  = { TRIM: 'badge-red', ADD: 'badge-green', REVIEW: 'badge-yellow' };
-
 export default function RebalancePage() {
-    const [holdings, setHoldings] = useState([]);
-    const [summary, setSummary]   = useState(null);
     const [profile, setProfile]   = useState('moderate');
-    const [analysis, setAnalysis] = useState(null);
+    const [data, setData]         = useState(null);
     const [loading, setLoading]   = useState(true);
     const [error, setError]       = useState('');
 
     useEffect(() => {
-        getPortfolioHoldings()
-            .then(d => { setHoldings(d.holdings || []); setSummary(d.summary); })
+        setLoading(true);
+        setError('');
+        getRebalanceAnalysis(profile)
+            .then(setData)
             .catch(e => setError(e.message))
             .finally(() => setLoading(false));
-    }, []);
+    }, [profile]);
 
-    useEffect(() => {
-        if (holdings.length > 0) {
-            setAnalysis(analyzePortfolio(holdings, profile));
-        }
-    }, [holdings, profile]);
+    if (loading && !data) return <div className="loading-state"><div className="spinner" /></div>;
 
-    if (loading) return <div className="loading-state"><div className="spinner" /></div>;
+    const holdings = data?.holdings || [];
+    const summary  = data?.summary;
+    const actions  = data?.actions || [];
+    const issues   = data?.issues  || [];
+    const coverage = data?.research_coverage || { with_research: 0, without_research: 0 };
+    const rules    = data?.rules || {};
+    const maxSingle = rules.max_single ?? 15;
+    const minPositions = rules.min_positions ?? 10;
 
     return (
         <div className="fade-in">
             <div className="page-header">
                 <div>
                     <h1 className="page-title">Rebalance</h1>
-                    <p className="page-subtitle">Portfolio optimization recommendations</p>
+                    <p className="page-subtitle">
+                        Portfolio actions driven by your latest Deep Research verdicts
+                    </p>
                 </div>
                 <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Risk profile:</span>
-                    {Object.entries(RISK_PROFILES).map(([key, val]) => (
+                    {Object.entries(PROFILE_LABELS).map(([key, label]) => (
                         <button
                             key={key}
                             id={`profile-${key}`}
@@ -100,7 +112,7 @@ export default function RebalancePage() {
                             style={{ padding: '4px 12px', fontSize: '0.78rem' }}
                             onClick={() => setProfile(key)}
                         >
-                            {val.label}
+                            {label}
                         </button>
                     ))}
                 </div>
@@ -118,7 +130,6 @@ export default function RebalancePage() {
                 </div>
             ) : (
                 <>
-                    {/* Summary */}
                     <div className="grid grid-4" style={{ marginBottom: 'var(--spacing-lg)' }}>
                         <div className="stat-tile">
                             <div className="stat-tile-label">Portfolio Value</div>
@@ -127,65 +138,88 @@ export default function RebalancePage() {
                         <div className="stat-tile">
                             <div className="stat-tile-label">Positions</div>
                             <div className="stat-tile-value">{holdings.length}</div>
-                            <div className="stat-tile-sub">Min recommended: {RISK_PROFILES[profile].minPositions}</div>
+                            <div className="stat-tile-sub">Min recommended: {minPositions}</div>
                         </div>
                         <div className="stat-tile">
-                            <div className="stat-tile-label">Issues Found</div>
-                            <div className={`stat-tile-value ${analysis?.issues?.length ? 'value-negative' : 'value-positive'}`}>
-                                {analysis?.issues?.length ?? 0}
+                            <div className="stat-tile-label">Research Coverage</div>
+                            <div className="stat-tile-value">
+                                {coverage.with_research}/{coverage.with_research + coverage.without_research}
+                            </div>
+                            <div className="stat-tile-sub">
+                                {coverage.without_research} without research
                             </div>
                         </div>
                         <div className="stat-tile">
                             <div className="stat-tile-label">High Priority</div>
-                            <div className={`stat-tile-value ${analysis?.actions?.filter(a => a.urgency === 'high').length ? 'value-negative' : 'value-positive'}`}>
-                                {analysis?.actions?.filter(a => a.urgency === 'high').length ?? 0}
+                            <div className={`stat-tile-value ${actions.filter(a => a.urgency === 'high').length ? 'value-negative' : 'value-positive'}`}>
+                                {actions.filter(a => a.urgency === 'high').length}
                             </div>
                         </div>
                     </div>
 
-                    {/* Action items */}
-                    {analysis?.actions?.length > 0 && (
+                    {actions.length > 0 ? (
                         <div className="glass-card" style={{ marginBottom: 'var(--spacing-lg)' }}>
                             <div className="card-title" style={{ marginBottom: 'var(--spacing-md)' }}>
                                 Recommended Actions
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
-                                {analysis.actions.map((a, i) => (
+                                {actions.map((a, i) => (
                                     <div key={i} style={{
-                                        display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)',
                                         padding: 'var(--spacing-sm) var(--spacing-md)',
                                         background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)',
                                     }}>
-                                        <span className={`badge ${actionColors[a.action]}`} style={{ width: 60, justifyContent: 'center' }}>
-                                            {a.action}
-                                        </span>
-                                        {a.ticker && <span className="ticker-badge">{a.ticker}</span>}
-                                        <span style={{ flex: 1, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                                            {a.reason}
-                                        </span>
-                                        <span className={`badge ${urgencyColors[a.urgency]}`}>
-                                            {a.urgency}
-                                        </span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
+                                            <span className={`badge ${actionColors[a.action] || 'badge-gray'}`} style={{ width: 60, justifyContent: 'center' }}>
+                                                {a.action}
+                                            </span>
+                                            {a.ticker && <span className="ticker-badge">{a.ticker}</span>}
+                                            <span style={{ flex: 1, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                                                {a.reason}
+                                            </span>
+                                            <span className="badge badge-gray" style={{ fontSize: '0.68rem' }}>
+                                                {sourceLabel[a.source] || a.source}
+                                            </span>
+                                            <span className={`badge ${urgencyColors[a.urgency]}`}>
+                                                {a.urgency}
+                                            </span>
+                                        </div>
+                                        <ResearchChip research={a.research} />
                                     </div>
                                 ))}
                             </div>
                         </div>
-                    )}
-
-                    {!analysis?.actions?.length && (
+                    ) : (
                         <div className="alert alert-success" style={{ marginBottom: 'var(--spacing-lg)' }}>
-                            ✅ Portfolio looks well-balanced for your {RISK_PROFILES[profile].label.toLowerCase()} risk profile.
+                            ✅ Portfolio looks well-balanced for your {PROFILE_LABELS[profile].toLowerCase()} risk profile.
                         </div>
                     )}
 
-                    {/* Holdings with weight bars */}
+                    {issues.length > 0 && (
+                        <div className="glass-card" style={{ marginBottom: 'var(--spacing-lg)' }}>
+                            <div className="card-title" style={{ marginBottom: 'var(--spacing-md)' }}>
+                                Risk Issues ({issues.length})
+                            </div>
+                            <ul style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', paddingLeft: '1.2rem' }}>
+                                {issues.map((iss, i) => (
+                                    <li key={i} style={{ marginBottom: 4 }}>
+                                        {iss.type === 'overweight'
+                                            ? `${iss.ticker} at ${iss.pct.toFixed(1)}% exceeds ${maxSingle}% cap`
+                                            : iss.type === 'underdiversified'
+                                                ? `Only ${iss.count} positions — below ${iss.min} minimum`
+                                                : JSON.stringify(iss)}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
                     <div className="glass-card">
                         <div className="card-title" style={{ marginBottom: 'var(--spacing-md)' }}>
-                            Position Weights vs Limit ({RISK_PROFILES[profile].maxSingle}%)
+                            Position Weights vs Limit ({maxSingle}%)
                         </div>
                         {holdings.map(h => {
                             const pct = h.weight_pct || 0;
-                            const overLimit = pct > RISK_PROFILES[profile].maxSingle;
+                            const overLimit = pct > maxSingle;
                             return (
                                 <div key={h.ticker} style={{ marginBottom: 12 }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: '0.8rem' }}>
@@ -203,7 +237,7 @@ export default function RebalancePage() {
                                     <div className="sentiment-bar-track">
                                         <div style={{
                                             height: '100%',
-                                            width: `${Math.min(pct / RISK_PROFILES[profile].maxSingle * 100, 100)}%`,
+                                            width: `${Math.min(pct / maxSingle * 100, 100)}%`,
                                             background: overLimit ? 'var(--accent-red)' : 'var(--gradient-primary)',
                                             borderRadius: 'var(--radius-pill)',
                                             transition: 'width 0.5s ease',
