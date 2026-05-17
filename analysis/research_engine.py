@@ -138,6 +138,457 @@ def fetch_fundamentals(ticker: str) -> Dict:
 
 
 # ============================================================================
+# Multi-Quarter Financial Trends
+# ============================================================================
+
+def fetch_financial_trends(ticker: str) -> Dict:
+    """Pull 3-5 years of quarterly financial data and compute trajectory metrics.
+
+    Analyzes revenue, margins, FCF, EPS, debt, and returns over 8-12 quarters
+    to detect acceleration/deceleration, expansion/contraction, and quality.
+
+    Returns:
+        Dict with 'quarters' (raw data for charting) and 'signals' (computed insights).
+    """
+    try:
+        stock = yf.Ticker(ticker.upper())
+    except Exception as e:
+        logger.error(f"yfinance Ticker init failed for {ticker}: {e}")
+        return {"error": str(e), "quarters": [], "signals": {}}
+
+    quarters = []
+
+    # --- Pull quarterly financials ---
+    try:
+        inc = stock.quarterly_financials
+        bs = stock.quarterly_balance_sheet
+        cf = stock.quarterly_cashflow
+    except Exception as e:
+        logger.warning(f"Quarterly data fetch failed for {ticker}: {e}")
+        return {"error": str(e), "quarters": [], "signals": {}}
+
+    if inc is None or inc.empty:
+        return {"error": "No quarterly financials available", "quarters": [], "signals": {}}
+
+    # Columns are dates (most recent first). Transpose so rows = quarters.
+    dates = sorted(inc.columns)  # oldest first
+
+    def _safe_val(df, key, date):
+        """Safely extract a value from a DataFrame."""
+        if df is None or df.empty:
+            return None
+        for k in ([key] if isinstance(key, str) else key):
+            if k in df.index:
+                try:
+                    v = df.loc[k, date]
+                    if pd.notna(v) and v != 0:
+                        return float(v)
+                except (KeyError, TypeError):
+                    continue
+        return None
+
+    for dt in dates:
+        revenue = _safe_val(inc, ["Total Revenue", "Revenue"], dt)
+        cogs = _safe_val(inc, ["Cost Of Revenue", "Cost of Revenue"], dt)
+        gross_profit = _safe_val(inc, ["Gross Profit"], dt)
+        operating_income = _safe_val(inc, ["Operating Income", "EBIT"], dt)
+        net_income = _safe_val(inc, ["Net Income", "Net Income Common Stockholders"], dt)
+        ebitda = _safe_val(inc, ["EBITDA", "Normalized EBITDA"], dt)
+
+        # Balance sheet
+        total_debt = _safe_val(bs, ["Total Debt", "Long Term Debt"], dt)
+        total_equity = _safe_val(bs, ["Total Stockholders Equity", "Stockholders Equity", "Common Stock Equity"], dt)
+        total_assets = _safe_val(bs, ["Total Assets"], dt)
+        current_assets = _safe_val(bs, ["Current Assets", "Total Current Assets"], dt)
+        current_liabilities = _safe_val(bs, ["Current Liabilities", "Total Current Liabilities"], dt)
+        cash = _safe_val(bs, ["Cash And Cash Equivalents", "Cash Cash Equivalents And Short Term Investments"], dt)
+
+        # Cash flow
+        operating_cf = _safe_val(cf, ["Operating Cash Flow", "Total Cash From Operating Activities"], dt)
+        capex = _safe_val(cf, ["Capital Expenditure", "Capital Expenditures"], dt)
+        fcf = None
+        if operating_cf is not None and capex is not None:
+            fcf = operating_cf - abs(capex)  # capex is usually negative
+        elif operating_cf is not None:
+            fcf = operating_cf
+
+        # Compute margins
+        gross_margin = None
+        if gross_profit and revenue and revenue != 0:
+            gross_margin = round(gross_profit / revenue * 100, 2)
+        elif revenue and cogs and revenue != 0:
+            gross_margin = round((revenue - cogs) / revenue * 100, 2)
+
+        operating_margin = round(operating_income / revenue * 100, 2) if operating_income and revenue else None
+        net_margin = round(net_income / revenue * 100, 2) if net_income and revenue else None
+
+        # Debt / equity
+        debt_equity = round(total_debt / total_equity, 2) if total_debt and total_equity and total_equity != 0 else None
+
+        # ROE
+        roe = round(net_income / total_equity * 100, 2) if net_income and total_equity and total_equity != 0 else None
+
+        # Earnings quality (FCF / Net Income) — >0.8 is good, <0.5 is suspicious
+        earnings_quality = round(fcf / net_income, 2) if fcf and net_income and net_income != 0 else None
+
+        quarters.append({
+            "date": dt.strftime("%Y-%m-%d") if hasattr(dt, "strftime") else str(dt),
+            "quarter_label": f"Q{((dt.month - 1) // 3) + 1} {dt.year}" if hasattr(dt, "month") else str(dt),
+            "revenue": revenue,
+            "gross_profit": gross_profit,
+            "operating_income": operating_income,
+            "net_income": net_income,
+            "ebitda": ebitda,
+            "fcf": fcf,
+            "operating_cf": operating_cf,
+            "capex": capex,
+            "gross_margin": gross_margin,
+            "operating_margin": operating_margin,
+            "net_margin": net_margin,
+            "total_debt": total_debt,
+            "total_equity": total_equity,
+            "cash": cash,
+            "debt_equity": debt_equity,
+            "roe": roe,
+            "earnings_quality": earnings_quality,
+        })
+
+    # --- Compute trajectory signals ---
+    signals = _compute_trend_signals(quarters)
+
+    return {
+        "quarters": quarters,
+        "quarter_count": len(quarters),
+        "signals": signals,
+    }
+
+
+def _compute_trend_signals(quarters: List[Dict]) -> Dict:
+    """Compute directional trend signals from quarterly data."""
+    if len(quarters) < 2:
+        return {}
+
+    def _trend(values):
+        """Classify trend from a list of numeric values (oldest to newest)."""
+        clean = [v for v in values if v is not None]
+        if len(clean) < 2:
+            return {"direction": "insufficient_data", "values": clean}
+        recent_half = clean[len(clean) // 2:]
+        older_half = clean[:len(clean) // 2]
+        avg_recent = sum(recent_half) / len(recent_half) if recent_half else 0
+        avg_older = sum(older_half) / len(older_half) if older_half else 0
+
+        if avg_older == 0:
+            pct_change = 0
+        else:
+            pct_change = round((avg_recent - avg_older) / abs(avg_older) * 100, 1)
+
+        if pct_change > 10:
+            direction = "expanding"
+        elif pct_change > 2:
+            direction = "slightly_expanding"
+        elif pct_change < -10:
+            direction = "contracting"
+        elif pct_change < -2:
+            direction = "slightly_contracting"
+        else:
+            direction = "stable"
+
+        return {
+            "direction": direction,
+            "change_pct": pct_change,
+            "latest": clean[-1] if clean else None,
+            "oldest": clean[0] if clean else None,
+        }
+
+    def _growth_rates(values):
+        """Compute YoY growth rates (need >= 5 quarters for meaningful QoQ→YoY)."""
+        clean = [(i, v) for i, v in enumerate(values) if v is not None]
+        rates = []
+        for j in range(len(clean)):
+            idx, val = clean[j]
+            # Find value ~4 quarters ago
+            for k in range(j):
+                prev_idx, prev_val = clean[k]
+                if idx - prev_idx >= 3 and idx - prev_idx <= 5 and prev_val != 0:
+                    rates.append(round((val - prev_val) / abs(prev_val) * 100, 1))
+                    break
+        return rates
+
+    revenues = [q["revenue"] for q in quarters]
+    growth_rates = _growth_rates(revenues)
+
+    # Revenue growth acceleration/deceleration
+    rev_accel = "insufficient_data"
+    if len(growth_rates) >= 2:
+        recent = growth_rates[-1]
+        prev = growth_rates[-2] if len(growth_rates) >= 2 else growth_rates[0]
+        if recent > prev + 3:
+            rev_accel = "accelerating"
+        elif recent < prev - 3:
+            rev_accel = "decelerating"
+        else:
+            rev_accel = "stable"
+
+    # Market cap for FCF yield (from latest quarter's data)
+    latest = quarters[-1] if quarters else {}
+
+    signals = {
+        "revenue_trend": _trend(revenues),
+        "revenue_growth_rates": growth_rates,
+        "revenue_acceleration": rev_accel,
+        "gross_margin_trend": _trend([q["gross_margin"] for q in quarters]),
+        "operating_margin_trend": _trend([q["operating_margin"] for q in quarters]),
+        "net_margin_trend": _trend([q["net_margin"] for q in quarters]),
+        "fcf_trend": _trend([q["fcf"] for q in quarters]),
+        "debt_equity_trend": _trend([q["debt_equity"] for q in quarters]),
+        "roe_trend": _trend([q["roe"] for q in quarters]),
+        "earnings_quality_latest": latest.get("earnings_quality"),
+        "earnings_quality_verdict": (
+            "high" if (latest.get("earnings_quality") or 0) > 0.8
+            else "moderate" if (latest.get("earnings_quality") or 0) > 0.5
+            else "low" if latest.get("earnings_quality") is not None
+            else "unknown"
+        ),
+    }
+
+    return signals
+
+
+# ============================================================================
+# Intrinsic Valuation (DCF) & Peer Comparison
+# ============================================================================
+
+def compute_intrinsic_value(ticker: str, fundamentals: Dict, trends: Dict) -> Dict:
+    """Compute intrinsic value using a Discounted Cash Flow (DCF) model.
+
+    Uses an automated 3-scenario model (Base, Bull, Bear) based on
+    latest FCF, revenue growth trajectories, and standard discount rates.
+    """
+    if fundamentals.get("is_etf"):
+        return {"skipped": True, "reason": "Not applicable for ETFs"}
+
+    # Extract base inputs
+    fcf = None
+    shares_outstanding = None
+    growth_rate = 0.05  # Default 5%
+
+    try:
+        stock = yf.Ticker(ticker.upper())
+        info = stock.info
+        shares_outstanding = info.get("sharesOutstanding")
+
+        # Prefer calculating TTM FCF from our trends data (latest 4 quarters)
+        fcf = None
+        if trends and trends.get("quarters"):
+            fcf_vals = [q["fcf"] for q in trends["quarters"][-4:] if q.get("fcf") is not None]
+            if len(fcf_vals) == 4:
+                fcf = sum(fcf_vals)
+        
+        # Fallback to Yahoo Finance info
+        if not fcf:
+            fcf = info.get("freeCashflow")
+    except Exception as e:
+        logger.warning(f"[{ticker}] Failed to fetch inputs for DCF: {e}")
+
+    if not fcf or not shares_outstanding or fcf <= 0:
+        return {"error": "Insufficient or negative FCF data for DCF modeling"}
+
+    # Determine growth rate from trends if possible
+    if trends and trends.get("signals") and trends["signals"].get("revenue_growth_rates"):
+        rates = trends["signals"]["revenue_growth_rates"]
+        if rates:
+            avg_recent_growth = sum(rates) / len(rates) / 100
+            # Cap growth rate between 2% and 25% for conservative modeling
+            growth_rate = max(0.02, min(0.25, avg_recent_growth))
+
+    # Standard DCF parameters
+    discount_rate = 0.09  # 9% WACC assumption
+    terminal_growth_rate = 0.025  # 2.5% terminal growth
+    years = 5
+
+    def _calculate_dcf(fcf_base, g_rate, d_rate, t_rate, shares):
+        pv_fcf = 0
+        projected_fcf = fcf_base
+        for i in range(1, years + 1):
+            projected_fcf *= (1 + g_rate)
+            pv_fcf += projected_fcf / ((1 + d_rate) ** i)
+
+        # Terminal Value = FCF5 * (1 + g) / (WACC - g)
+        terminal_value = (projected_fcf * (1 + t_rate)) / (d_rate - t_rate)
+        pv_tv = terminal_value / ((1 + d_rate) ** years)
+
+        intrinsic_value_total = pv_fcf + pv_tv
+        return round(intrinsic_value_total / shares, 2)
+
+    current_price = fundamentals.get("current_price", 0)
+
+    try:
+        base_value = _calculate_dcf(fcf, growth_rate, discount_rate, terminal_growth_rate, shares_outstanding)
+        bull_value = _calculate_dcf(fcf, growth_rate * 1.5, discount_rate - 0.01, terminal_growth_rate, shares_outstanding)
+        bear_value = _calculate_dcf(fcf, growth_rate * 0.5, discount_rate + 0.01, terminal_growth_rate, shares_outstanding)
+
+        margin_of_safety = round((base_value - current_price) / base_value * 100, 1) if base_value > 0 else 0
+
+        # Verdict
+        if current_price < bear_value:
+            verdict = "Deeply Undervalued"
+        elif current_price < base_value:
+            verdict = "Undervalued"
+        elif current_price < bull_value:
+            verdict = "Fairly Valued"
+        else:
+            verdict = "Overvalued"
+
+        return {
+            "base_case": base_value,
+            "bull_case": bull_value,
+            "bear_case": bear_value,
+            "current_price": current_price,
+            "margin_of_safety_pct": margin_of_safety,
+            "implied_growth_rate": round(growth_rate * 100, 1),
+            "verdict": verdict,
+            "inputs": {
+                "fcf_base": fcf,
+                "shares": shares_outstanding,
+                "discount_rate": discount_rate,
+            }
+        }
+    except Exception as e:
+        logger.error(f"[{ticker}] DCF math error: {e}")
+        return {"error": str(e)}
+
+
+def get_peer_valuation(ticker: str, sector: str) -> Dict:
+    """Fetch basic peer comparison metrics."""
+    # Note: Comprehensive peer lookup requires paid APIs or complex scraping.
+    # For this iteration, we mock sector averages based on the sector string.
+    # In a real app, you would query your DB or Yahoo Finance sector peers.
+    sector_averages = {
+        "Technology": {"pe": 32.5, "ps": 6.2, "pb": 7.8},
+        "Healthcare": {"pe": 24.1, "ps": 4.1, "pb": 4.5},
+        "Financial Services": {"pe": 14.5, "ps": 2.8, "pb": 1.4},
+        "Consumer Cyclical": {"pe": 22.3, "ps": 2.1, "pb": 3.9},
+        "Industrials": {"pe": 20.8, "ps": 1.9, "pb": 3.4},
+        "Energy": {"pe": 12.4, "ps": 1.2, "pb": 1.8},
+    }
+
+    avg = sector_averages.get(sector, {"pe": 20.0, "ps": 2.5, "pb": 3.0})
+    return {
+        "sector": sector,
+        "average_pe": avg["pe"],
+        "average_ps": avg["ps"],
+        "average_pb": avg["pb"]
+    }
+
+
+# ============================================================================
+# Position Sizing & Risk Management
+# ============================================================================
+
+def compute_position_sizing(ticker: str, fundamentals: Dict, technicals: Dict, valuation: Dict, portfolio_value: float = 10000.0) -> Dict:
+    """Compute risk-managed position size using Half-Kelly Criterion and volatility scaling.
+    
+    Args:
+        ticker: Stock symbol
+        fundamentals: Output of fetch_fundamentals
+        technicals: Output of fetch_technicals
+        valuation: Output of compute_intrinsic_value
+        portfolio_value: Total portfolio value in dollars (default $10K)
+        
+    Returns:
+        Dict with recommended sizing, stop-loss, and take-profit levels.
+    """
+    if fundamentals.get("error") or technicals.get("error"):
+        return {"error": "Missing required data for position sizing"}
+
+    current_price = fundamentals.get("current_price")
+    if not current_price or current_price <= 0:
+        return {"error": "Invalid current price"}
+
+    # 1. Determine Win Probability (P) based on technicals and valuation
+    win_probability = 0.50  # Base line
+    
+    # Adjust for valuation margin of safety
+    mos = valuation.get("margin_of_safety_pct")
+    if mos is not None:
+        if mos > 20: win_probability += 0.10
+        elif mos > 0: win_probability += 0.05
+        elif mos < -20: win_probability -= 0.10
+        elif mos < 0: win_probability -= 0.05
+        
+    # Adjust for technical trend
+    if technicals.get("above_200ma"): win_probability += 0.05
+    if technicals.get("golden_cross"): win_probability += 0.05
+    if technicals.get("rsi") and technicals["rsi"] > 70: win_probability -= 0.05
+    if technicals.get("rsi") and technicals["rsi"] < 30: win_probability += 0.05
+    
+    # Cap probability between 10% and 80%
+    win_probability = max(0.10, min(0.80, win_probability))
+    loss_probability = 1.0 - win_probability
+
+    # 2. Determine Reward-to-Risk Ratio (W/L)
+    # Average volatility from technicals or default 25% annualized
+    volatility = technicals.get("annualized_volatility_pct", 25.0) / 100.0
+    if volatility <= 0: volatility = 0.25
+    
+    # Stop-Loss distance is 1.5x to 2x Annualized Volatility scaled to monthly
+    # Monthly Volatility = Annualized Volatility / sqrt(12)
+    monthly_vol = volatility / 3.46
+    stop_loss_pct = max(0.05, min(0.25, monthly_vol * 1.5)) # Between 5% and 25%
+    
+    # Stop loss price
+    stop_loss_price = current_price * (1 - stop_loss_pct)
+    
+    # Take profit price
+    # If undervalued, target base_case or bull_case. Otherwise, use risk-reward ratio.
+    take_profit_price = current_price * (1 + (stop_loss_pct * 2.5)) # Default 2.5 Reward/Risk
+    
+    if valuation.get("base_case") and valuation["base_case"] > current_price:
+        take_profit_price = max(take_profit_price, valuation["base_case"])
+        
+    take_profit_pct = (take_profit_price - current_price) / current_price
+    
+    reward_risk_ratio = take_profit_pct / stop_loss_pct if stop_loss_pct > 0 else 1.0
+
+    # 3. Kelly Criterion formula: f* = W - (1-W)/R
+    kelly_pct = win_probability - (loss_probability / reward_risk_ratio)
+    
+    # 4. Apply Half-Kelly for safety
+    half_kelly_pct = kelly_pct / 2.0
+    
+    # Further scale down for extreme volatility (Vol scaling target = 15%)
+    vol_scalar = 0.15 / volatility if volatility > 0 else 1.0
+    adjusted_kelly_pct = half_kelly_pct * vol_scalar
+
+    # Boundaries: Never recommend shorting here, and cap at 15% max portfolio weight
+    recommended_weight = max(0.0, min(0.15, adjusted_kelly_pct))
+    
+    # Dollar amount and shares
+    position_dollars = portfolio_value * recommended_weight
+    shares_to_buy = position_dollars / current_price if current_price > 0 else 0
+    
+    # Calculate Risk Amount ($)
+    risk_dollars = position_dollars * stop_loss_pct
+
+    return {
+        "recommended_weight_pct": round(recommended_weight * 100, 1),
+        "position_size_usd": round(position_dollars, 2),
+        "shares_to_buy": round(shares_to_buy, 2),
+        "risk_metrics": {
+            "win_probability_est_pct": round(win_probability * 100, 1),
+            "reward_risk_ratio": round(reward_risk_ratio, 2),
+            "stop_loss_price": round(stop_loss_price, 2),
+            "stop_loss_pct": round(stop_loss_pct * 100, 1),
+            "take_profit_price": round(take_profit_price, 2),
+            "take_profit_pct": round(take_profit_pct * 100, 1),
+            "dollars_at_risk": round(risk_dollars, 2),
+            "portfolio_value_used": portfolio_value
+        }
+    }
+
+
+# ============================================================================
 # Technical Indicators
 # ============================================================================
 

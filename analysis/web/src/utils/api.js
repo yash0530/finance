@@ -128,6 +128,72 @@ export const compareTickers = (tickers) =>
 export const getSectorResearch = (sector) =>
     apiFetch(`${API_BASE}/research/sector/${encodeURIComponent(sector)}`);
 
+/**
+ * Open an SSE stream for deep research on a ticker.
+ *
+ * @param {string} ticker - Stock symbol
+ * @param {object} callbacks - Event handlers
+ * @param {function} callbacks.onPipelineStart - Called when pipeline begins
+ * @param {function} callbacks.onStageStart - Called when a stage begins
+ * @param {function} callbacks.onStageComplete - Called when a stage finishes with data
+ * @param {function} callbacks.onStageError - Called when a stage fails (non-fatal)
+ * @param {function} callbacks.onReportComplete - Called when full report is assembled
+ * @param {function} callbacks.onError - Called on connection error
+ * @param {object} options - { noEdgar: boolean }
+ * @returns {function} cleanup - Call to close the connection
+ */
+export function streamDeepResearch(ticker, callbacks, options = {}) {
+    const params = new URLSearchParams();
+    if (options.noEdgar) params.set('no_edgar', 'true');
+    const qs = params.toString();
+    const url = `${API_BASE}/research/${encodeURIComponent(ticker)}/stream${qs ? '?' + qs : ''}`;
+
+    const eventSource = new EventSource(url);
+
+    eventSource.addEventListener('pipeline_start', (e) => {
+        callbacks.onPipelineStart?.(JSON.parse(e.data));
+    });
+
+    eventSource.addEventListener('stage_start', (e) => {
+        callbacks.onStageStart?.(JSON.parse(e.data));
+    });
+
+    eventSource.addEventListener('stage_complete', (e) => {
+        callbacks.onStageComplete?.(JSON.parse(e.data));
+    });
+
+    eventSource.addEventListener('stage_error', (e) => {
+        callbacks.onStageError?.(JSON.parse(e.data));
+    });
+
+    eventSource.addEventListener('report_complete', (e) => {
+        callbacks.onReportComplete?.(JSON.parse(e.data));
+        eventSource.close();
+    });
+
+    eventSource.onerror = (e) => {
+        // EventSource auto-reconnects, but we want to surface fatal errors
+        if (eventSource.readyState === EventSource.CLOSED) {
+            callbacks.onError?.({ error: 'Connection closed' });
+        }
+    };
+
+    // Return cleanup function
+    return () => {
+        eventSource.close();
+    };
+}
+
+export const getResearchHistory = (ticker, limit = 10) =>
+    apiFetch(`${API_BASE}/research/reports/${encodeURIComponent(ticker)}?limit=${limit}`);
+
+export const getAllResearchHistory = (limit = 50) =>
+    apiFetch(`${API_BASE}/research/reports?limit=${limit}`);
+
+export const getResearchReportById = (reportId) =>
+    apiFetch(`${API_BASE}/research/report/${encodeURIComponent(reportId)}`);
+
+
 // ──────────────────────────────────────────────────────────
 // LLM Settings
 // ──────────────────────────────────────────────────────────

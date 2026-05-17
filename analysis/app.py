@@ -6,7 +6,7 @@ All original S&P 500 analysis endpoints are preserved.
 New routes for portfolio, research, settings, watchlist, and alerts are added below.
 """
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 import json
 from pathlib import Path
@@ -2606,6 +2606,85 @@ def get_research_report(ticker: str):
         return jsonify(convert_numpy_types(report))
     except Exception as e:
         return jsonify({'error': str(e), 'ticker': ticker.upper()}), 500
+
+
+@app.route('/api/research/<ticker>/stream', methods=['GET'])
+def stream_research_report(ticker: str):
+    """SSE streaming endpoint for deep research.
+
+    Returns a Server-Sent Events stream with real-time progress updates
+    as each research stage completes. The frontend subscribes and renders
+    results progressively.
+
+    Query params:
+        no_edgar: 'true' to skip SEC filing analysis
+    """
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+
+    skip_edgar = request.args.get('no_edgar', '').lower() == 'true'
+
+    # Check portfolio context
+    portfolio_context = None
+    try:
+        holdings = db.get_holdings()
+        for h in holdings:
+            if h['ticker'].upper() == ticker.upper():
+                portfolio_context = {
+                    'weight_pct': None,
+                    'avg_cost': h.get('avg_cost'),
+                    'shares': h.get('shares'),
+                }
+                break
+    except Exception:
+        pass
+
+    from research_stream import stream_deep_research
+
+    return Response(
+        stream_deep_research(
+            ticker=ticker,
+            portfolio_context=portfolio_context,
+            include_edgar=not skip_edgar,
+        ),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+            'Connection': 'keep-alive',
+        }
+    )
+
+
+@app.route('/api/research/reports', methods=['GET'])
+def get_all_research_history():
+    """Get past research reports across all tickers."""
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+    limit = request.args.get('limit', 50, type=int)
+    reports = db.get_all_research_reports(limit=limit)
+    return jsonify({'count': len(reports), 'reports': reports})
+
+
+@app.route('/api/research/reports/<ticker>', methods=['GET'])
+def get_research_history(ticker: str):
+    """Get past research reports for a ticker."""
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+    limit = request.args.get('limit', 10, type=int)
+    reports = db.get_research_reports_for_ticker(ticker, limit=limit)
+    return jsonify({'ticker': ticker.upper(), 'count': len(reports), 'reports': reports})
+
+
+@app.route('/api/research/report/<report_id>', methods=['GET'])
+def get_research_report_by_id(report_id: str):
+    """Get a specific research report by its UUID."""
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+    report = db.get_research_report(report_id)
+    if not report:
+        return jsonify({'error': f'Report {report_id} not found'}), 404
+    return jsonify(convert_numpy_types(report))
 
 
 @app.route('/api/research/<ticker>/thesis', methods=['GET'])

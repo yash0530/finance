@@ -1,13 +1,15 @@
 import { useState } from 'react';
 
 const NAV_ITEMS = [
-    { id: 'portfolio',  icon: '💼', label: 'Portfolio',     section: 'main' },
-    { id: 'research',   icon: '🔬', label: 'Research',      section: 'main' },
-    { id: 'watchlist',  icon: '👁️',  label: 'Watchlist',    section: 'main' },
-    { id: 'rebalance',  icon: '⚖️',  label: 'Rebalance',    section: 'main' },
-    { id: 'alerts',     icon: '🔔', label: 'Alerts',        section: 'main' },
-    { id: 'market',     icon: '📊', label: 'S&P 500',       section: 'tools' },
-    { id: 'settings',   icon: '⚙️',  label: 'LLM Settings', section: 'tools' },
+    { id: 'portfolio',      icon: '💼', label: 'Portfolio',      section: 'main' },
+    { id: 'deep-research',  icon: '🧠', label: 'Deep Research',  section: 'main' },
+    { id: 'research',       icon: '🔬', label: 'Quick Research', section: 'main' },
+    { id: 'history',        icon: '🕰️', label: 'History',        section: 'main' },
+    { id: 'watchlist',      icon: '👁️',  label: 'Watchlist',     section: 'main' },
+    { id: 'rebalance',      icon: '⚖️',  label: 'Rebalance',     section: 'main' },
+    { id: 'alerts',         icon: '🔔', label: 'Alerts',         section: 'main' },
+    { id: 'market',         icon: '📊', label: 'S&P 500',        section: 'tools' },
+    { id: 'settings',       icon: '⚙️',  label: 'LLM Settings',  section: 'tools' },
 ];
 
 export default function Sidebar({ currentPage, onNavigate, portfolioConnected }) {

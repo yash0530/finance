@@ -727,3 +727,164 @@ tr:hover td { background: rgba(45, 126, 247, 0.04); }
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.8rem;
 }
+
+/* ════════════════════════════════════════════════════════
+   RESEARCH STREAM / TIMELINE
+   ════════════════════════════════════════════════════════ */
+
+.research-timeline {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+}
+
+/* Progress bar */
+.research-progress-track {
+  height: 4px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  margin-bottom: var(--spacing-lg);
+}
+
+.research-progress-fill {
+  height: 100%;
+  background: var(--gradient-primary);
+  border-radius: var(--radius-pill);
+  transition: width 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-shadow: 0 0 12px rgba(45, 126, 247, 0.4);
+}
+
+/* Stage list */
+.research-stages {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.research-stage-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  padding: 8px 0;
+  position: relative;
+}
+
+/* Stage indicator (dot / spinner / check) */
+.research-stage-indicator {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.research-stage-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--text-muted);
+  border-radius: 50%;
+}
+
+.research-stage-check {
+  width: 20px;
+  height: 20px;
+  background: var(--accent-green);
+  color: var(--bg-primary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  animation: fadeIn 0.3s ease;
+}
+
+.research-stage-error-icon {
+  width: 20px;
+  height: 20px;
+  background: var(--accent-red);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+/* Stage content */
+.research-stage-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.research-stage-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-height: 24px;
+}
+
+.research-stage-icon {
+  font-size: 0.9rem;
+}
+
+.research-stage-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.research-stage-running .research-stage-label {
+  color: var(--accent-blue-bright);
+}
+
+.research-stage-complete .research-stage-label {
+  color: var(--text-primary);
+}
+
+.research-stage-running-text {
+  font-size: 0.72rem;
+  color: var(--accent-blue);
+  font-style: italic;
+  margin-left: auto;
+}
+
+.research-stage-desc {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Connector lines between stages */
+.research-stage-connector {
+  position: absolute;
+  left: 11px;
+  top: 32px;
+  bottom: -8px;
+  width: 2px;
+  background: var(--border-color);
+  z-index: 1;
+}
+
+.research-stage-connector.filled {
+  background: var(--accent-green);
+}
+
+/* Stage status animations */
+.research-stage-pending { opacity: 0.5; }
+.research-stage-running { opacity: 1; }
+.research-stage-complete { opacity: 1; }
+.research-stage-error { opacity: 0.8; }
+
+/* Pulsing glow for the active stage */
+.research-stage-running .research-stage-indicator .spinner {
+  border-top-color: var(--accent-blue-bright);
+  box-shadow: 0 0 8px rgba(45, 126, 247, 0.3);
+}

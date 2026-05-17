@@ -109,6 +109,23 @@ def init_db() -> None:
             -- Insert default LLM settings if not present
             INSERT OR IGNORE INTO llm_settings (id, updated_at)
             VALUES (1, datetime('now'));
+
+            CREATE TABLE IF NOT EXISTS research_reports (
+                id              TEXT PRIMARY KEY,      -- UUID
+                ticker          TEXT NOT NULL,
+                report_json     TEXT NOT NULL,          -- Full report including all LLM conversations
+                llm_conversations TEXT,                 -- JSON array of all LLM prompts/responses
+                llm_provider    TEXT,
+                llm_model       TEXT,
+                total_llm_calls INTEGER DEFAULT 0,
+                generated_at    TEXT NOT NULL,
+                version         INTEGER DEFAULT 2       -- Schema version
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_research_reports_ticker
+                ON research_reports(ticker);
+            CREATE INDEX IF NOT EXISTS idx_research_reports_generated
+                ON research_reports(generated_at);
         """)
         conn.commit()
     finally:
@@ -387,6 +404,97 @@ def save_llm_settings(
         )
         conn.commit()
         return get_llm_settings()
+    finally:
+        conn.close()
+
+
+# ============================================================================
+# Research Reports (v2 — full conversation storage)
+# ============================================================================
+
+def save_research_report(
+    report_id: str,
+    ticker: str,
+    report: Dict,
+    llm_conversations: List[Dict],
+    llm_provider: str = "",
+    llm_model: str = "",
+) -> None:
+    """Save a full research report with all LLM conversation logs."""
+    conn = get_connection()
+    try:
+        now = datetime.now().isoformat()
+        conn.execute(
+            """INSERT INTO research_reports
+                (id, ticker, report_json, llm_conversations, llm_provider,
+                 llm_model, total_llm_calls, generated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(id) DO UPDATE SET
+                 report_json = excluded.report_json,
+                 llm_conversations = excluded.llm_conversations,
+                 total_llm_calls = excluded.total_llm_calls,
+                 generated_at = excluded.generated_at""",
+            (
+                report_id,
+                ticker.upper(),
+                json.dumps(report, default=str),
+                json.dumps(llm_conversations, default=str),
+                llm_provider,
+                llm_model,
+                len(llm_conversations),
+                now,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_research_report(report_id: str) -> Optional[Dict]:
+    """Retrieve a single research report by ID."""
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM research_reports WHERE id = ?", (report_id,)
+        ).fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        d["report"] = json.loads(d.pop("report_json"))
+        d["llm_conversations"] = json.loads(d["llm_conversations"] or "[]")
+        return d
+    finally:
+        conn.close()
+
+
+def get_research_reports_for_ticker(
+    ticker: str, limit: int = 10
+) -> List[Dict]:
+    """Return recent research reports for a ticker (newest first)."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT id, ticker, llm_provider, llm_model, total_llm_calls, "
+            "generated_at, version FROM research_reports "
+            "WHERE ticker = ? ORDER BY generated_at DESC LIMIT ?",
+            (ticker.upper(), limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_all_research_reports(limit: int = 50) -> List[Dict]:
+    """Return the most recent research reports across all tickers."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT id, ticker, llm_provider, llm_model, total_llm_calls, "
+            "generated_at, version FROM research_reports "
+            "ORDER BY generated_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
     finally:
         conn.close()
 

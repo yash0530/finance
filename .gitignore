@@ -17,3 +17,7 @@ node_modules/
 # SQLite databases
 *.db
 *.sqlite
+
+# Application cache
+.cache/
+analysis/.cache/

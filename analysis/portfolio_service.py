@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 CACHE_DIR = Path(__file__).parent / ".cache"
 SESSION_FILE = CACHE_DIR / "rh_session.json"
+PRICES_CACHE_FILE = CACHE_DIR / "latest_prices.json"
 
 CACHE_DIR.mkdir(exist_ok=True)
 
@@ -161,6 +162,7 @@ def get_robinhood_holdings() -> Tuple[List[Dict], Optional[str]]:
     except Exception as e:
         error = str(e)
         if "Not logged in" in error or "401" in error:
+            disconnect_robinhood()
             return [], "Session expired. Please reconnect to Robinhood."
         return [], f"Failed to fetch holdings: {error}"
 
@@ -267,14 +269,24 @@ def get_enriched_holdings() -> List[Dict]:
     """Return holdings from DB enriched with live price and P&L data.
 
     Fetches current prices from yfinance for all held tickers.
+    Uses local cache as a fallback to ensure stability.
     """
     import yfinance as yf
+    import pandas as pd
 
     raw_holdings = db_get_holdings()
     if not raw_holdings:
         return []
 
     tickers = [h["ticker"] for h in raw_holdings]
+
+    # Load fallback prices from cache
+    fallback_prices = {}
+    if PRICES_CACHE_FILE.exists():
+        try:
+            fallback_prices = json.loads(PRICES_CACHE_FILE.read_text())
+        except Exception as e:
+            logger.warning(f"Failed to read prices cache: {e}")
 
     # Batch fetch current prices
     prices = {}
@@ -290,16 +302,62 @@ def get_enriched_holdings() -> List[Dict]:
 
         for ticker in tickers:
             try:
-                if len(tickers) == 1:
-                    price = float(data["Close"].iloc[-1])
+                # Resilient MultiIndex & single index extraction
+                if isinstance(data.columns, pd.MultiIndex):
+                    if data.columns.names[0] == 'Ticker':
+                        price = float(data[ticker]["Close"].iloc[-1])
+                    else:
+                        price = float(data["Close"][ticker].iloc[-1])
                 else:
-                    price = float(data["Close"][ticker].iloc[-1])
-                prices[ticker] = round(price, 2)
+                    if "Close" in data.columns:
+                        price = float(data["Close"].iloc[-1])
+                    else:
+                        price = float(data[ticker]["Close"].iloc[-1])
+                
+                if pd.isna(price):
+                    prices[ticker] = None
+                else:
+                    prices[ticker] = round(price, 2)
             except Exception:
                 prices[ticker] = None
 
     except Exception as e:
         logger.warning(f"Failed to fetch batch prices: {e}")
+
+    # Resolve prices using fetched data or fallback cache
+    resolved_prices = {}
+    updated_cache = fallback_prices.copy()
+    cache_dirty = False
+
+    for ticker in tickers:
+        price = prices.get(ticker)
+        if price is not None and not pd.isna(price):
+            resolved_prices[ticker] = price
+            updated_cache[ticker] = price
+            cache_dirty = True
+        else:
+            # Fallback to cache if available
+            fallback = fallback_prices.get(ticker)
+            if fallback is not None:
+                resolved_prices[ticker] = fallback
+                logger.info(f"Using fallback price for {ticker}: {fallback}")
+            else:
+                # Fallback to avg_cost to ensure the UI doesn't completely break
+                avg_cost = next((h.get("avg_cost") for h in raw_holdings if h["ticker"] == ticker), 0.0)
+                if avg_cost and avg_cost > 0:
+                    resolved_prices[ticker] = avg_cost
+                    logger.info(f"Using avg_cost fallback for {ticker}: {avg_cost}")
+                else:
+                    resolved_prices[ticker] = None
+
+    # Save updated cache if we got new prices
+    if cache_dirty:
+        try:
+            PRICES_CACHE_FILE.write_text(json.dumps(updated_cache))
+        except Exception as e:
+            logger.warning(f"Failed to save prices cache: {e}")
+
+    prices = resolved_prices
 
     # Enrich each holding
     enriched = []
@@ -358,8 +416,23 @@ def get_portfolio_summary(enriched_holdings: Optional[List[Dict]] = None) -> Dic
     if not enriched_holdings:
         return {"total_value": 0, "holdings_count": 0}
 
-    total_value = sum(h.get("current_value") or 0 for h in enriched_holdings)
-    total_cost = sum(h.get("cost_basis") or 0 for h in enriched_holdings)
+    total_value = 0
+    total_cost = 0
+    
+    for h in enriched_holdings:
+        cost = h.get("cost_basis") or 0
+        val = h.get("current_value")
+        
+        total_cost += cost
+        if val is not None:
+            total_value += val
+        else:
+            # Fallback to cost_basis if live price is unavailable
+            # to prevent total value from plummeting to $0
+            total_value += cost
+
+    total_value = round(total_value, 2)
+    total_cost = round(total_cost, 2)
     total_pnl = round(total_value - total_cost, 2)
     total_pnl_pct = round((total_pnl / total_cost) * 100, 2) if total_cost > 0 else 0
 

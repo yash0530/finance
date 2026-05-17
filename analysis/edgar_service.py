@@ -157,7 +157,36 @@ def _get_primary_document_url(filing_info: Dict) -> Optional[str]:
                     f"{cik_int}/{accession_clean}/{name}"
                 )
     except Exception as e:
-        logger.warning(f"Could not find primary document: {e}")
+        logger.warning(f"Could not find primary document via data.sec.gov: {e}. Trying fallback to directory listing.")
+        
+    # Fallback: Scrape the raw directory index from www.sec.gov
+    fallback_json_url = (
+        f"https://www.sec.gov/Archives/edgar/data/"
+        f"{cik_int}/{accession_clean}/index.json"
+    )
+    try:
+        resp = _rate_limited_get(fallback_json_url, headers=_HEADERS_FULL)
+        resp.raise_for_status()
+        dir_data = resp.json()
+        items = dir_data.get("directory", {}).get("item", [])
+        
+        # Filter to only .htm or .html files that don't look like exhibits (ex*) or graphics (R*)
+        candidates = [i for i in items if (i["name"].endswith(".htm") or i["name"].endswith(".html")) 
+                      and not i["name"].lower().startswith("r")
+                      and not "index" in i["name"].lower()]
+        
+        if candidates:
+            # The primary document (10-K/10-Q) is almost always the largest HTML file
+            candidates.sort(key=lambda x: int(x.get("size", 0) if x.get("size") else 0), reverse=True)
+            largest_doc = candidates[0]["name"]
+            return (
+                f"https://www.sec.gov/Archives/edgar/data/"
+                f"{cik_int}/{accession_clean}/{largest_doc}"
+            )
+    except Exception as e:
+        logger.warning(f"Fallback directory listing failed: {e}")
+
+    logger.error(f"Could not resolve primary document URL for {filing_info.get('cik')}")
     return None
 
 

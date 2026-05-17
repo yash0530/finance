@@ -171,32 +171,66 @@ def _get_provider_and_model(task_type: str):
     return provider, model
 
 
-def generate_thesis(context_bundle: Dict) -> Dict:
-    """Generate a full investment thesis from a context bundle.
-
+def generate_thesis(context_bundle: Dict, on_progress=None) -> Dict:
+    """Generate an investment thesis using a 3-pass adversarial framework.
+    
+    Pass 1: Bull Thesis (Optimistic)
+    Pass 2: Devil's Advocate (Attacking the Bull Thesis)
+    Pass 3: Final Synthesis (Balanced conclusion with weights)
+    
     Args:
-        context_bundle: Dict with keys: ticker, company_name, sector,
-                        fundamentals, technicals, sentiment, edgar_summary,
-                        portfolio_context (optional)
-
-    Returns:
-        Structured thesis dict with summary, bull_case, bear_case,
-        recommendation, conviction, target_price_range, action_items.
+        context_bundle: Dict with all research context
+        on_progress: Optional callback function(stage: str, message: str)
     """
     provider, model = _get_provider_and_model("thesis")
+    context_str = _format_context_bundle(context_bundle)
+    
+    # Pass 1: Bull Case
+    if on_progress:
+        on_progress("bull", "Drafting Bull Case (Optimistic projection)...")
+    bull_prompt = f"""Analyze this stock and draft a highly optimistic BULL CASE.
+Focus on the best possible outcomes for growth, margins, and market share.
+Ignore risks for now.
 
-    system_prompt = """You are a senior equity research analyst at a top hedge fund.
-You produce concise, high-conviction investment theses backed by data.
-Always respond with valid JSON matching the exact schema provided.
-Do not include markdown code fences or any text outside the JSON object."""
+CONTEXT:
+{context_str}
 
-    user_prompt = f"""Analyze this stock and produce an investment thesis.
+Return ONLY plain text paragraphs (no json, no markdown headers)."""
+    bull_thesis = provider.complete("You are an optimistic hedge fund manager.", bull_prompt, model)
+    
+    # Pass 2: Devil's Advocate
+    if on_progress:
+        on_progress("bear", "Drafting Devil's Advocate (Attacking the Bull Case)...")
+    bear_prompt = f"""You are a skeptical short-seller. Read this Bull Case and destroy it.
+Highlight valuation risks, macro headwinds, competition, and flaws in the bullish logic.
 
-{_format_context_bundle(context_bundle)}
+BULL CASE:
+{bull_thesis}
+
+CONTEXT:
+{context_str}
+
+Return ONLY plain text paragraphs (no json, no markdown headers)."""
+    bear_thesis = provider.complete("You are a ruthless short-seller looking for flaws.", bear_prompt, model)
+    
+    # Pass 3: Final Synthesis
+    if on_progress:
+        on_progress("synthesis", "Synthesizing final balanced thesis...")
+    synth_prompt = f"""You are a senior portfolio manager. Review the Bull Case and the Bear Case.
+Weigh both arguments against the raw data context, and provide a final verdict.
+
+BULL CASE:
+{bull_thesis}
+
+BEAR CASE:
+{bear_thesis}
+
+RAW CONTEXT:
+{context_str}
 
 Respond ONLY with a JSON object matching this exact schema:
 {{
-  "summary": "<one sentence verdict>",
+  "summary": "<one sentence final verdict>",
   "bull_case": ["<reason 1>", "<reason 2>", "<reason 3>"],
   "bear_case": ["<risk 1>", "<risk 2>", "<risk 3>"],
   "key_catalysts": ["<upcoming event or catalyst>"],
@@ -205,8 +239,14 @@ Respond ONLY with a JSON object matching this exact schema:
   "target_price_range": {{"low": 0, "high": 0, "timeframe": "12 months"}},
   "action_items": ["<specific actionable step>"]
 }}"""
-
-    return provider.complete_json(system_prompt, user_prompt, model)
+    
+    result = provider.complete_json("You are an objective, data-driven portfolio manager.", synth_prompt, model)
+    
+    # Attach intermediate passes for logging/transparency if desired
+    result["_raw_bull_pass"] = bull_thesis
+    result["_raw_bear_pass"] = bear_thesis
+    
+    return result
 
 
 def score_sentiment(headlines: list[str], ticker: str) -> Dict:
