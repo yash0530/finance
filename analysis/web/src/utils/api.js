@@ -187,6 +187,112 @@ export function streamDeepResearch(ticker, callbacks, options = {}) {
 export const getResearchHistory = (ticker, limit = 10) =>
     apiFetch(`${API_BASE}/research/reports/${encodeURIComponent(ticker)}?limit=${limit}`);
 
+// ──────────────────────────────────────────────────────────
+// v2 "Living Analyst" — agentic loop + Memo + Calibration
+// ──────────────────────────────────────────────────────────
+
+/**
+ * Open the v2 SSE stream (agentic loop with multi-agent debate).
+ * Event taxonomy (see analysis/docs/next_gen_tool.md §20):
+ *   pipeline_start, context_loaded, agent_plan,
+ *   tool_call_start, tool_call_complete, tool_call_error,
+ *   debate_start, debate_turn, debate_complete,
+ *   self_critique_start, self_critique,
+ *   memo_delta_proposed, budget_warning, report_complete
+ */
+export function streamDeepResearchV2(ticker, callbacks, options = {}) {
+    const params = new URLSearchParams();
+    if (options.budget) params.set('budget', options.budget);
+    if (options.refresh) params.set('refresh', 'true');
+    const qs = params.toString();
+    const url = `${API_BASE}/research/${encodeURIComponent(ticker)}/v2/stream${qs ? '?' + qs : ''}`;
+
+    const es = new EventSource(url);
+
+    const EVENTS = [
+        'pipeline_start', 'context_loaded', 'agent_plan',
+        'tool_call_start', 'tool_call_complete', 'tool_call_error',
+        'debate_start', 'debate_turn', 'debate_complete',
+        'self_critique_start', 'self_critique',
+        'memo_delta_proposed', 'budget_warning', 'report_complete',
+    ];
+
+    for (const ev of EVENTS) {
+        const fn = callbacks['on' + ev.replace(/(^|_)(\w)/g, (_, __, c) => c.toUpperCase())];
+        es.addEventListener(ev, (e) => {
+            try {
+                fn?.(JSON.parse(e.data));
+            } catch (err) {
+                console.error(`v2 SSE handler for ${ev} failed:`, err);
+            }
+            if (ev === 'report_complete') es.close();
+        });
+    }
+
+    es.onerror = () => {
+        if (es.readyState === EventSource.CLOSED) {
+            callbacks.onError?.({ error: 'Connection closed' });
+        }
+    };
+
+    return () => es.close();
+}
+
+// Memo
+export const getMemo = (ticker) =>
+    apiFetch(`${API_BASE}/research/${encodeURIComponent(ticker)}/memo`);
+
+export const updateMemo = (ticker, content_json, delta_summary = 'manual edit') =>
+    apiFetch(`${API_BASE}/research/${encodeURIComponent(ticker)}/memo`, {
+        method: 'PUT',
+        body: JSON.stringify({ content_json, delta_summary }),
+    });
+
+export const getMemoHistory = (ticker, limit = 20) =>
+    apiFetch(`${API_BASE}/research/${encodeURIComponent(ticker)}/memo/history?limit=${limit}`);
+
+export const getMemoVersion = (ticker, version) =>
+    apiFetch(`${API_BASE}/research/${encodeURIComponent(ticker)}/memo/version/${version}`);
+
+// Tool-call audit log
+export const getToolLog = (ticker, reportId) =>
+    apiFetch(`${API_BASE}/research/${encodeURIComponent(ticker)}/tool-log/${reportId}`);
+
+// Calibration
+export const getTickerCalibration = (ticker) =>
+    apiFetch(`${API_BASE}/research/${encodeURIComponent(ticker)}/calibration`);
+
+export const getCalibrationDashboard = () =>
+    apiFetch(`${API_BASE}/calibration/dashboard`);
+
+// Sector
+export const classifySector = (ticker) =>
+    apiFetch(`${API_BASE}/sectors/classify/${encodeURIComponent(ticker)}`);
+
+export const overrideSector = (ticker, sector_key, gics_industry = '') =>
+    apiFetch(`${API_BASE}/sectors/classify/${encodeURIComponent(ticker)}`, {
+        method: 'POST',
+        body: JSON.stringify({ sector_key, gics_industry }),
+    });
+
+// Catalysts
+export const getCatalysts = (tickers = [], daysAhead = 90) => {
+    const qs = new URLSearchParams();
+    if (tickers.length) qs.set('tickers', tickers.join(','));
+    qs.set('days_ahead', String(daysAhead));
+    return apiFetch(`${API_BASE}/catalysts?${qs}`);
+};
+
+// Monitoring
+export const toggleMonitor = (ticker, enabled = true) =>
+    apiFetch(`${API_BASE}/research/${encodeURIComponent(ticker)}/monitor`, {
+        method: 'POST',
+        body: JSON.stringify({ enabled }),
+    });
+
+export const getMonitoringStatus = () =>
+    apiFetch(`${API_BASE}/monitoring/status`);
+
 export const getAllResearchHistory = (limit = 50) =>
     apiFetch(`${API_BASE}/research/reports?limit=${limit}`);
 

@@ -5,8 +5,9 @@ import Sidebar from './components/Sidebar';
 import { getPortfolioStatus } from './utils/api';
 
 // Lazy-load pages for fast initial load
-const PortfolioPage     = lazy(() => import('./pages/PortfolioPage'));
-const DeepResearchPage  = lazy(() => import('./pages/DeepResearchPage'));
+const PortfolioPage      = lazy(() => import('./pages/PortfolioPage'));
+const DeepResearchV2Page = lazy(() => import('./pages/DeepResearchV2Page'));
+const DeepResearchPage   = lazy(() => import('./pages/DeepResearchPage'));
 const ResearchPage      = lazy(() => import('./pages/ResearchPage'));
 const ResearchHistoryPage = lazy(() => import('./pages/ResearchHistoryPage'));
 const WatchlistPage     = lazy(() => import('./pages/WatchlistPage'));
@@ -47,8 +48,9 @@ export default function App() {
 
     function renderPage() {
         switch (page) {
-            case 'portfolio':      return <PortfolioPage onConnected={() => setPortfolioConnected(true)} />;
-            case 'deep-research':  return <DeepResearchPage />;
+            case 'portfolio':       return <PortfolioPage onConnected={() => setPortfolioConnected(true)} />;
+            case 'deep-research-v2':return <DeepResearchV2Page />;
+            case 'deep-research':   return <DeepResearchPage />;
             case 'research':       return <ResearchPage />;
             case 'history':        return <ResearchHistoryPage />;
             case 'watchlist':      return <WatchlistPage onResearch={(t) => setPage('research')} />;

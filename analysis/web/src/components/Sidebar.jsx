@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 const NAV_ITEMS = [
     { id: 'portfolio',      icon: '💼', label: 'Portfolio',      section: 'main' },
+    { id: 'deep-research-v2', icon: '🚀', label: 'Deep Research v2', section: 'main' },
     { id: 'deep-research',  icon: '🧠', label: 'Deep Research',  section: 'main' },
     { id: 'research',       icon: '🔬', label: 'Quick Research', section: 'main' },
     { id: 'history',        icon: '🕰️', label: 'History',        section: 'main' },
