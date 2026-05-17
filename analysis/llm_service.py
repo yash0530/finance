@@ -495,6 +495,67 @@ Rules:
         return {"decayed": False, "error": f"{type(e).__name__}: {e}"}
 
 
+def classify_sector_with_llm(
+    ticker: str,
+    gics_sector: str,
+    gics_industry: str,
+    valid_keys: list[str],
+) -> Dict:
+    """Cheap LLM classifier used by sector_router when rules fail to match.
+
+    Returns:
+        {"sector_key": str, "confidence": "high"|"medium"|"low", "reasoning": str}
+        On error returns {"sector_key": "default", "confidence": "low", "error": str}.
+
+    The caller is responsible for validating sector_key is in valid_keys; we
+    just clamp obvious garbage to "default".
+    """
+    provider, model = _get_provider_and_model("quick")
+    valid_csv = ", ".join(valid_keys)
+
+    system_prompt = (
+        "You classify US-listed tickers into one of a fixed set of sector "
+        "buckets used by a research tool. Pick the single best fit, biasing "
+        "toward 'default' when the company doesn't clearly belong to any "
+        "specialized bucket. Return JSON only — no prose."
+    )
+    user_prompt = f"""TICKER: {ticker}
+GICS SECTOR (from yfinance): {gics_sector or "(unknown)"}
+GICS INDUSTRY (from yfinance): {gics_industry or "(unknown)"}
+
+VALID BUCKETS: {valid_csv}
+
+Return JSON:
+{{
+  "sector_key": "<one of the valid buckets above>",
+  "confidence": "<low|medium|high>",
+  "reasoning": "<one short sentence>"
+}}"""
+
+    try:
+        result = provider.complete_json(system_prompt, user_prompt, model)
+        if not isinstance(result, dict):
+            return {"sector_key": "default", "confidence": "low", "error": "non-dict LLM response"}
+        key = (result.get("sector_key") or "").strip().lower()
+        if key not in valid_keys:
+            return {
+                "sector_key": "default",
+                "confidence": "low",
+                "reasoning": result.get("reasoning", "")[:200],
+                "error": f"LLM picked invalid key '{key}'",
+            }
+        conf = (result.get("confidence") or "medium").strip().lower()
+        if conf not in ("low", "medium", "high"):
+            conf = "medium"
+        return {
+            "sector_key": key,
+            "confidence": conf,
+            "reasoning": (result.get("reasoning") or "")[:300],
+        }
+    except Exception as e:
+        return {"sector_key": "default", "confidence": "low", "error": f"{type(e).__name__}: {e}"}
+
+
 # ============================================================================
 # Helpers
 # ============================================================================
