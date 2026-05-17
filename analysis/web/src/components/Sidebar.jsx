@@ -12,6 +12,7 @@ const NAV_ITEMS = [
     { id: 'calibration',    icon: '🎯', label: 'Calibration',    section: 'main' },
     { id: 'alerts',         icon: '🔔', label: 'Alerts',         section: 'main' },
     { id: 'market',         icon: '📊', label: 'S&P 500',        section: 'tools' },
+    { id: 'docs',           icon: '📚', label: 'Docs',           section: 'tools' },
     { id: 'settings',       icon: '⚙️',  label: 'LLM Settings',  section: 'tools' },
 ];
 

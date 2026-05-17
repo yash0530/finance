@@ -15,6 +15,7 @@ const WatchlistPage     = lazy(() => import('./pages/WatchlistPage'));
 const RebalancePage     = lazy(() => import('./pages/RebalancePage'));
 const CalibrationPage   = lazy(() => import('./pages/CalibrationPage'));
 const AlertsPage        = lazy(() => import('./pages/AlertsPage'));
+const DocsPage          = lazy(() => import('./pages/DocsPage'));
 const LLMSettingsPage   = lazy(() => import('./pages/LLMSettingsPage'));
 
 // Legacy S&P 500 pages (existing components wrapped)
@@ -60,6 +61,7 @@ export default function App() {
             case 'rebalance':      return <RebalancePage />;
             case 'calibration':    return <CalibrationPage />;
             case 'alerts':         return <AlertsPage />;
+            case 'docs':           return <DocsPage />;
             case 'market':         return <MarketPage />;
             case 'settings':       return <LLMSettingsPage />;
             default:               return <PortfolioPage onConnected={() => setPortfolioConnected(true)} />;

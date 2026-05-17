@@ -121,6 +121,15 @@ export const getCalibration = (backfill = false) =>
     apiFetch(`${API_BASE}/advisor/calibration${backfill ? '?backfill=1' : ''}`);
 
 // ──────────────────────────────────────────────────────────
+// Docs (in-app guides)
+// ──────────────────────────────────────────────────────────
+
+export const listDocs = () => apiFetch(`${API_BASE}/docs`);
+
+export const getDoc = (slug) =>
+    apiFetch(`${API_BASE}/docs/${encodeURIComponent(slug)}`);
+
+// ──────────────────────────────────────────────────────────
 // Research
 // ──────────────────────────────────────────────────────────
 

@@ -16,6 +16,7 @@ const PAGES = [
     { id: 'nav-rebalance',     label: 'Rebalance' },
     { id: 'nav-calibration',   label: 'Calibration' },
     { id: 'nav-alerts',        label: 'Alerts' },
+    { id: 'nav-docs',          label: 'Docs' },
 ];
 
 test.describe('Nav regression — other pages still render', () => {

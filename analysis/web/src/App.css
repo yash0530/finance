@@ -239,3 +239,65 @@
     padding: var(--spacing-md);
   }
 }
+
+/* ───────────────────────────────────────────────────────── */
+/* Markdown body — used by DocsPage                         */
+/* ───────────────────────────────────────────────────────── */
+.markdown-body {
+  color: var(--text-primary);
+  line-height: 1.6;
+  max-width: 760px;
+}
+.markdown-body .md-h1 { font-size: 1.7rem; margin: 0 0 var(--spacing-md); color: var(--text-primary); }
+.markdown-body .md-h2 { font-size: 1.25rem; margin: var(--spacing-xl) 0 var(--spacing-sm); padding-top: var(--spacing-md); border-top: 1px solid var(--border-subtle); color: var(--text-primary); }
+.markdown-body .md-h3 { font-size: 1.05rem; margin: var(--spacing-lg) 0 var(--spacing-xs); color: var(--text-primary); }
+.markdown-body .md-p  { margin: 0 0 var(--spacing-md); color: var(--text-secondary); font-size: 0.92rem; }
+.markdown-body .md-ul, .markdown-body .md-ol { margin: 0 0 var(--spacing-md); padding-left: 1.4rem; color: var(--text-secondary); font-size: 0.92rem; }
+.markdown-body .md-ul li, .markdown-body .md-ol li { margin-bottom: 4px; }
+.markdown-body .md-link { color: var(--accent-cyan); text-decoration: none; border-bottom: 1px dotted var(--accent-cyan); }
+.markdown-body .md-link:hover { color: var(--text-primary); border-bottom-style: solid; }
+.markdown-body .md-inline-code {
+  background: var(--bg-elevated);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.85em;
+  color: var(--accent-cyan);
+}
+.markdown-body .md-code-block {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  margin: 0 0 var(--spacing-md);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+}
+.markdown-body .md-code-block code { color: inherit; background: none; padding: 0; }
+.markdown-body .md-blockquote {
+  border-left: 3px solid var(--accent-cyan);
+  padding: 6px var(--spacing-md);
+  margin: 0 0 var(--spacing-md);
+  color: var(--text-muted);
+  font-style: italic;
+  background: var(--bg-elevated);
+}
+.markdown-body .md-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 var(--spacing-md);
+  font-size: 0.85rem;
+}
+.markdown-body .md-table th, .markdown-body .md-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.markdown-body .md-table th { color: var(--text-muted); font-weight: 600; }
+.markdown-body .md-hr { border: none; border-top: 1px solid var(--border-subtle); margin: var(--spacing-lg) 0; }
+.markdown-body strong { color: var(--text-primary); font-weight: 600; }
+.markdown-body em { color: var(--text-secondary); font-style: italic; }
+
+.docs-nav-item:hover { background: var(--bg-elevated) !important; }
