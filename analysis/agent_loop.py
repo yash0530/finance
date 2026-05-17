@@ -1,7 +1,7 @@
 """
-agent_loop.py — v2 deep research orchestrator.
+agent_loop.py — Deep research orchestrator.
 
-Replaces the fixed 8-stage pipeline with an agentic loop:
+Agentic loop for deep research:
 
   1. Load Living Memo (or empty skeleton)
   2. Classify sector → load sector analyzer

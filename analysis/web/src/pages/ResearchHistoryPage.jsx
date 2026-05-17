@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getAllResearchHistory, getResearchReportById, getResearchReportDrift } from '../utils/api';
-import V2ReportView from '../components/v2/V2ReportView';
-import RecommendationPill from '../components/v2/RecommendationPill';
+import ReportView from '../components/ReportView';
+import RecommendationPill from '../components/RecommendationPill';
 
 // ── Formatters ────────────────────────────────────────────────────────
 
@@ -126,7 +126,7 @@ export default function ResearchHistoryPage() {
                     <div className="loading-state"><div className="spinner" /> Loading report archive...</div>
                 ) : fullReport && fullReport.report ? (
                     <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-                        <V2ReportView
+                        <ReportView
                             report={fullReport.report}
                             mode="archived"
                             drift={drift}
@@ -151,7 +151,7 @@ export default function ResearchHistoryPage() {
             <div className="page-header">
                 <div>
                     <h1 className="page-title">🕰️ Research History</h1>
-                    <p className="page-subtitle">Archive of v2 deep research reports with full telemetry</p>
+                    <p className="page-subtitle">Archive of deep research reports with full telemetry</p>
                 </div>
             </div>
 

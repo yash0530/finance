@@ -1,5 +1,5 @@
 """
-Tests for the v2 Tool foundation: ToolResult, Source, Budget, EvidenceLedger,
+Tests for the Tool foundation: ToolResult, Source, Budget, EvidenceLedger,
 and the registry. Tools are exercised with a synthetic ExampleTool.
 """
 import time

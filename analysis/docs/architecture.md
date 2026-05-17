@@ -12,17 +12,17 @@ For the full engineering spec, see `next_gen_tool.md` in the repo. This page is 
 
 ---
 
-## Two surfaces: v1 and v2
+## Two research surfaces
 
-| | v1 (Quick Research) | v2 (Deep Research) |
+| | Quick Research | Deep Research |
 |---|---|---|
 | Pipeline | Fixed 8-stage | Agentic loop |
 | Files | `research_engine.py`, `research_stream.py` | `agent_loop.py`, `agents/`, `analyzers/` |
 | Output | Single report | Verdict + Living Memo + evidence ledger |
 | Endpoint | `/api/research/<ticker>/stream` | `/api/research/<ticker>/v2/stream` |
-| Use when | Quick triage | Anything you plan to trade |
+| Use when | Fast triage | Anything you plan to trade |
 
-Both surfaces coexist. The v1 pages are preserved as a fast triage path; v2 is the analytical depth path. The user picks per-research which one to run.
+Both surfaces coexist. Quick Research is a fast triage path; Deep Research is the analytical depth path. The user picks per-research which one to run.
 
 ---
 
@@ -33,8 +33,8 @@ Both surfaces coexist. The v1 pages are preserved as a fast triage path; v2 is t
 - **LLM abstraction** in `analysis/llm_service.py` — Claude / Gemini / Ollama, with `_get_provider_and_model(task_type)` routing fast vs. deep tasks to different models.
 - **Background workers** (started on app boot):
   - `alert_worker.py` — price alerts
-  - `monitoring_worker.py` — hourly thesis decay (v2)
-  - `outcome_worker.py` — daily recommendation outcome backfill (v2)
+  - `monitoring_worker.py` — hourly thesis decay
+  - `outcome_worker.py` — daily recommendation outcome backfill
 
 ---
 
@@ -47,7 +47,7 @@ Both surfaces coexist. The v1 pages are preserved as a fast triage path; v2 is t
 
 ---
 
-## The v2 agent loop
+## The agent loop (Deep Research)
 
 The orchestrator is `agent_loop.py`. One research session runs:
 
@@ -97,7 +97,7 @@ Each sector has a dedicated analyzer in `analysis/analyzers/` (saas, banks, reit
 The sector_router classifies tickers → analyzer key. Classification flow:
 1. Cache hit (DB).
 2. Rule-based on GICS sector + industry.
-3. **LLM fallback** when rules don't match (added in C3) — one cheap call, cached forever.
+3. **LLM fallback** when rules don't match — one cheap call, cached forever.
 4. Default fallback if LLM unavailable.
 
 ---
@@ -115,7 +115,7 @@ Per-ticker evolving knowledge document in `living_memo.py`. Why distillation ove
 
 ## Calibration
 
-`recommendations` table stores every v2 verdict with entry price, conviction, thesis_summary, and what_would_change_mind. `outcome_worker.py` runs daily and backfills `outcome_1m_return_pct`, `outcome_3m_return_pct`, `outcome_6m_return_pct`, `outcome_1y_return_pct`.
+`recommendations` table stores every deep research verdict with entry price, conviction, thesis_summary, and what_would_change_mind. `outcome_worker.py` runs daily and backfills `outcome_1m_return_pct`, `outcome_3m_return_pct`, `outcome_6m_return_pct`, `outcome_1y_return_pct`.
 
 The Calibration page (`/api/advisor/calibration`) aggregates hit rate by recommendation type and conviction band. Local-LLM verdicts are **excluded** from calibration so the track record measures the underlying model, not a mix.
 
@@ -135,8 +135,8 @@ The agent loop's `force_refresh=True` flag bypasses all caches for a single sess
 
 ```
 analysis/
-├── app.py                  Flask routes (v1 + v2 + advisor + docs)
-├── agent_loop.py           v2 orchestrator + SSE streaming
+├── app.py                  Flask routes (quick + deep research + advisor + docs)
+├── agent_loop.py           Deep research orchestrator + SSE streaming
 ├── agents/                 bull, bear, judge, self_critique, planner, memo_synth
 ├── analyzers/              per-sector specialization
 ├── tools/                  data fetches + computations
@@ -147,13 +147,13 @@ analysis/
 ├── outcome_worker.py       daily recommendation outcome backfill
 ├── rebalancing_engine.py   holdings-aware rebalance signals
 ├── docs/                   in-app guides (this directory)
-└── tests/                  pytest suite (162+ tests as of 2026-05)
+└── tests/                  pytest suite
 ```
 
 ---
 
 ## What NOT to touch
 
-- v1 DB tables: `portfolio_holdings`, `watchlist`, `alerts`, `research_cache`, `research_reports`, `llm_settings`.
+- Core DB tables: `portfolio_holdings`, `watchlist`, `alerts`, `research_cache`, `research_reports`, `llm_settings`.
 - `living_memo_versions` rows — append-only, never delete.
-- v1 functions in `research_engine.py` — they back v1 endpoints and are wrapped as v2 Tools; the originals stay.
+- Functions in `research_engine.py` — they back quick research endpoints and are wrapped as Tools; the originals stay.

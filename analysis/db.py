@@ -128,7 +128,7 @@ def init_db() -> None:
                 ON research_reports(generated_at);
 
             -- ============================================================
-            -- v2 "Living Analyst" tables (additive — v1 unchanged)
+            -- Deep Research tables (additive — legacy tables unchanged)
             -- ============================================================
 
             -- Per-ticker evolving knowledge document
@@ -605,7 +605,7 @@ def save_llm_settings(
 
 
 # ============================================================================
-# Research Reports (v2 — full conversation storage)
+# Research Reports (full conversation storage)
 # ============================================================================
 
 def save_research_report(
@@ -717,7 +717,7 @@ def get_all_research_reports(limit: int = 50) -> List[Dict]:
 
 
 # ============================================================================
-# v2 — Living Memo
+# Living Memo
 # ============================================================================
 
 def get_living_memo(ticker: str) -> Optional[Dict]:
@@ -816,7 +816,7 @@ def get_memo_version(ticker: str, version: int) -> Optional[Dict]:
 
 
 # ============================================================================
-# v2 — Tool call audit log
+# Tool call audit log
 # ============================================================================
 
 def log_tool_call(
@@ -878,7 +878,7 @@ def get_tool_call_log(report_id: str) -> List[Dict]:
 
 
 # ============================================================================
-# v2 — Recommendation calibration
+# Recommendation calibration
 # ============================================================================
 
 def save_recommendation(
@@ -966,7 +966,7 @@ def update_recommendation_outcome(
 
 
 # ============================================================================
-# v2 — Catalysts
+# Catalysts
 # ============================================================================
 
 def upsert_catalyst(
@@ -1017,7 +1017,7 @@ def get_catalysts(
 
 
 # ============================================================================
-# v2 — Generic tool-result cache
+# Generic tool-result cache
 # ============================================================================
 
 def get_tool_cache(tool_name: str, cache_key: str, max_age_seconds: int) -> Optional[Dict]:
@@ -1057,7 +1057,7 @@ def save_tool_cache(tool_name: str, cache_key: str, result: Dict) -> None:
 
 
 # ============================================================================
-# v2 — Sector classification cache
+# Sector classification cache
 # ============================================================================
 
 def get_sector_classification(ticker: str) -> Optional[Dict]:
@@ -1091,7 +1091,7 @@ def save_sector_classification(
 
 
 # ============================================================================
-# v2 — Monitoring
+# Monitoring
 # ============================================================================
 
 def enable_monitoring(ticker: str) -> None:

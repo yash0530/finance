@@ -209,7 +209,7 @@ export default function AdvisorPage() {
                     {(rebalance?.actions || []).filter(a => a.research?.stale).length > 0 && (
                         <li>
                             Stale research on file (&gt; 30 days). Refresh those tickers
-                            in Deep Research v2 before acting on their recommendations.
+                            in Deep Research before acting on their recommendations.
                         </li>
                     )}
                     {(!decayedItems.length && (!rebalance || !rebalance.actions?.length)) && (

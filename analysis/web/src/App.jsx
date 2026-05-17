@@ -7,8 +7,8 @@ import { getPortfolioStatus, getVersion } from './utils/api';
 // Lazy-load pages for fast initial load
 const PortfolioPage      = lazy(() => import('./pages/PortfolioPage'));
 const AdvisorPage        = lazy(() => import('./pages/AdvisorPage'));
-const DeepResearchV2Page = lazy(() => import('./pages/DeepResearchV2Page'));
 const DeepResearchPage   = lazy(() => import('./pages/DeepResearchPage'));
+const QuickResearchPage  = lazy(() => import('./pages/QuickResearchPage'));
 const ResearchPage      = lazy(() => import('./pages/ResearchPage'));
 const ResearchHistoryPage = lazy(() => import('./pages/ResearchHistoryPage'));
 const WatchlistPage     = lazy(() => import('./pages/WatchlistPage'));
@@ -54,7 +54,7 @@ export default function App() {
     // Detect a stale backend: if the live SHA diverges from the SHA at page-load
     // time, the backend has restarted (likely with new code). Show a banner so
     // the user knows their tab is out of sync — don't auto-refresh because they
-    // may be mid-stream on Deep Research v2.
+    // may be mid-stream on Deep Research.
     useEffect(() => {
         let cancelled = false;
         async function poll() {
@@ -78,8 +78,8 @@ export default function App() {
         switch (page) {
             case 'portfolio':       return <PortfolioPage onConnected={() => setPortfolioConnected(true)} />;
             case 'advisor':        return <AdvisorPage />;
-            case 'deep-research-v2':return <DeepResearchV2Page />;
             case 'deep-research':   return <DeepResearchPage />;
+            case 'quick-research':  return <QuickResearchPage />;
             case 'research':       return <ResearchPage />;
             case 'history':        return <ResearchHistoryPage />;
             case 'watchlist':      return <WatchlistPage onResearch={(t) => setPage('research')} />;

@@ -1,5 +1,5 @@
 """
-analysis.tools — v2 Tool registry.
+analysis.tools — Tool registry.
 
 Every data fetch or computation is a Tool with:
   - schema: JSON-schema describing args (for LLM tool-use)

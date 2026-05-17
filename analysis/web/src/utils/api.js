@@ -156,7 +156,7 @@ export const getSectorResearch = (sector) =>
     apiFetch(`${API_BASE}/research/sector/${encodeURIComponent(sector)}`);
 
 /**
- * Open an SSE stream for deep research on a ticker.
+ * Open an SSE stream for quick research on a ticker (fixed pipeline).
  *
  * @param {string} ticker - Stock symbol
  * @param {object} callbacks - Event handlers
@@ -169,7 +169,7 @@ export const getSectorResearch = (sector) =>
  * @param {object} options - { noEdgar: boolean }
  * @returns {function} cleanup - Call to close the connection
  */
-export function streamDeepResearch(ticker, callbacks, options = {}) {
+export function streamQuickResearch(ticker, callbacks, options = {}) {
     const params = new URLSearchParams();
     if (options.noEdgar) params.set('no_edgar', 'true');
     const qs = params.toString();
@@ -226,11 +226,11 @@ export const getResearchHistory = (ticker, limit = 10) =>
     apiFetch(`${API_BASE}/research/reports/${encodeURIComponent(ticker)}?limit=${limit}`);
 
 // ──────────────────────────────────────────────────────────
-// v2 "Living Analyst" — agentic loop + Memo + Calibration
+// Deep Research — agentic loop + Memo + Calibration
 // ──────────────────────────────────────────────────────────
 
 /**
- * Open the v2 SSE stream (agentic loop with multi-agent debate).
+ * Open the deep research SSE stream (agentic loop with multi-agent debate).
  * Event taxonomy (see analysis/docs/next_gen_tool.md §20):
  *   pipeline_start, context_loaded, agent_plan,
  *   tool_call_start, tool_call_complete, tool_call_error,
@@ -238,7 +238,7 @@ export const getResearchHistory = (ticker, limit = 10) =>
  *   self_critique_start, self_critique,
  *   memo_delta_proposed, budget_warning, report_complete
  */
-export function streamDeepResearchV2(ticker, callbacks, options = {}) {
+export function streamDeepResearch(ticker, callbacks, options = {}) {
     const params = new URLSearchParams();
     if (options.budget) params.set('budget', options.budget);
     if (options.refresh) params.set('refresh', 'true');
@@ -264,7 +264,7 @@ export function streamDeepResearchV2(ticker, callbacks, options = {}) {
             try {
                 fn?.(JSON.parse(e.data));
             } catch (err) {
-                console.error(`v2 SSE handler for ${ev} failed:`, err);
+                console.error(`Deep research SSE handler for ${ev} failed:`, err);
             }
             if (ev === 'report_complete') {
                 completedCleanly = true;

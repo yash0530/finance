@@ -2945,16 +2945,16 @@ def get_etf_research(ticker: str):
 
 
 # ============================================================================
-# v2 "Living Analyst" routes — agentic loop + Living Memo + calibration
+# Deep Research routes — agentic loop + Living Memo + calibration
 # ============================================================================
 
 @app.route('/api/research/<ticker>/v2/stream', methods=['GET'])
 def research_v2_stream(ticker):
-    """SSE stream for v2 deep research (agentic loop + multi-agent debate)."""
+    """SSE stream for deep research (agentic loop + multi-agent debate)."""
     try:
         from agent_loop import stream_deep_research
     except ImportError as e:
-        return jsonify({'error': f'v2 agent loop unavailable: {e}'}), 500
+        return jsonify({'error': f'Agent loop unavailable: {e}'}), 500
 
     profile = request.args.get('budget', 'normal')
     force = request.args.get('refresh', 'false').lower() == 'true'

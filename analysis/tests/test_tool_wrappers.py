@@ -1,11 +1,11 @@
 """
-Tests for the v2 Tool wrappers around v1 services.
+Tests for Tool wrappers around core services.
 
-Each underlying v1 function is monkey-patched so tests never hit the network,
+Each underlying function is monkey-patched so tests never hit the network,
 LLM, or external APIs. We verify:
   - happy path: ToolResult.is_ok(), expected data fields, sources, tool_name
   - error path: ToolResult.error is set, is_ok() is False
-  - caching: a second call returns cached=True without re-invoking the v1 fn
+  - caching: a second call returns cached=True without re-invoking the fn
 """
 
 import pytest
@@ -61,7 +61,7 @@ def test_financial_trends_happy(monkeypatch):
     r2 = tool.execute(ticker="NVDA")
     assert r2.is_ok()
     assert r2.cached is True
-    assert calls["n"] == 1  # v1 fn not called again
+    assert calls["n"] == 1  # underlying fn not called again
 
 
 def test_financial_trends_error(monkeypatch):
@@ -278,7 +278,7 @@ def test_sentiment_happy(monkeypatch):
     assert "headline" in fields
 
     # Sentiment is NOT cached at the tool layer (cache_ttl_seconds == 0)
-    # → a second call always re-invokes the v1 fn
+    # → a second call always re-invokes the underlying fn
     r2 = tool.execute(ticker="NVDA")
     assert r2.is_ok()
     assert r2.cached is False

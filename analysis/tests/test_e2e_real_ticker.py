@@ -8,7 +8,7 @@ configured LLM provider and will spend real money. Run explicitly:
 
 We pick one ticker per major sector (NVDA / JPM / MRNA / XOM) so a single
 run exercises every sector analyzer and most tools. Total budget is capped
-at $3 by relying on the v2 agent loop's per-session Budget (defaults from
+at $3 by relying on the agent loop's per-session Budget (defaults from
 budget_profile='normal'). The test asserts only structural invariants —
 the verdict must exist, the memo must be touched — not specific stock-price
 claims, since those move.
@@ -28,8 +28,8 @@ SMOKE_TICKERS = [
 
 @pytest.mark.e2e_real
 @pytest.mark.parametrize("ticker,expected_sector", SMOKE_TICKERS)
-def test_v2_real_research_produces_verdict(ticker, expected_sector):
-    """Run the full v2 stream on a real ticker and assert structural sanity."""
+def test_real_research_produces_verdict(ticker, expected_sector):
+    """Run the full deep research stream on a real ticker and assert structural sanity."""
     from agent_loop import run_deep_research
 
     report = run_deep_research(ticker, portfolio_context=None, budget_profile="normal")

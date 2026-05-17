@@ -1,5 +1,5 @@
 """
-Tests for the v2 DB additions: Living Memo, tool log, recommendations,
+Tests for DB additions: Living Memo, tool log, recommendations,
 catalysts, tool cache, sector classification, monitoring.
 
 These tests use the temp HOME set in conftest.py so we never touch the user's
@@ -14,7 +14,7 @@ import db
 
 @pytest.fixture(autouse=True)
 def clean_tables():
-    """Wipe v2 tables before each test for isolation."""
+    """Wipe tables before each test for isolation."""
     conn = db.get_connection()
     try:
         for table in (

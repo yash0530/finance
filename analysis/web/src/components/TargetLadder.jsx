@@ -2,7 +2,6 @@ import React from 'react';
 
 /**
  * Vertical target ladder with colored dots and prices.
- * Mirrors the RiskCard pattern from v1.
  */
 export default function TargetLadder({ targets = [], entry, stop, currentPrice }) {
     if (!targets.length && !entry && !stop) return null;

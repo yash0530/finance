@@ -1,5 +1,5 @@
 """
-Integration tests for the v2 agent loop.
+Integration tests for the deep research agent loop.
 
 Mocks the LLM provider and any network-bound tools so we can run the full
 pipeline (planner → bull → bear → judge → self_critique → memo synth) in <1s
@@ -158,7 +158,7 @@ def fake_llm(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def clean_state():
-    """Reset v2 tables between tests."""
+    """Reset tables between tests."""
     conn = db.get_connection()
     try:
         for t in (
@@ -286,7 +286,7 @@ def test_agent_loop_smoke_end_to_end(fake_llm, mock_yfinance, mock_sentiment):
 
     report = run_deep_research("NVDA", budget_profile="quick")
 
-    # The persisted report should have the v2 shape
+    # The persisted report should have the deep research shape
     assert report.get("report_id")
     assert report.get("ticker") == "NVDA"
     assert report.get("version") == "v2"

@@ -3,9 +3,9 @@ import { useState } from 'react';
 const NAV_ITEMS = [
     { id: 'advisor',        icon: '🧭', label: 'Advisor',        section: 'main' },
     { id: 'portfolio',      icon: '💼', label: 'Portfolio',      section: 'main' },
-    { id: 'deep-research-v2', icon: '🚀', label: 'Deep Research v2', section: 'main' },
     { id: 'deep-research',  icon: '🧠', label: 'Deep Research',  section: 'main' },
-    { id: 'research',       icon: '🔬', label: 'Quick Research', section: 'main' },
+    { id: 'quick-research', icon: '⚡', label: 'Quick Research', section: 'main' },
+    { id: 'research',       icon: '🔬', label: 'Compare',        section: 'main' },
     { id: 'history',        icon: '🕰️', label: 'History',        section: 'main' },
     { id: 'watchlist',      icon: '👁️',  label: 'Watchlist',     section: 'main' },
     { id: 'rebalance',      icon: '⚖️',  label: 'Rebalance',     section: 'main' },
@@ -80,7 +80,7 @@ export default function Sidebar({ currentPage, onNavigate, portfolioConnected })
                         {portfolioConnected ? 'Robinhood connected' : 'Not connected'}
                     </div>
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>
-                        v2.0 · Portfolio Intel
+                        Portfolio Intel
                     </div>
                 </div>
             </div>

@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { streamDeepResearch } from '../utils/api';
+import { streamQuickResearch } from '../utils/api';
 
 // ── Stage metadata ────────────────────────────────────────
 const STAGE_META = {
@@ -33,7 +33,7 @@ export function useResearchStream() {
         setStream(true);
         setPipeline(null);
 
-        const cleanup = streamDeepResearch(ticker, {
+        const cleanup = streamQuickResearch(ticker, {
             onPipelineStart(data) {
                 setPipeline(data);
                 setOrder(data.stages || []);

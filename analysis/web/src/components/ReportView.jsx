@@ -9,12 +9,12 @@ import FullDebate from './FullDebate';
 import MemoDeltaPanel from './MemoDeltaPanel';
 
 /**
- * V2ReportView — the polished post-stream report view.
- * Used by both DeepResearchV2Page (mode="live") and ResearchHistoryPage (mode="archived").
+ * ReportView — the polished post-stream report view for deep research.
+ * Used by both DeepResearchPage (mode="live") and ResearchHistoryPage (mode="archived").
  *
  * @param {{ report: object, mode: 'live'|'archived', drift?: object, telemetry?: object }} props
  */
-export default function V2ReportView({ report, mode = 'live', drift, telemetry }) {
+export default function ReportView({ report, mode = 'live', drift, telemetry }) {
     if (!report) return null;
 
     const verdict = report.verdict || {};
@@ -26,14 +26,14 @@ export default function V2ReportView({ report, mode = 'live', drift, telemetry }
     const memoDelta = report.memo_delta;
     const sector = report.sector || {};
 
-    // v1 fallback
-    if (report.version !== 'v2' && !verdict.recommendation) {
+    // Legacy quick-research fallback
+    if (report.version !== 'deep' && report.version !== 'v2' && !verdict.recommendation) {
         return (
             <div className="glass-card" style={{ padding: 'var(--spacing-lg)', textAlign: 'center' }}>
                 <div style={{ fontSize: '1.2rem', marginBottom: 8 }}>📄</div>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                    This is a v1 archived report. Open it in the{' '}
-                    <a href="/deep-research" style={{ color: 'var(--accent-blue-bright)' }}>Deep Research v1 page</a>{' '}
+                    This is a quick research archived report. Open it in the{' '}
+                    <a href="/quick-research" style={{ color: 'var(--accent-blue-bright)' }}>Quick Research page</a>{' '}
                     for the full view.
                 </p>
             </div>

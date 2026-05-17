@@ -1,5 +1,5 @@
 """
-Phase 1 v2 tool tests.
+Phase 1 tool tests.
 
 Network is mocked via monkeypatch so these run offline.  Each tool has a
 happy-path test and (where relevant) a degraded-path test that proves we

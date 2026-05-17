@@ -1,7 +1,7 @@
 import React from 'react';
 
 /**
- * Compact horizontal stage timeline for v2 pipeline.
+ * Compact horizontal stage timeline for the deep research pipeline.
  * Maps SSE events to stages with checkmarks / spinner / pending dots.
  */
 
@@ -20,7 +20,7 @@ const STAGES = [
 /**
  * @param {{ stageStatuses: Record<string, 'pending'|'active'|'complete'|'error'>, toolProgress?: string }} props
  */
-export default function V2StageTimeline({ stageStatuses = {}, toolProgress }) {
+export default function StageTimeline({ stageStatuses = {}, toolProgress }) {
     const completedCount = STAGES.filter(s => stageStatuses[s.key] === 'complete').length;
     const progressPct = STAGES.length > 0 ? (completedCount / STAGES.length) * 100 : 0;
 
