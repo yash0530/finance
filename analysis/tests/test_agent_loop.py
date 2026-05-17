@@ -142,7 +142,12 @@ class FakeProvider:
 def fake_llm(monkeypatch):
     fake = FakeProvider()
 
-    def _patched(task_type):
+    def _patched(task_type, role="unknown"):
+        # Wrap with instrumentation if a session is active (mirrors real behavior)
+        import llm_service
+        session = llm_service._active_session.get(None)
+        if session is not None:
+            return llm_service._InstrumentedProvider(fake, "fake-model", "fake", role=role), "fake-model"
         return fake, "fake-model"
 
     # Patch at the source module
@@ -447,3 +452,23 @@ def test_agent_loop_handles_unknown_tool_in_plan(fake_llm, mock_yfinance, mock_s
     assert report.get("report_id")
     # Should still have completed — the bogus tool was dropped by the validator
     assert report["verdict"]["recommendation"] in ("BUY", "HOLD", "TRIM", "AVOID")
+
+
+def test_pipeline_persists_with_real_telemetry(fake_llm, mock_yfinance, mock_sentiment):
+    """After a full run, the persisted report should have nonzero total_llm_calls
+    and tool_call_count (proving the LLMCallSession instrumentation works)."""
+    from agent_loop import run_deep_research
+
+    report = run_deep_research("NVDA", budget_profile="quick")
+    report_id = report.get("report_id")
+    assert report_id
+
+    # Check persisted report metadata
+    reports = db.get_all_research_reports(limit=10)
+    persisted = next((r for r in reports if r["id"] == report_id), None)
+    assert persisted is not None
+    assert persisted["total_llm_calls"] > 0, "LLM calls should be captured by session"
+    assert persisted["tool_call_count"] > 0, "Tool calls should be logged"
+    # Cost may be 0 in tests (fake provider doesn't charge budget) but column should exist
+    assert "total_cost_usd" in persisted
+    assert "wall_clock_sec" in persisted

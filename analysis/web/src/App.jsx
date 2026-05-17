@@ -2,7 +2,7 @@ import { useState, useEffect, lazy, Suspense } from 'react';
 import './index.css';
 import './App.css';
 import Sidebar from './components/Sidebar';
-import { getPortfolioStatus } from './utils/api';
+import { getPortfolioStatus, getVersion } from './utils/api';
 
 // Lazy-load pages for fast initial load
 const PortfolioPage      = lazy(() => import('./pages/PortfolioPage'));
@@ -33,6 +33,8 @@ function PageLoader() {
 export default function App() {
     const [page, setPage] = useState('portfolio');
     const [portfolioConnected, setPortfolioConnected] = useState(false);
+    const [bootSha, setBootSha] = useState(null);
+    const [liveSha, setLiveSha] = useState(null);
 
     // Poll portfolio connection status
     useEffect(() => {
@@ -48,6 +50,29 @@ export default function App() {
         const interval = setInterval(checkStatus, 60_000);
         return () => clearInterval(interval);
     }, []);
+
+    // Detect a stale backend: if the live SHA diverges from the SHA at page-load
+    // time, the backend has restarted (likely with new code). Show a banner so
+    // the user knows their tab is out of sync — don't auto-refresh because they
+    // may be mid-stream on Deep Research v2.
+    useEffect(() => {
+        let cancelled = false;
+        async function poll() {
+            try {
+                const v = await getVersion();
+                if (cancelled) return;
+                setLiveSha(v.git_sha);
+                setBootSha(prev => prev ?? v.git_sha);
+            } catch {
+                // Backend down — leave shas unchanged so we don't false-alarm.
+            }
+        }
+        poll();
+        const id = setInterval(poll, 60_000);
+        return () => { cancelled = true; clearInterval(id); };
+    }, []);
+
+    const backendStale = bootSha && liveSha && bootSha !== liveSha;
 
     function renderPage() {
         switch (page) {
@@ -76,6 +101,33 @@ export default function App() {
                 portfolioConnected={portfolioConnected}
             />
             <main className="main-content">
+                {backendStale && (
+                    <div
+                        id="stale-backend-banner"
+                        style={{
+                            background: 'var(--accent-yellow, #f59e0b)',
+                            color: '#000',
+                            padding: '8px 16px',
+                            fontSize: '0.82rem',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: 12,
+                        }}
+                    >
+                        <span>
+                            ⚠ Backend was updated (was <code>{bootSha}</code>, now <code>{liveSha}</code>).
+                            Refresh to pick up new endpoints.
+                        </span>
+                        <button
+                            className="btn btn-secondary"
+                            style={{ padding: '2px 10px', fontSize: '0.78rem' }}
+                            onClick={() => window.location.reload()}
+                        >
+                            Refresh
+                        </button>
+                    </div>
+                )}
                 <div className="page-content">
                     <Suspense fallback={<PageLoader />}>
                         {renderPage()}

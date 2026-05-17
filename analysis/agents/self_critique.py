@@ -69,7 +69,7 @@ def critique(
     user_prompt = _build_critique_prompt(ticker, verdict, evidence)
 
     try:
-        provider, model = _get_provider_and_model("analysis")
+        provider, model = _get_provider_and_model("analysis", role="self_critique")
         result = provider.complete_json(CRITIQUE_SYSTEM, user_prompt, model)
     except Exception as e:
         logger.warning(f"Self-critique failed: {e}")

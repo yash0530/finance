@@ -172,15 +172,19 @@ export default function PortfolioPage({ onConnected }) {
     const [showModal, setModal]   = useState(false);
     const [syncing, setSyncing]   = useState(false);
     const [loading, setLoading]   = useState(true);
+    const [loaded, setLoaded]     = useState(false);
     const [error, setError]       = useState('');
 
     async function load() {
         setLoading(true);
+        setError('');
+        setLoaded(false);
         try {
             const [st, hData] = await Promise.all([getPortfolioStatus(), getPortfolioHoldings()]);
             setStatus(st);
             setHoldings(hData.holdings || []);
             setSummary(hData.summary || null);
+            setLoaded(true);
         } catch (e) { setError(e.message); }
         finally { setLoading(false); }
     }
@@ -229,7 +233,7 @@ export default function PortfolioPage({ onConnected }) {
 
             {loading ? (
                 <div className="loading-state"><div className="spinner" /></div>
-            ) : holdings.length === 0 ? (
+            ) : !loaded ? null : holdings.length === 0 ? (
                 <div className="glass-card">
                     <div className="empty-state">
                         <div className="empty-state-icon">💼</div>

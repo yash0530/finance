@@ -71,13 +71,15 @@ export default function RebalancePage() {
     const [profile, setProfile]   = useState('moderate');
     const [data, setData]         = useState(null);
     const [loading, setLoading]   = useState(true);
+    const [loaded, setLoaded]     = useState(false);
     const [error, setError]       = useState('');
 
     useEffect(() => {
         setLoading(true);
         setError('');
+        setLoaded(false);
         getRebalanceAnalysis(profile)
-            .then(setData)
+            .then(d => { setData(d); setLoaded(true); })
             .catch(e => setError(e.message))
             .finally(() => setLoading(false));
     }, [profile]);
@@ -120,7 +122,7 @@ export default function RebalancePage() {
 
             {error && <div className="alert alert-error" style={{ marginBottom: 'var(--spacing-lg)' }}>{error}</div>}
 
-            {holdings.length === 0 ? (
+            {!loaded ? null : holdings.length === 0 ? (
                 <div className="glass-card">
                     <div className="empty-state">
                         <div className="empty-state-icon">⚖️</div>

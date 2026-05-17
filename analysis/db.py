@@ -308,6 +308,22 @@ def init_db() -> None:
             );
         """)
         conn.commit()
+
+        # ── Additive migrations (safe for existing DBs) ──────────────
+        # SQLite has no IF NOT EXISTS on ADD COLUMN, so we check manually.
+        def _column_exists(table, column):
+            cols = conn.execute(f"PRAGMA table_info({table})").fetchall()
+            return any(c["name"] == column for c in cols)
+
+        for col, ddl in [
+            ("total_cost_usd", "REAL DEFAULT 0"),
+            ("wall_clock_sec", "REAL DEFAULT 0"),
+        ]:
+            if not _column_exists("research_reports", col):
+                conn.execute(
+                    f"ALTER TABLE research_reports ADD COLUMN {col} {ddl}"
+                )
+        conn.commit()
     finally:
         conn.close()
 
@@ -599,6 +615,8 @@ def save_research_report(
     llm_conversations: List[Dict],
     llm_provider: str = "",
     llm_model: str = "",
+    total_cost_usd: float = 0.0,
+    wall_clock_sec: float = 0.0,
 ) -> None:
     """Save a full research report with all LLM conversation logs."""
     conn = get_connection()
@@ -607,13 +625,15 @@ def save_research_report(
         conn.execute(
             """INSERT INTO research_reports
                 (id, ticker, report_json, llm_conversations, llm_provider,
-                 llm_model, total_llm_calls, generated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 llm_model, total_llm_calls, generated_at, total_cost_usd, wall_clock_sec)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(id) DO UPDATE SET
                  report_json = excluded.report_json,
                  llm_conversations = excluded.llm_conversations,
                  total_llm_calls = excluded.total_llm_calls,
-                 generated_at = excluded.generated_at""",
+                 generated_at = excluded.generated_at,
+                 total_cost_usd = excluded.total_cost_usd,
+                 wall_clock_sec = excluded.wall_clock_sec""",
             (
                 report_id,
                 ticker.upper(),
@@ -623,6 +643,8 @@ def save_research_report(
                 llm_model,
                 len(llm_conversations),
                 now,
+                total_cost_usd,
+                wall_clock_sec,
             ),
         )
         conn.commit()
@@ -654,9 +676,17 @@ def get_research_reports_for_ticker(
     conn = get_connection()
     try:
         rows = conn.execute(
-            "SELECT id, ticker, llm_provider, llm_model, total_llm_calls, "
-            "generated_at, version FROM research_reports "
-            "WHERE ticker = ? ORDER BY generated_at DESC LIMIT ?",
+            """SELECT rr.id, rr.ticker, rr.llm_provider, rr.llm_model,
+                      rr.total_llm_calls, rr.generated_at, rr.version,
+                      rr.total_cost_usd, rr.wall_clock_sec,
+                      json_extract(rr.report_json, '$.verdict.recommendation') AS recommendation,
+                      json_extract(rr.report_json, '$.verdict.conviction') AS conviction,
+                      json_extract(rr.report_json, '$.verdict.target_price_range.low') AS target_low,
+                      json_extract(rr.report_json, '$.verdict.target_price_range.high') AS target_high,
+                      (SELECT COUNT(*) FROM tool_call_log WHERE report_id = rr.id) AS tool_call_count
+               FROM research_reports rr
+               WHERE rr.ticker = ?
+               ORDER BY rr.generated_at DESC LIMIT ?""",
             (ticker.upper(), limit),
         ).fetchall()
         return [dict(r) for r in rows]
@@ -669,9 +699,16 @@ def get_all_research_reports(limit: int = 50) -> List[Dict]:
     conn = get_connection()
     try:
         rows = conn.execute(
-            "SELECT id, ticker, llm_provider, llm_model, total_llm_calls, "
-            "generated_at, version FROM research_reports "
-            "ORDER BY generated_at DESC LIMIT ?",
+            """SELECT rr.id, rr.ticker, rr.llm_provider, rr.llm_model,
+                      rr.total_llm_calls, rr.generated_at, rr.version,
+                      rr.total_cost_usd, rr.wall_clock_sec,
+                      json_extract(rr.report_json, '$.verdict.recommendation') AS recommendation,
+                      json_extract(rr.report_json, '$.verdict.conviction') AS conviction,
+                      json_extract(rr.report_json, '$.verdict.target_price_range.low') AS target_low,
+                      json_extract(rr.report_json, '$.verdict.target_price_range.high') AS target_high,
+                      (SELECT COUNT(*) FROM tool_call_log WHERE report_id = rr.id) AS tool_call_count
+               FROM research_reports rr
+               ORDER BY rr.generated_at DESC LIMIT ?""",
             (limit,),
         ).fetchall()
         return [dict(r) for r in rows]

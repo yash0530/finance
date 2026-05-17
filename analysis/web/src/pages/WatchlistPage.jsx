@@ -6,13 +6,17 @@ export default function WatchlistPage({ onResearch }) {
     const [ticker, setTicker]   = useState('');
     const [notes, setNotes]     = useState('');
     const [loading, setLoading] = useState(true);
+    const [loaded, setLoaded]   = useState(false);
     const [adding, setAdding]   = useState(false);
     const [error, setError]     = useState('');
 
     async function load() {
+        setError('');
+        setLoaded(false);
         try {
             const data = await getWatchlist();
             setItems(data.data || []);
+            setLoaded(true);
         } catch (e) { setError(e.message); }
         finally { setLoading(false); }
     }
@@ -68,7 +72,7 @@ export default function WatchlistPage({ onResearch }) {
 
             {loading ? (
                 <div className="loading-state"><div className="spinner" /></div>
-            ) : items.length === 0 ? (
+            ) : !loaded ? null : items.length === 0 ? (
                 <div className="glass-card">
                     <div className="empty-state">
                         <div className="empty-state-icon">👁️</div>

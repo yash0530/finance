@@ -164,7 +164,7 @@ def synthesize(
     )
 
     try:
-        provider, model = _get_provider_and_model("thesis")
+        provider, model = _get_provider_and_model("thesis", role="judge")
         verdict = provider.complete_json(JUDGE_SYSTEM, user_prompt, model)
     except Exception as e:
         logger.warning(f"Judge failed: {e}")

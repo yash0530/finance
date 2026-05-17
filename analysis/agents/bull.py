@@ -70,7 +70,7 @@ def argue(
     user_prompt = _build_bull_prompt(ticker, sector_prompt_prefix, evidence, memo_summary)
 
     try:
-        provider, model = _get_provider_and_model("thesis")
+        provider, model = _get_provider_and_model("thesis", role="bull")
         result = provider.complete_json(BULL_SYSTEM, user_prompt, model)
     except Exception as e:
         logger.warning(f"Bull agent failed: {e}")

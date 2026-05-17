@@ -254,3 +254,71 @@ def test_monitoring_digest_save_and_fetch():
     assert len(digests) == 1
     assert digests[0]["ticker"] == "NVDA"
     assert digests[0]["items"][0]["type"] == "insider_buy"
+
+
+# ── Research report telemetry persistence ───────────────────────────────
+
+def test_save_and_list_research_report_with_telemetry():
+    """Roundtrip: save_research_report with telemetry → get_all_research_reports
+    returns total_llm_calls > 0, total_cost_usd > 0, and tool_call_count."""
+    import uuid
+
+    report_id = str(uuid.uuid4())
+    mock_calls = [
+        {"role": "planner", "model": "fake", "cost_usd": 0.01, "latency_ms": 100},
+        {"role": "bull", "model": "fake", "cost_usd": 0.05, "latency_ms": 200},
+        {"role": "bear", "model": "fake", "cost_usd": 0.05, "latency_ms": 200},
+        {"role": "judge", "model": "fake", "cost_usd": 0.10, "latency_ms": 300},
+    ]
+    report_data = {
+        "report_id": report_id,
+        "ticker": "NVDA",
+        "version": "v2",
+        "verdict": {
+            "recommendation": "BUY",
+            "conviction": "HIGH",
+            "target_price_range": {"low": 1000, "high": 1200, "timeframe": "12 months"},
+        },
+    }
+
+    # Also log some tool calls for this report
+    db.log_tool_call(report_id=report_id, tool_name="fundamentals",
+                     args={"ticker": "NVDA"}, confidence="high", cost_usd=0.0)
+    db.log_tool_call(report_id=report_id, tool_name="sentiment",
+                     args={"ticker": "NVDA"}, confidence="medium", cost_usd=0.01)
+
+    db.save_research_report(
+        report_id=report_id,
+        ticker="NVDA",
+        report=report_data,
+        llm_conversations=mock_calls,
+        llm_provider="gemini",
+        llm_model="gemini-2.0-flash",
+        total_cost_usd=0.21,
+        wall_clock_sec=12.5,
+    )
+
+    # Verify via list endpoint
+    reports = db.get_all_research_reports(limit=10)
+    assert len(reports) >= 1
+    r = next(rpt for rpt in reports if rpt["id"] == report_id)
+    assert r["total_llm_calls"] == 4
+    assert r["total_cost_usd"] == 0.21
+    assert r["wall_clock_sec"] == 12.5
+    assert r["recommendation"] == "BUY"
+    assert r["conviction"] == "HIGH"
+    assert r["target_low"] == 1000
+    assert r["target_high"] == 1200
+    assert r["tool_call_count"] == 2
+
+    # Verify via ticker-specific endpoint
+    ticker_reports = db.get_research_reports_for_ticker("NVDA", limit=10)
+    tr = next(rpt for rpt in ticker_reports if rpt["id"] == report_id)
+    assert tr["total_llm_calls"] == 4
+    assert tr["tool_call_count"] == 2
+    assert tr["recommendation"] == "BUY"
+
+    # Verify full report fetch still works
+    full = db.get_research_report(report_id)
+    assert full["report"]["verdict"]["recommendation"] == "BUY"
+    assert full["total_llm_calls"] == 4

@@ -79,6 +79,29 @@ app = Flask(__name__)
 app.json.encoder = NumpyEncoder
 CORS(app)  # Enable CORS for React frontend
 
+# Build/version stamps used by /api/version so the frontend can detect a stale backend.
+import subprocess as _subprocess
+import datetime as _dt
+
+def _git_info():
+    repo = Path(__file__).resolve().parent.parent
+    try:
+        sha = _subprocess.check_output(
+            ['git', 'rev-parse', '--short', 'HEAD'], cwd=repo, stderr=_subprocess.DEVNULL,
+        ).decode().strip()
+    except Exception:
+        sha = 'unknown'
+    try:
+        dirty = bool(_subprocess.check_output(
+            ['git', 'status', '--porcelain'], cwd=repo, stderr=_subprocess.DEVNULL,
+        ).decode().strip())
+    except Exception:
+        dirty = False
+    return sha, dirty
+
+_GIT_SHA, _GIT_DIRTY = _git_info()
+_STARTED_AT = _dt.datetime.utcnow()
+
 # Cache file path
 CACHE_FILE = CACHE_DIR / "sp500_data.json"
 
@@ -2268,6 +2291,19 @@ def health_check():
     })
 
 
+@app.route('/api/version', methods=['GET'])
+def version():
+    """Backend build/version stamp. Used by the frontend to detect stale processes."""
+    now = _dt.datetime.utcnow()
+    return jsonify({
+        'git_sha': _GIT_SHA,
+        'git_dirty': _GIT_DIRTY,
+        'started_at': _STARTED_AT.isoformat() + 'Z',
+        'uptime_s': int((now - _STARTED_AT).total_seconds()),
+        'route_count': len(list(app.url_map.iter_rules())),
+    })
+
+
 # ============================================================================
 # Portfolio Routes (Phase 1)
 # ============================================================================
@@ -2712,6 +2748,61 @@ def get_research_report_by_id(report_id: str):
     if not report:
         return jsonify({'error': f'Report {report_id} not found'}), 404
     return jsonify(convert_numpy_types(report))
+
+
+@app.route('/api/research/report/<report_id>/drift', methods=['GET'])
+def get_research_report_drift(report_id: str):
+    """Get price drift since a report was generated."""
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+    report = db.get_research_report(report_id)
+    if not report:
+        return jsonify({'error': f'Report {report_id} not found'}), 404
+
+    report_data = report.get("report", {})
+    ticker = report.get("ticker", "")
+
+    # Get price at report time
+    price_at_report = report_data.get("price_at_report") or 0
+    if not price_at_report:
+        # Fallback: try verdict.trade_plan.entry_zone or recommendations
+        verdict = report_data.get("verdict", {})
+        entry = (verdict.get("trade_plan") or {}).get("entry_zone", {})
+        if entry.get("upper"):
+            price_at_report = (entry.get("lower", 0) + entry.get("upper", 0)) / 2
+
+    # Get current price
+    current_price = 0
+    try:
+        import yfinance as yf
+        info = yf.Ticker(ticker).info
+        current_price = info.get("currentPrice") or info.get("regularMarketPrice") or 0
+    except Exception:
+        pass
+
+    # Calculate drift
+    pct_change = 0
+    if price_at_report and current_price:
+        pct_change = round(((current_price - price_at_report) / price_at_report) * 100, 2)
+
+    # Days since report
+    days_old = 0
+    generated_at = report.get("generated_at", "")
+    if generated_at:
+        try:
+            from datetime import datetime as dt
+            gen_date = dt.fromisoformat(generated_at.replace("Z", "+00:00"))
+            days_old = (dt.now() - gen_date.replace(tzinfo=None)).days
+        except Exception:
+            pass
+
+    return jsonify({
+        "price_at_report": price_at_report,
+        "current_price": current_price,
+        "pct_change": pct_change,
+        "days_old": days_old,
+        "ticker": ticker,
+    })
 
 
 @app.route('/api/research/<ticker>/thesis', methods=['GET'])

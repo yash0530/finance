@@ -18,12 +18,65 @@ Cost-optimized routing:
 import json
 import re
 import logging
+import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from contextvars import ContextVar
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from db import get_llm_settings, get_llm_api_key
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# LLM Call Session — captures telemetry for every provider.complete() call
+# ============================================================================
+
+_active_session: ContextVar[Optional["LLMCallSession"]] = ContextVar(
+    "_active_session", default=None
+)
+
+
+class LLMCallSession:
+    """Context manager that records every LLM call made during a research session.
+
+    Usage:
+        with LLMCallSession(report_id="abc") as sess:
+            # ... run pipeline ...
+            print(sess.calls)  # list of call dicts
+            print(sess.total_cost_usd)
+    """
+
+    def __init__(self, *, report_id: str):
+        self.report_id = report_id
+        self.calls: List[Dict] = []
+        self._token = None
+
+    def __enter__(self):
+        self._token = _active_session.set(self)
+        return self
+
+    def __exit__(self, *exc):
+        if self._token is not None:
+            _active_session.reset(self._token)
+
+    def record(self, **fields) -> None:
+        """Record a single LLM call with its metadata."""
+        self.calls.append({"called_at": datetime.now().isoformat(), **fields})
+
+    @property
+    def total_cost_usd(self) -> float:
+        return sum(c.get("cost_usd", 0) or 0 for c in self.calls)
+
+    @property
+    def total_calls(self) -> int:
+        return len(self.calls)
+
+
+def get_active_session() -> Optional[LLMCallSession]:
+    """Return the currently active LLM call session, if any."""
+    return _active_session.get(None)
 
 # ============================================================================
 # Task routing constants
@@ -162,12 +215,88 @@ def _build_provider(settings: Dict, api_key: str) -> BaseLLMProvider:
 # Public API
 # ============================================================================
 
-def _get_provider_and_model(task_type: str):
-    """Load settings, build provider, select model."""
+class _InstrumentedProvider:
+    """Wraps a BaseLLMProvider to record calls to the active LLMCallSession."""
+
+    def __init__(self, provider: BaseLLMProvider, model: str, provider_name: str, role: str = "unknown"):
+        self._provider = provider
+        self._model = model
+        self._provider_name = provider_name
+        self._role = role
+
+    def complete(self, system_prompt: str, user_prompt: str, model: str) -> str:
+        session = _active_session.get(None)
+        t0 = time.time()
+        error_msg = None
+        try:
+            result = self._provider.complete(system_prompt, user_prompt, model)
+            return result
+        except Exception as e:
+            error_msg = f"{type(e).__name__}: {e}"
+            raise
+        finally:
+            latency_ms = int((time.time() - t0) * 1000)
+            if session is not None:
+                session.record(
+                    role=self._role,
+                    model=model or self._model,
+                    provider=self._provider_name,
+                    prompt_tokens=_estimate_tokens(system_prompt + user_prompt),
+                    completion_tokens=0,  # not available without SDK-level tracking
+                    cost_usd=0,  # will be filled by budget tracking
+                    latency_ms=latency_ms,
+                    cached=False,
+                    error=error_msg,
+                )
+
+    def complete_json(self, system_prompt: str, user_prompt: str, model: str) -> Dict:
+        session = _active_session.get(None)
+        t0 = time.time()
+        error_msg = None
+        try:
+            result = self._provider.complete_json(system_prompt, user_prompt, model)
+            return result
+        except Exception as e:
+            error_msg = f"{type(e).__name__}: {e}"
+            raise
+        finally:
+            latency_ms = int((time.time() - t0) * 1000)
+            if session is not None:
+                session.record(
+                    role=self._role,
+                    model=model or self._model,
+                    provider=self._provider_name,
+                    prompt_tokens=_estimate_tokens(system_prompt + user_prompt),
+                    completion_tokens=0,
+                    cost_usd=0,
+                    latency_ms=latency_ms,
+                    cached=False,
+                    error=error_msg,
+                )
+
+
+def _estimate_tokens(text: str) -> int:
+    """Rough token estimate (~4 chars per token for English)."""
+    return len(text) // 4
+
+
+def _get_provider_and_model(task_type: str, role: str = "unknown"):
+    """Load settings, build provider, select model.
+
+    If an LLMCallSession is active, wraps the provider with instrumentation.
+    The `role` parameter tags calls for attribution (planner/bull/bear/judge/etc).
+    """
     settings = get_llm_settings()
     api_key = get_llm_api_key()
     provider = _build_provider(settings, api_key)
     model = _route_model(task_type, settings)
+    provider_name = settings.get("provider", "ollama")
+
+    # Wrap with instrumentation if a session is active
+    session = _active_session.get(None)
+    if session is not None:
+        provider = _InstrumentedProvider(provider, model, provider_name, role=role)
+
     return provider, model
 
 

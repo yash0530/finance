@@ -175,7 +175,7 @@ def test_plan_seeds_when_llm_forgets(monkeypatch):
                 "summary": "LLM forgot macro",
             }
 
-    monkeypatch.setattr("llm_service._get_provider_and_model", lambda task: (_StubProvider(), "fake-model"))
+    monkeypatch.setattr("llm_service._get_provider_and_model", lambda task, role="unknown": (_StubProvider(), "fake-model"))
 
     ledger = _StubLedger()
     budget = _StubBudget()
@@ -203,7 +203,7 @@ def test_plan_seeds_on_llm_exception(monkeypatch):
         def complete_json(self, system, user, model):
             raise RuntimeError("LLM down")
 
-    monkeypatch.setattr("llm_service._get_provider_and_model", lambda task: (_BoomProvider(), "fake-model"))
+    monkeypatch.setattr("llm_service._get_provider_and_model", lambda task, role="unknown": (_BoomProvider(), "fake-model"))
 
     ledger = _StubLedger()
     budget = _StubBudget()
@@ -230,7 +230,7 @@ def test_plan_seeds_on_malformed_llm(monkeypatch):
         def complete_json(self, system, user, model):
             return "not a dict"  # malformed
 
-    monkeypatch.setattr("llm_service._get_provider_and_model", lambda task: (_JunkProvider(), "fake-model"))
+    monkeypatch.setattr("llm_service._get_provider_and_model", lambda task, role="unknown": (_JunkProvider(), "fake-model"))
 
     ledger = _StubLedger()
     budget = _StubBudget()
@@ -259,7 +259,7 @@ def test_plan_budget_exhausted_short_circuits(monkeypatch):
         def complete_json(self, *a, **kw):
             raise AssertionError("LLM called despite exhausted budget")
 
-    monkeypatch.setattr("llm_service._get_provider_and_model", lambda task: (_ShouldNotBeCalled(), "x"))
+    monkeypatch.setattr("llm_service._get_provider_and_model", lambda task, role="unknown": (_ShouldNotBeCalled(), "x"))
 
     ledger = _StubLedger()
     budget = _StubBudget(exhausted=True)

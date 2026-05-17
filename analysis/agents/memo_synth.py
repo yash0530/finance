@@ -77,7 +77,7 @@ def synthesize_memo_update(
     )
 
     try:
-        provider, model = llm_service._get_provider_and_model("analysis")
+        provider, model = llm_service._get_provider_and_model("analysis", role="memo_synth")
     except Exception as e:
         logger.warning(f"memo_synth: LLM provider unavailable: {e}")
         return {

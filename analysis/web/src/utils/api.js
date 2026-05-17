@@ -46,6 +46,8 @@ export const refreshData = () =>
 
 export const healthCheck = () => apiFetch(`${API_BASE}/health`);
 
+export const getVersion = () => apiFetch(`${API_BASE}/version`);
+
 export const fetchStockHistory = (ticker, refresh = false) =>
     apiFetch(`${API_BASE}/company/${encodeURIComponent(ticker)}/history${refresh ? '?refresh=true' : ''}`);
 
@@ -174,33 +176,44 @@ export function streamDeepResearch(ticker, callbacks, options = {}) {
     const url = `${API_BASE}/research/${encodeURIComponent(ticker)}/stream${qs ? '?' + qs : ''}`;
 
     const eventSource = new EventSource(url);
+    let eventsReceived = 0;
+    let completedCleanly = false;
 
-    eventSource.addEventListener('pipeline_start', (e) => {
+    const bump = (handler) => (e) => {
+        eventsReceived += 1;
+        handler(e);
+    };
+
+    eventSource.addEventListener('pipeline_start', bump((e) => {
         callbacks.onPipelineStart?.(JSON.parse(e.data));
-    });
+    }));
 
-    eventSource.addEventListener('stage_start', (e) => {
+    eventSource.addEventListener('stage_start', bump((e) => {
         callbacks.onStageStart?.(JSON.parse(e.data));
-    });
+    }));
 
-    eventSource.addEventListener('stage_complete', (e) => {
+    eventSource.addEventListener('stage_complete', bump((e) => {
         callbacks.onStageComplete?.(JSON.parse(e.data));
-    });
+    }));
 
-    eventSource.addEventListener('stage_error', (e) => {
+    eventSource.addEventListener('stage_error', bump((e) => {
         callbacks.onStageError?.(JSON.parse(e.data));
-    });
+    }));
 
-    eventSource.addEventListener('report_complete', (e) => {
+    eventSource.addEventListener('report_complete', bump((e) => {
         callbacks.onReportComplete?.(JSON.parse(e.data));
+        completedCleanly = true;
         eventSource.close();
-    });
+    }));
 
-    eventSource.onerror = (e) => {
-        // EventSource auto-reconnects, but we want to surface fatal errors
-        if (eventSource.readyState === EventSource.CLOSED) {
-            callbacks.onError?.({ error: 'Connection closed' });
-        }
+    eventSource.onerror = () => {
+        // EventSource auto-reconnects on transient errors; only surface terminal CLOSED.
+        if (eventSource.readyState !== EventSource.CLOSED) return;
+        if (completedCleanly) return;
+        const msg = eventsReceived === 0
+            ? `Backend rejected the stream (route missing, CORS, or backend down). Tried ${url}`
+            : `Stream ended unexpectedly after ${eventsReceived} event(s) without completing`;
+        callbacks.onError?.({ error: msg, eventsReceived });
     };
 
     // Return cleanup function
@@ -233,6 +246,8 @@ export function streamDeepResearchV2(ticker, callbacks, options = {}) {
     const url = `${API_BASE}/research/${encodeURIComponent(ticker)}/v2/stream${qs ? '?' + qs : ''}`;
 
     const es = new EventSource(url);
+    let eventsReceived = 0;
+    let completedCleanly = false;
 
     const EVENTS = [
         'pipeline_start', 'context_loaded', 'agent_plan',
@@ -245,19 +260,27 @@ export function streamDeepResearchV2(ticker, callbacks, options = {}) {
     for (const ev of EVENTS) {
         const fn = callbacks['on' + ev.replace(/(^|_)(\w)/g, (_, __, c) => c.toUpperCase())];
         es.addEventListener(ev, (e) => {
+            eventsReceived += 1;
             try {
                 fn?.(JSON.parse(e.data));
             } catch (err) {
                 console.error(`v2 SSE handler for ${ev} failed:`, err);
             }
-            if (ev === 'report_complete') es.close();
+            if (ev === 'report_complete') {
+                completedCleanly = true;
+                es.close();
+            }
         });
     }
 
     es.onerror = () => {
-        if (es.readyState === EventSource.CLOSED) {
-            callbacks.onError?.({ error: 'Connection closed' });
-        }
+        // Only treat CLOSED as terminal — EventSource auto-reconnects on transient drops.
+        if (es.readyState !== EventSource.CLOSED) return;
+        if (completedCleanly) return;
+        const msg = eventsReceived === 0
+            ? `Backend rejected the stream (route missing, CORS, or backend down). Tried ${url}`
+            : `Stream ended unexpectedly after ${eventsReceived} event(s) without reaching report_complete`;
+        callbacks.onError?.({ error: msg, eventsReceived });
     };
 
     return () => es.close();
@@ -323,6 +346,9 @@ export const getAllResearchHistory = (limit = 50) =>
 
 export const getResearchReportById = (reportId) =>
     apiFetch(`${API_BASE}/research/report/${encodeURIComponent(reportId)}`);
+
+export const getResearchReportDrift = (reportId) =>
+    apiFetch(`${API_BASE}/research/report/${encodeURIComponent(reportId)}/drift`);
 
 
 // ──────────────────────────────────────────────────────────

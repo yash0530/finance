@@ -238,7 +238,7 @@ def plan(
     )
 
     try:
-        provider, model = _get_provider_and_model("analysis")
+        provider, model = _get_provider_and_model("analysis", role="planner")
         raw = provider.complete_json(PLANNER_SYSTEM, prompt_user, model)
     except Exception as e:
         logger.warning(f"Planner LLM failed: {e} — falling back to default plan")

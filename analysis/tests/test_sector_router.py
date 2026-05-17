@@ -247,7 +247,7 @@ def test_classify_sector_with_llm_helper_clamps_bad_key(monkeypatch):
         def complete_json(self, system, user, model):
             return {"sector_key": "made_up_bucket", "confidence": "high", "reasoning": "bad"}
 
-    monkeypatch.setattr("llm_service._get_provider_and_model", lambda t: (_StubProvider(), "fake-model"))
+    monkeypatch.setattr("llm_service._get_provider_and_model", lambda t, role="unknown": (_StubProvider(), "fake-model"))
 
     out = classify_sector_with_llm("NVDA", "Tech", "Semis", ["semis", "saas", "default"])
     assert out["sector_key"] == "default"
@@ -262,7 +262,7 @@ def test_classify_sector_with_llm_helper_handles_non_dict(monkeypatch):
         def complete_json(self, system, user, model):
             return "not a dict"
 
-    monkeypatch.setattr("llm_service._get_provider_and_model", lambda t: (_StubProvider(), "fake-model"))
+    monkeypatch.setattr("llm_service._get_provider_and_model", lambda t, role="unknown": (_StubProvider(), "fake-model"))
 
     out = classify_sector_with_llm("NVDA", "Tech", "Semis", ["semis"])
     assert out["sector_key"] == "default"

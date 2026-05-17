@@ -208,11 +208,16 @@ def stream_deep_research(
     from db import (
         log_tool_call, save_research_report, save_recommendation, get_llm_settings,
     )
+    from llm_service import LLMCallSession
 
     ticker = ticker.upper().strip()
     report_id = str(uuid.uuid4())
     budget = make_budget(budget_profile)
     ledger = EvidenceLedger(ticker=ticker)
+
+    # Open an LLM call session to capture telemetry for this report
+    session = LLMCallSession(report_id=report_id)
+    session.__enter__()
 
     # ── Pipeline start ──────────────────────────────────────
     yield _sse("pipeline_start", {
@@ -430,18 +435,25 @@ def stream_deep_research(
         "recommendation_id": rec_id,
         "tracked_for_calibration": tracked,
         "portfolio_context": portfolio_context,
+        "price_at_report": current_price,
     }
 
     try:
         settings = get_llm_settings()
+        wall_clock = round(time.time() - budget.started_at, 1)
         save_research_report(
             report_id=report_id, ticker=ticker, report=report,
-            llm_conversations=[],  # we have tool_call_log + verdict; granular LLM dumps optional
+            llm_conversations=session.calls,
             llm_provider=settings.get("provider", ""),
             llm_model=settings.get("model_deep", ""),
+            total_cost_usd=budget.spent_usd,
+            wall_clock_sec=wall_clock,
         )
     except Exception as e:
         logger.warning(f"Final report persist failed: {e}")
+
+    # Close the LLM call session
+    session.__exit__(None, None, None)
 
     yield _sse("report_complete", {
         "report_id": report_id,
@@ -451,6 +463,7 @@ def stream_deep_research(
         "evidence_tool_count": len(ledger.results),
         "cost_used_usd": budget.spent_usd,
         "wall_clock_sec": round(time.time() - budget.started_at, 1),
+        "total_llm_calls": session.total_calls,
     })
 
 

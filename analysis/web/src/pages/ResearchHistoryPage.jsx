@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { getAllResearchHistory, getResearchReportById } from '../utils/api';
-import FinancialTrendsChart from '../components/FinancialTrendsChart';
-import ValuationCard from '../components/ValuationCard';
-import RiskCard from '../components/RiskCard';
+import React, { useState, useEffect, useMemo } from 'react';
+import { getAllResearchHistory, getResearchReportById, getResearchReportDrift } from '../utils/api';
+import V2ReportView from '../components/v2/V2ReportView';
+import RecommendationPill from '../components/v2/RecommendationPill';
 
-// ── Sentinel & Formatters ────────────────────────────────────────
+// ── Formatters ────────────────────────────────────────────────────────
 
 function formatDate(isoString) {
     if (!isoString) return 'Unknown';
@@ -15,113 +14,7 @@ function formatDate(isoString) {
     });
 }
 
-// ── Thesis Card (copied/adapted from DeepResearchPage) ────────
-function ThesisCard({ thesis }) {
-    if (!thesis) return null;
-
-    return (
-        <div className="glass-card" style={{ borderColor: 'rgba(45, 126, 247, 0.25)', marginBottom: 'var(--spacing-lg)' }}>
-            {thesis.error && !thesis.summary ? (
-                <div className="alert alert-warning">{thesis.summary || 'AI thesis unavailable'}</div>
-            ) : (
-                <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-md)' }}>
-                        <h3 style={{ fontSize: '0.925rem', color: 'var(--text-primary)', margin: 0 }}>🤖 AI Investment Thesis</h3>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <span className={`badge badge-${thesis.recommendation === 'BUY' ? 'green' : thesis.recommendation === 'HOLD' ? 'yellow' : 'red'}`}
-                                style={{ fontSize: '0.8rem', padding: '4px 12px' }}>
-                                {thesis.recommendation}
-                            </span>
-                            <span className={`badge ${
-                                thesis.conviction === 'HIGH' ? 'badge-green'
-                                : thesis.conviction === 'MEDIUM' ? 'badge-yellow'
-                                : 'badge-gray'
-                            }`} style={{ border: '1px solid', fontSize: '0.7rem' }}>
-                                {thesis.conviction} conviction
-                            </span>
-                        </div>
-                    </div>
-
-                    <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)', lineHeight: 1.7 }}>
-                        {thesis.summary}
-                    </p>
-
-                    {/* Target price range */}
-                    {thesis.target_price_range && (
-                        <div style={{
-                            display: 'flex', gap: 16, padding: '10px 14px', marginBottom: 'var(--spacing-md)',
-                            background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', fontSize: '0.78rem'
-                        }}>
-                            <div><span style={{ color: 'var(--text-muted)' }}>Target Range: </span>
-                                <span style={{ fontFamily: 'monospace', color: 'var(--accent-green)' }}>
-                                    ${thesis.target_price_range.low} — ${thesis.target_price_range.high}
-                                </span>
-                            </div>
-                            <span style={{ color: 'var(--text-muted)' }}>({thesis.target_price_range.timeframe})</span>
-                        </div>
-                    )}
-
-                    <div className="grid grid-2" style={{ gap: 'var(--spacing-md)' }}>
-                        <div>
-                            <div style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--accent-green)', marginBottom: 8 }}>
-                                Synthesized Bull Case
-                            </div>
-                            {(thesis.bull_case || []).map((b, i) => (
-                                <div key={i} style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', padding: '3px 0', display: 'flex', gap: 8 }}>
-                                    <span style={{ color: 'var(--accent-green)', flexShrink: 0 }}>↑</span>{b}
-                                </div>
-                            ))}
-                        </div>
-                        <div>
-                            <div style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--accent-red)', marginBottom: 8 }}>
-                                Synthesized Bear Case
-                            </div>
-                            {(thesis.bear_case || []).map((b, i) => (
-                                <div key={i} style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', padding: '3px 0', display: 'flex', gap: 8 }}>
-                                    <span style={{ color: 'var(--accent-red)', flexShrink: 0 }}>↓</span>{b}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Adversarial Debate Raw Output */}
-                    {(thesis._raw_bull_pass || thesis._raw_bear_pass) && (
-                        <details style={{ marginTop: 'var(--spacing-md)', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm)' }}>
-                            <summary style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)', cursor: 'pointer', outline: 'none', padding: '4px 8px' }}>
-                                🔍 View AI Adversarial Debate (3-Pass Output)
-                            </summary>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', padding: '12px 8px 4px 8px', marginTop: 8, borderTop: '1px solid var(--border-color)' }}>
-                                {thesis._raw_bull_pass && (
-                                    <div>
-                                        <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--accent-green)', fontWeight: 700, marginBottom: 8 }}>Pass 1: The Bull</div>
-                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', lineHeight: 1.6, whiteSpace: 'pre-line' }}>{thesis._raw_bull_pass}</div>
-                                    </div>
-                                )}
-                                {thesis._raw_bear_pass && (
-                                    <div>
-                                        <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--accent-red)', fontWeight: 700, marginBottom: 8 }}>Pass 2: The Bear</div>
-                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', lineHeight: 1.6, whiteSpace: 'pre-line' }}>{thesis._raw_bear_pass}</div>
-                                    </div>
-                                )}
-                            </div>
-                        </details>
-                    )}
-
-                    {thesis.key_catalysts?.length > 0 && (
-                        <div style={{ marginTop: 'var(--spacing-md)', padding: 'var(--spacing-sm) var(--spacing-md)', background: 'rgba(124,58,237,0.08)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(124,58,237,0.15)' }}>
-                            <div style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--accent-purple)', marginBottom: 6 }}>Key Catalysts</div>
-                            {thesis.key_catalysts.map((c, i) => (
-                                <div key={i} style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', padding: '2px 0' }}>⚡ {c}</div>
-                            ))}
-                        </div>
-                    )}
-                </>
-            )}
-        </div>
-    );
-}
-
-// ── Main Component ────────────────────────────────────────────────
+// ── Main Component ────────────────────────────────────────────────────
 
 export default function ResearchHistoryPage() {
     const [reports, setReports] = useState([]);
@@ -130,13 +23,19 @@ export default function ResearchHistoryPage() {
 
     const [selectedReportId, setSelectedReportId] = useState(null);
     const [fullReport, setFullReport] = useState(null);
+    const [drift, setDrift] = useState(null);
     const [reportLoading, setReportLoading] = useState(false);
+
+    // Filters
+    const [filterRec, setFilterRec] = useState('ALL');
+    const [sortBy, setSortBy] = useState('newest');
+    const [searchTicker, setSearchTicker] = useState('');
 
     useEffect(() => {
         async function fetchHistory() {
             try {
                 setLoading(true);
-                const data = await getAllResearchHistory(50);
+                const data = await getAllResearchHistory(100);
                 setReports(data.reports || []);
             } catch (err) {
                 setError(err.message);
@@ -150,9 +49,14 @@ export default function ResearchHistoryPage() {
     const handleSelectReport = async (id) => {
         setSelectedReportId(id);
         setReportLoading(true);
+        setDrift(null);
         try {
-            const data = await getResearchReportById(id);
+            const [data, driftData] = await Promise.all([
+                getResearchReportById(id),
+                getResearchReportDrift(id).catch(() => null),
+            ]);
             setFullReport(data);
+            setDrift(driftData);
         } catch (err) {
             console.error("Failed to fetch full report", err);
             alert("Failed to load full report details.");
@@ -165,7 +69,42 @@ export default function ResearchHistoryPage() {
     const handleBack = () => {
         setSelectedReportId(null);
         setFullReport(null);
+        setDrift(null);
     };
+
+    // Filtered + sorted reports
+    const filteredReports = useMemo(() => {
+        let list = [...reports];
+
+        // Filter by recommendation
+        if (filterRec !== 'ALL') {
+            list = list.filter(r => (r.recommendation || '').toUpperCase() === filterRec);
+        }
+
+        // Filter by ticker search
+        if (searchTicker.trim()) {
+            const q = searchTicker.trim().toUpperCase();
+            list = list.filter(r => r.ticker.startsWith(q));
+        }
+
+        // Sort
+        switch (sortBy) {
+            case 'oldest':
+                list.sort((a, b) => (a.generated_at || '').localeCompare(b.generated_at || ''));
+                break;
+            case 'cost':
+                list.sort((a, b) => (b.total_cost_usd || 0) - (a.total_cost_usd || 0));
+                break;
+            case 'conviction':
+                const convOrder = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+                list.sort((a, b) => (convOrder[(b.conviction || '').toUpperCase()] || 0) - (convOrder[(a.conviction || '').toUpperCase()] || 0));
+                break;
+            default: // newest
+                list.sort((a, b) => (b.generated_at || '').localeCompare(a.generated_at || ''));
+        }
+
+        return list;
+    }, [reports, filterRec, sortBy, searchTicker]);
 
     if (loading) {
         return <div className="loading-state"><div className="spinner" /></div>;
@@ -175,46 +114,29 @@ export default function ResearchHistoryPage() {
         return <div className="alert alert-error">Failed to load history: {error}</div>;
     }
 
-    // Detailed View Mode
+    // ── Detail View ──────────────────────────────────────────────────
     if (selectedReportId) {
         return (
             <div className="fade-in">
                 <button className="btn btn-secondary" onClick={handleBack} style={{ marginBottom: 'var(--spacing-lg)' }}>
                     ← Back to History
                 </button>
-                
+
                 {reportLoading ? (
-                    <div className="loading-state"><div className="spinner" /> Loading deep research archive...</div>
+                    <div className="loading-state"><div className="spinner" /> Loading report archive...</div>
                 ) : fullReport && fullReport.report ? (
                     <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-                        <div className="glass-card" style={{ marginBottom: 'var(--spacing-lg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                    <span className="ticker-badge" style={{ fontSize: '1.2rem', padding: '6px 16px' }}>
-                                        {fullReport.ticker}
-                                    </span>
-                                    <h2 style={{ fontSize: '1.2rem', margin: 0 }}>Archived Report</h2>
-                                </div>
-                                <div style={{ marginTop: 8, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                                    Generated on {formatDate(fullReport.generated_at)}
-                                </div>
-                            </div>
-                            <div style={{ textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                <div>ID: {fullReport.id.slice(0, 8)}</div>
-                                <div>Model: {fullReport.llm_model}</div>
-                                <div>LLM Calls: {fullReport.total_llm_calls}</div>
-                            </div>
-                        </div>
-
-                        {/* Rendering the archived report sections */}
-                        {fullReport.report.thesis && <ThesisCard thesis={fullReport.report.thesis} />}
-                        
-                        {fullReport.report.financial_trends && <FinancialTrendsChart trends={fullReport.report.financial_trends} />}
-                        
-                        {fullReport.report.valuation && <ValuationCard valuation={fullReport.report.valuation} />}
-                        
-                        {fullReport.report.risk_management && <RiskCard riskData={fullReport.report.risk_management} />}
-                        
+                        <V2ReportView
+                            report={fullReport.report}
+                            mode="archived"
+                            drift={drift}
+                            telemetry={{
+                                evidence_tool_count: fullReport.report?.evidence?.results?.length || 0,
+                                total_llm_calls: fullReport.total_llm_calls,
+                                cost_used_usd: fullReport.total_cost_usd || fullReport.report?.budget_used?.spent_usd || 0,
+                                wall_clock_sec: fullReport.wall_clock_sec || fullReport.report?.budget_used?.wall_clock_sec || 0,
+                            }}
+                        />
                     </div>
                 ) : (
                     <div className="alert alert-warning">Report data missing or corrupted.</div>
@@ -223,17 +145,56 @@ export default function ResearchHistoryPage() {
         );
     }
 
-    // List View Mode
+    // ── List View ────────────────────────────────────────────────────
     return (
         <div className="fade-in">
             <div className="page-header">
                 <div>
                     <h1 className="page-title">🕰️ Research History</h1>
-                    <p className="page-subtitle">Archive of your previously generated deep research reports</p>
+                    <p className="page-subtitle">Archive of v2 deep research reports with full telemetry</p>
                 </div>
             </div>
 
-            {reports.length === 0 ? (
+            {/* Filter bar */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 'var(--spacing-lg)', flexWrap: 'wrap', alignItems: 'center' }}>
+                {/* Recommendation filter pills */}
+                {['ALL', 'BUY', 'HOLD', 'TRIM', 'AVOID'].map(rec => (
+                    <button
+                        key={rec}
+                        className={`btn ${filterRec === rec ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ fontSize: '0.72rem', padding: '4px 12px' }}
+                        onClick={() => setFilterRec(rec)}
+                    >
+                        {rec}
+                    </button>
+                ))}
+
+                <div style={{ flex: 1 }} />
+
+                {/* Sort */}
+                <select
+                    className="input"
+                    value={sortBy}
+                    onChange={e => setSortBy(e.target.value)}
+                    style={{ maxWidth: 160, fontSize: '0.78rem' }}
+                >
+                    <option value="newest">Newest</option>
+                    <option value="oldest">Oldest</option>
+                    <option value="cost">Highest Cost</option>
+                    <option value="conviction">Highest Conviction</option>
+                </select>
+
+                {/* Search */}
+                <input
+                    className="input"
+                    placeholder="Search ticker…"
+                    value={searchTicker}
+                    onChange={e => setSearchTicker(e.target.value.toUpperCase())}
+                    style={{ maxWidth: 140, fontSize: '0.78rem' }}
+                />
+            </div>
+
+            {filteredReports.length === 0 ? (
                 <div className="glass-card">
                     <div className="empty-state">
                         <div className="empty-state-icon">🗄️</div>
@@ -246,32 +207,71 @@ export default function ResearchHistoryPage() {
                     <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
-                                <th style={{ padding: '12px 16px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Ticker</th>
-                                <th style={{ padding: '12px 16px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Date Generated</th>
-                                <th style={{ padding: '12px 16px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Model</th>
-                                <th style={{ padding: '12px 16px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>LLM Calls</th>
-                                <th style={{ padding: '12px 16px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Action</th>
+                                <th style={thStyle}>Ticker</th>
+                                <th style={thStyle}>Date</th>
+                                <th style={thStyle}>Rec</th>
+                                <th style={thStyle}>Conv</th>
+                                <th style={thStyle}>Target</th>
+                                <th style={thStyle}>Calls</th>
+                                <th style={thStyle}>Tools</th>
+                                <th style={thStyle}>Cost</th>
+                                <th style={thStyle}>Action</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {reports.map(report => (
+                            {filteredReports.map(report => (
                                 <tr key={report.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                                    <td style={{ padding: '12px 16px' }}>
+                                    <td style={tdStyle}>
                                         <span className="ticker-badge">{report.ticker}</span>
                                     </td>
-                                    <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                                        {formatDate(report.generated_at)}
+                                    <td style={tdStyle}>
+                                        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                            {formatDate(report.generated_at)}
+                                        </span>
                                     </td>
-                                    <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                                        {report.llm_model}
+                                    <td style={tdStyle}>
+                                        {report.recommendation ? (
+                                            <RecommendationPill recommendation={report.recommendation} conviction={report.conviction} small />
+                                        ) : (
+                                            <span style={{ color: 'var(--text-muted)' }}>—</span>
+                                        )}
                                     </td>
-                                    <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                                        {report.total_llm_calls}
+                                    <td style={tdStyle}>
+                                        {report.conviction ? (
+                                            <span className={`badge badge-${report.conviction === 'HIGH' ? 'green' : report.conviction === 'MEDIUM' ? 'yellow' : 'gray'}`}
+                                                  style={{ fontSize: '0.65rem' }}>
+                                                {report.conviction}
+                                            </span>
+                                        ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                                     </td>
-                                    <td style={{ padding: '12px 16px' }}>
-                                        <button 
-                                            className="btn btn-secondary" 
-                                            style={{ padding: '4px 12px', fontSize: '0.75rem' }}
+                                    <td style={tdStyle}>
+                                        {report.target_low && report.target_high ? (
+                                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                                ${report.target_low} – ${report.target_high}
+                                            </span>
+                                        ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                                    </td>
+                                    <td style={tdStyle}>
+                                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                            {report.total_llm_calls || '—'}
+                                        </span>
+                                    </td>
+                                    <td style={tdStyle}>
+                                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                            {report.tool_call_count || '—'}
+                                        </span>
+                                    </td>
+                                    <td style={tdStyle}>
+                                        {report.total_cost_usd > 0 ? (
+                                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                                ${report.total_cost_usd.toFixed(2)}
+                                            </span>
+                                        ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                                    </td>
+                                    <td style={tdStyle}>
+                                        <button
+                                            className="btn btn-secondary"
+                                            style={{ padding: '4px 12px', fontSize: '0.72rem' }}
                                             onClick={() => handleSelectReport(report.id)}
                                         >
                                             View Report
@@ -286,3 +286,6 @@ export default function ResearchHistoryPage() {
         </div>
     );
 }
+
+const thStyle = { padding: '10px 12px', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' };
+const tdStyle = { padding: '10px 12px' };

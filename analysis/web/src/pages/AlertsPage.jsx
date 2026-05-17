@@ -24,14 +24,18 @@ export default function AlertsPage() {
     const [condition, setCondition]   = useState('above');
     const [threshold, setThreshold]   = useState('');
     const [loading, setLoading]       = useState(true);
+    const [loaded, setLoaded]         = useState(false);
     const [creating, setCreating]     = useState(false);
     const [error, setError]           = useState('');
     const [showAll, setShowAll]       = useState(false);
 
     async function load() {
+        setError('');
+        setLoaded(false);
         try {
             const data = await getAlerts(!showAll);
             setAlerts(data.data || []);
+            setLoaded(true);
         } catch (e) { setError(e.message); }
         finally { setLoading(false); }
     }
@@ -103,7 +107,7 @@ export default function AlertsPage() {
 
             {loading ? (
                 <div className="loading-state"><div className="spinner" /></div>
-            ) : alerts.length === 0 ? (
+            ) : !loaded ? null : alerts.length === 0 ? (
                 <div className="glass-card">
                     <div className="empty-state">
                         <div className="empty-state-icon">🔔</div>

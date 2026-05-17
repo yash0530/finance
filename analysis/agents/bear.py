@@ -87,7 +87,7 @@ def argue(
     )
 
     try:
-        provider, model = _get_provider_and_model("thesis")
+        provider, model = _get_provider_and_model("thesis", role="bear")
         result = provider.complete_json(BEAR_SYSTEM, user_prompt, model)
     except Exception as e:
         logger.warning(f"Bear agent failed: {e}")
