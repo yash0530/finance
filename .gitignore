@@ -21,3 +21,9 @@ node_modules/
 # Application cache
 .cache/
 analysis/.cache/
+
+# IDE / editor settings
+.vscode/
+
+# Kiro spec drafts
+.kiro/specs/material-ui-overhaul/
