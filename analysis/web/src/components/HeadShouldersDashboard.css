@@ -24,7 +24,7 @@
 .hs-dashboard-count {
     display: inline-block;
     padding: 0.25rem 0.75rem;
-    background: var(--accent-primary);
+    background: var(--accent-blue);
     color: white;
     border-radius: 1rem;
     font-size: 0.85rem;
@@ -44,8 +44,8 @@
 .hs-dashboard-error {
     text-align: center;
     padding: 2rem;
-    color: var(--error-color);
-    background: rgba(239, 68, 68, 0.1);
+    color: var(--accent-red);
+    background: var(--accent-red-dim);
     border-radius: 0.5rem;
 }
 
@@ -98,7 +98,7 @@
 }
 
 .hs-dashboard-table th {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--bg-secondary);
     color: var(--text-secondary);
     font-weight: 600;
     text-transform: uppercase;
@@ -112,7 +112,7 @@
 }
 
 .hs-dashboard-table tbody tr:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(66, 133, 244, 0.08);
 }
 
 .clickable-row {
@@ -132,7 +132,7 @@
 .ticker-badge {
     display: inline-block;
     padding: 0.2rem 0.5rem;
-    background: var(--accent-primary);
+    background: var(--accent-blue);
     color: white;
     border-radius: 0.25rem;
     font-family: var(--font-mono);
@@ -164,18 +164,18 @@
 }
 
 .confidence-high {
-    background: rgba(16, 185, 129, 0.2);
-    color: #10b981;
+    background: var(--accent-green-dim);
+    color: var(--accent-green);
 }
 
 .confidence-medium {
-    background: rgba(245, 158, 11, 0.2);
-    color: #f59e0b;
+    background: rgba(255, 202, 40, 0.2);
+    color: var(--accent-yellow);
 }
 
 .confidence-low {
-    background: rgba(239, 68, 68, 0.2);
-    color: #ef4444;
+    background: var(--accent-red-dim);
+    color: var(--accent-red);
 }
 
 .price-col {
@@ -184,7 +184,7 @@
 }
 
 .target-price {
-    color: #ef4444;
+    color: var(--accent-red);
     font-weight: 600;
 }
 
@@ -195,11 +195,11 @@
 }
 
 .pct-col.above {
-    color: #10b981;
+    color: var(--accent-green);
 }
 
 .pct-col.below {
-    color: #ef4444;
+    color: var(--accent-red);
 }
 
 .hs-info-panel {
@@ -243,15 +243,15 @@
 }
 
 .dot.confidence-high {
-    background: #10b981;
+    background: var(--accent-green);
 }
 
 .dot.confidence-medium {
-    background: #f59e0b;
+    background: var(--accent-yellow);
 }
 
 .dot.confidence-low {
-    background: #ef4444;
+    background: var(--accent-red);
 }
 
 .clickable-header {
@@ -261,7 +261,7 @@
 }
 
 .clickable-header:hover {
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: rgba(66, 133, 244, 0.08);
 }
 
 .sort-icon {
@@ -272,7 +272,7 @@
 
 .sort-icon.active {
     opacity: 1;
-    color: var(--accent-primary);
+    color: var(--accent-blue);
 }
 
 .filter-row-inline th {
@@ -293,5 +293,5 @@
 
 .inline-filter-input:focus {
     outline: none;
-    border-color: var(--accent-primary);
+    border-color: var(--accent-blue);
 }

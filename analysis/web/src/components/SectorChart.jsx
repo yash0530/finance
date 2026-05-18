@@ -76,9 +76,10 @@ function SectorChart({ sectors }) {
                             <Tooltip
                                 formatter={(value) => formatMarketCap(value)}
                                 contentStyle={{
-                                    background: 'var(--bg-secondary)',
-                                    border: '1px solid var(--border-color)',
-                                    borderRadius: 'var(--radius-sm)'
+                                    background: '#1e1e2e',
+                                    border: '1px solid rgba(255,255,255,0.06)',
+                                    borderRadius: 8,
+                                    boxShadow: '0 10px 20px rgba(0,0,0,0.30), 0 6px 6px rgba(0,0,0,0.34)'
                                 }}
                             />
                             <Legend
@@ -96,18 +97,19 @@ function SectorChart({ sectors }) {
                     <h3>Average Forward P/E by Sector</h3>
                     <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={barData} layout="vertical" margin={{ left: 20 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                             <XAxis
                                 type="number"
-                                stroke="var(--text-muted)"
+                                stroke="#5F6368"
+                                tick={{ fill: '#5F6368', fontSize: 11 }}
                                 tickFormatter={(v) => v.toFixed(0)}
                             />
                             <YAxis
                                 type="category"
                                 dataKey="name"
-                                stroke="var(--text-muted)"
+                                stroke="#5F6368"
                                 width={120}
-                                tick={{ fontSize: 11 }}
+                                tick={{ fill: '#5F6368', fontSize: 11 }}
                             />
                             <Tooltip content={<CustomTooltip />} />
                             <Bar dataKey="avg_pe" name="Avg P/E" radius={[0, 4, 4, 0]}>

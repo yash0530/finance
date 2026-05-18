@@ -24,7 +24,7 @@ function ChartTooltip({ active, payload, label, formatter }) {
     if (!active || !payload?.length) return null;
     return (
         <div style={{
-            background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)',
+            background: '#1e1e2e', border: '1px solid rgba(255,255,255,0.06)',
             borderRadius: 8, padding: '8px 12px', fontSize: '0.75rem',
         }}>
             <div style={{ color: 'var(--text-muted)', marginBottom: 4 }}>{label}</div>
@@ -116,9 +116,9 @@ export default function FinancialTrendsChart({ trends }) {
                 </div>
                 <ResponsiveContainer width="100%" height={160}>
                     <BarChart data={fmtQ} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(45,126,247,0.08)" />
-                        <XAxis dataKey="label" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} interval="preserveStartEnd" />
-                        <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                        <XAxis dataKey="label" tick={{ fill: '#5F6368', fontSize: 10 }} interval="preserveStartEnd" />
+                        <YAxis tick={{ fill: '#5F6368', fontSize: 10 }} />
                         <Tooltip content={<ChartTooltip formatter={v => `$${v?.toLocaleString()}M`} />} />
                         <Bar dataKey="rev_m" name="Revenue" fill="var(--accent-blue)" radius={[4, 4, 0, 0]} />
                     </BarChart>
@@ -135,9 +135,9 @@ export default function FinancialTrendsChart({ trends }) {
                 </div>
                 <ResponsiveContainer width="100%" height={160}>
                     <LineChart data={fmtQ} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(45,126,247,0.08)" />
-                        <XAxis dataKey="label" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} interval="preserveStartEnd" />
-                        <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                        <XAxis dataKey="label" tick={{ fill: '#5F6368', fontSize: 10 }} interval="preserveStartEnd" />
+                        <YAxis tick={{ fill: '#5F6368', fontSize: 10 }} />
                         <Tooltip content={<ChartTooltip formatter={v => `${v?.toFixed(1)}%`} />} />
                         <Line type="monotone" dataKey="gross_margin" name="Gross" stroke="var(--accent-green)" strokeWidth={2} dot={false} />
                         <Line type="monotone" dataKey="operating_margin" name="Operating" stroke="var(--accent-blue)" strokeWidth={2} dot={false} />
@@ -168,9 +168,9 @@ export default function FinancialTrendsChart({ trends }) {
                 </div>
                 <ResponsiveContainer width="100%" height={120}>
                     <AreaChart data={fmtQ} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(45,126,247,0.08)" />
-                        <XAxis dataKey="label" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} interval="preserveStartEnd" />
-                        <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                        <XAxis dataKey="label" tick={{ fill: '#5F6368', fontSize: 10 }} interval="preserveStartEnd" />
+                        <YAxis tick={{ fill: '#5F6368', fontSize: 10 }} />
                         <Tooltip content={<ChartTooltip formatter={v => `$${v?.toLocaleString()}M`} />} />
                         <defs>
                             <linearGradient id="fcfGrad" x1="0" y1="0" x2="0" y2="1">

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useRipple } from '../hooks/useRipple';
 
 const NAV_ITEMS = [
     { id: 'advisor',        icon: '🧭', label: 'Advisor',        section: 'main' },
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
 ];
 
 export default function Sidebar({ currentPage, onNavigate, portfolioConnected }) {
+    const createRipple = useRipple();
     const mainItems  = NAV_ITEMS.filter(n => n.section === 'main');
     const toolsItems = NAV_ITEMS.filter(n => n.section === 'tools');
 
@@ -39,7 +41,7 @@ export default function Sidebar({ currentPage, onNavigate, portfolioConnected })
                         key={item.id}
                         id={`nav-${item.id}`}
                         className={`nav-item ${currentPage === item.id ? 'active' : ''}`}
-                        onClick={() => onNavigate(item.id)}
+                        onClick={(e) => { createRipple(e); onNavigate(item.id); }}
                     >
                         <span className="nav-icon">{item.icon}</span>
                         <span>{item.label}</span>
@@ -61,7 +63,7 @@ export default function Sidebar({ currentPage, onNavigate, portfolioConnected })
                         key={item.id}
                         id={`nav-${item.id}`}
                         className={`nav-item ${currentPage === item.id ? 'active' : ''}`}
-                        onClick={() => onNavigate(item.id)}
+                        onClick={(e) => { createRipple(e); onNavigate(item.id); }}
                     >
                         <span className="nav-icon">{item.icon}</span>
                         <span>{item.label}</span>

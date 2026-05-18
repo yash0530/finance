@@ -24,26 +24,12 @@
     border-left: 4px solid;
     position: relative;
     overflow: hidden;
-}
-
-.sector-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: var(--gradient-card);
-    opacity: 0;
-    transition: opacity var(--transition-normal);
-}
-
-.sector-card:hover::before {
-    opacity: 1;
+    transition: box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
 }
 
 .sector-card:hover {
-    transform: translateY(-4px);
+    box-shadow: var(--elevation-2);
+    border-color: var(--border-color-hover);
 }
 
 .sector-header {

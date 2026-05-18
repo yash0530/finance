@@ -24,24 +24,27 @@
 }
 
 .btn-refresh {
-    background: linear-gradient(135deg, var(--accent-secondary), #6366f1);
+    background: var(--accent-primary);
     border: none;
-    color: white;
+    color: var(--text-inverse);
     padding: 0.5rem 1rem;
     border-radius: 8px;
     cursor: pointer;
     font-weight: 500;
     transition: all 0.2s ease;
+    box-shadow: var(--elevation-2);
 }
 
 .btn-refresh:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+    background: var(--accent-primary-bright);
+    box-shadow: var(--elevation-3);
 }
 
 .btn-refresh:disabled {
-    opacity: 0.6;
+    opacity: 0.38;
     cursor: not-allowed;
+    box-shadow: var(--elevation-0);
 }
 
 /* Hero Section */
@@ -120,13 +123,13 @@
 }
 
 .year-change.positive {
-    background: rgba(16, 185, 129, 0.15);
-    color: var(--success);
+    background: var(--accent-green-dim);
+    color: var(--accent-green);
 }
 
 .year-change.negative {
-    background: rgba(239, 68, 68, 0.15);
-    color: var(--danger);
+    background: var(--accent-red-dim);
+    color: var(--accent-red);
 }
 
 /* Detail Grid */
@@ -174,11 +177,11 @@
 }
 
 .metric-value.positive {
-    color: var(--success);
+    color: var(--accent-green);
 }
 
 .metric-value.negative {
-    color: var(--danger);
+    color: var(--accent-red);
 }
 
 /* Responsive */
@@ -248,12 +251,12 @@
 
 .period-btn:hover {
     color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(66, 133, 244, 0.08);
 }
 
 .period-btn.active {
-    background: var(--accent);
-    color: white;
+    background: var(--accent-primary);
+    color: var(--text-inverse);
 }
 
 /* 52-Week Range Indicator */
@@ -280,7 +283,7 @@
 .range-bar {
     flex: 1;
     height: 6px;
-    background: linear-gradient(90deg, var(--danger), #f59e0b, var(--success));
+    background: linear-gradient(90deg, var(--accent-red), var(--accent-yellow), var(--accent-green));
     border-radius: 3px;
     position: relative;
     min-width: 100px;
@@ -291,11 +294,11 @@
     top: -4px;
     width: 14px;
     height: 14px;
-    background: white;
-    border: 2px solid var(--accent);
+    background: var(--text-primary);
+    border: 2px solid var(--accent-primary);
     border-radius: 50%;
     transform: translateX(-50%);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--elevation-2);
 }
 
 .stock-chart-container {
@@ -314,11 +317,11 @@
 
 /* Chart Tooltips */
 .chart-tooltip {
-    background: rgba(15, 23, 42, 0.95);
+    background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 0.5rem 0.75rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--elevation-3);
 }
 
 .tooltip-date {
@@ -337,7 +340,7 @@
 
 /* Time Period Labels */
 .metric-period {
-    color: var(--text-muted, #6b7280);
+    color: var(--text-muted);
     font-size: 0.75rem;
     font-weight: 400;
     opacity: 0.7;
@@ -372,11 +375,12 @@
 
 /* Head & Shoulders Pattern Visualization */
 .pattern-alert {
-    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(239, 68, 68, 0.1));
-    border: 1px solid rgba(245, 158, 11, 0.3);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 1rem 1.25rem;
     margin-bottom: 1rem;
+    box-shadow: var(--elevation-1);
 }
 
 .pattern-alert-header {
@@ -406,18 +410,18 @@
 }
 
 .pattern-confidence.high {
-    background: rgba(16, 185, 129, 0.2);
-    color: #10b981;
+    background: var(--accent-green-dim);
+    color: var(--accent-green);
 }
 
 .pattern-confidence.medium {
-    background: rgba(245, 158, 11, 0.2);
-    color: #f59e0b;
+    background: rgba(255, 202, 40, 0.15);
+    color: var(--accent-yellow);
 }
 
 .pattern-confidence.low {
-    background: rgba(239, 68, 68, 0.2);
-    color: #ef4444;
+    background: var(--accent-red-dim);
+    color: var(--accent-red);
 }
 
 .pattern-alert-details {
@@ -454,15 +458,15 @@
 }
 
 .pattern-detail.head-detail .detail-value {
-    color: #ef4444;
+    color: var(--accent-red);
 }
 
 .pattern-detail.neckline-detail .detail-value {
-    color: #f59e0b;
+    color: var(--accent-yellow);
 }
 
 .pattern-detail.target-detail .detail-value.target-price {
-    color: #ef4444;
+    color: var(--accent-red);
     font-weight: 700;
 }
 
@@ -471,28 +475,28 @@
     color: var(--text-secondary);
     margin: 0;
     padding-top: 0.5rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--border-color);
 }
 
 /* Bullish pattern alert styling */
 .pattern-alert.bullish {
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(34, 197, 94, 0.1));
-    border: 1px solid rgba(16, 185, 129, 0.3);
+    background: var(--bg-secondary);
+    border: 1px solid rgba(102, 187, 106, 0.3);
 }
 
 /* Bearish pattern alert styling */
 .pattern-alert.bearish {
-    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(239, 68, 68, 0.1));
-    border: 1px solid rgba(245, 158, 11, 0.3);
+    background: var(--bg-secondary);
+    border: 1px solid rgba(239, 83, 80, 0.3);
 }
 
 /* Target price color based on signal */
 .pattern-detail .detail-value.target-price.bullish {
-    color: #10b981;
+    color: var(--accent-green);
 }
 
 .pattern-detail .detail-value.target-price.bearish {
-    color: #ef4444;
+    color: var(--accent-red);
 }
 
 /* Pattern selector for multiple patterns */
@@ -503,7 +507,7 @@
     flex-wrap: wrap;
     margin-bottom: 0.75rem;
     padding: 0.5rem 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .pattern-selector-label {
@@ -523,19 +527,19 @@
 }
 
 .pattern-selector-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(66, 133, 244, 0.08);
     color: var(--text-primary);
 }
 
 .pattern-selector-btn.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--text-inverse);
 }
 
 /* Tooltip Pattern Label */
 .tooltip-pattern {
-    color: #f59e0b;
+    color: var(--accent-yellow);
     font-size: 0.75rem;
     margin: 0.25rem 0 0;
     font-weight: 600;
@@ -564,15 +568,15 @@
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    border: 2px solid white;
+    border: 2px solid var(--text-primary);
 }
 
 .pattern-legend .legend-dot.head-dot {
-    background: #ef4444;
+    background: var(--accent-red);
 }
 
 .pattern-legend .legend-dot.shoulder-dot {
-    background: #f59e0b;
+    background: var(--accent-yellow);
 }
 
 .pattern-legend .legend-line {
@@ -590,19 +594,19 @@
 }
 
 .pattern-legend .legend-line.neckline-line {
-    background: #f59e0b;
+    background: var(--accent-yellow);
     background-image: repeating-linear-gradient(90deg,
-            #f59e0b,
-            #f59e0b 4px,
+            var(--accent-yellow),
+            var(--accent-yellow) 4px,
             transparent 4px,
             transparent 8px);
 }
 
 .pattern-legend .legend-line.target-line {
-    background: #ef4444;
+    background: var(--accent-red);
     background-image: repeating-linear-gradient(90deg,
-            #ef4444,
-            #ef4444 3px,
+            var(--accent-red),
+            var(--accent-red) 3px,
             transparent 3px,
             transparent 6px);
 }

@@ -10,6 +10,15 @@
 
 .chart-card {
     padding: var(--spacing-lg);
+    background: var(--bg-card);
+    border-radius: 12px;
+    box-shadow: var(--elevation-1);
+    transition: box-shadow 200ms ease, background 200ms ease;
+}
+
+.chart-card:hover {
+    background: var(--bg-card-hover);
+    box-shadow: var(--elevation-2);
 }
 
 .chart-card h3 {
@@ -19,10 +28,11 @@
 }
 
 .chart-tooltip {
-    background: var(--bg-secondary);
+    background: var(--bg-tertiary);
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     padding: var(--spacing-sm) var(--spacing-md);
+    box-shadow: var(--elevation-3);
 }
 
 .tooltip-label {

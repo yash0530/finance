@@ -26,7 +26,7 @@ function CustomTooltip({ active, payload }) {
     const d = payload[0].payload;
     return (
         <div style={{
-            background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+            background: '#1e1e2e', border: '1px solid rgba(255,255,255,0.06)',
             borderRadius: 8, padding: '8px 12px', fontSize: '0.8rem'
         }}>
             <div style={{ fontWeight: 700, color: payload[0].fill }}>{d.ticker}</div>
