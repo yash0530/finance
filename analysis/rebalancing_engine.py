@@ -207,7 +207,7 @@ def analyze_portfolio(
                 reason = f"Research verdict: HOLD ({conv_txt} conviction). No action."
 
             if rblock["stale"]:
-                reason += f" ⚠ Research is {rblock['age_days']}d old — refresh before acting."
+                reason += f"  Research is {rblock['age_days']}d old — refresh before acting."
 
             actions.append({
                 "action": action,

@@ -3,14 +3,14 @@ import { streamQuickResearch } from '../utils/api';
 
 // ── Stage metadata ────────────────────────────────────────
 const STAGE_META = {
-    fundamentals:     { icon: '📊', label: 'Fundamentals',       desc: 'Revenue, margins, valuation ratios' },
-    financial_trends: { icon: '📈', label: 'Financial Trends',   desc: 'Quarterly trajectory analysis (8-12 quarters)' },
-    valuation:        { icon: '⚖️', label: 'Valuation & DCF',     desc: 'Intrinsic value modeling & peer comparison' },
-    technicals:       { icon: '🔧', label: 'Technical Analysis', desc: 'RSI, MACD, Bollinger, chart patterns' },
-    risk_management:  { icon: '🛡️', label: 'Risk & Sizing',       desc: 'Kelly Criterion & volatility scaling' },
-    sentiment:        { icon: '🌡️', label: 'Market Sentiment',  desc: 'News, analyst ratings, Reddit signals' },
-    edgar:            { icon: '📄', label: 'SEC Filings',        desc: '10-K/10-Q key sections & AI summary' },
-    thesis:           { icon: '🤖', label: 'AI Thesis',          desc: 'Investment thesis with bull/bear case' },
+    fundamentals:     { icon: '', label: 'Fundamentals',       desc: 'Revenue, margins, valuation ratios' },
+    financial_trends: { icon: '', label: 'Financial Trends',   desc: 'Quarterly trajectory analysis (8-12 quarters)' },
+    valuation:        { icon: '', label: 'Valuation & DCF',     desc: 'Intrinsic value modeling & peer comparison' },
+    technicals:       { icon: '', label: 'Technical Analysis', desc: 'RSI, MACD, Bollinger, chart patterns' },
+    risk_management:  { icon: '', label: 'Risk & Sizing',       desc: 'Kelly Criterion & volatility scaling' },
+    sentiment:        { icon: '', label: 'Market Sentiment',  desc: 'News, analyst ratings, Reddit signals' },
+    edgar:            { icon: '', label: 'SEC Filings',        desc: '10-K/10-Q key sections & AI summary' },
+    thesis:           { icon: '', label: 'AI Thesis',          desc: 'Investment thesis with bull/bear case' },
 };
 
 // ── Custom hook: useResearchStream ────────────────────────
@@ -132,7 +132,7 @@ export function ResearchTimeline({ stages, stageOrder }) {
             <div className="research-stages">
                 {stageOrder.map((stageKey, i) => {
                     const stage = stages[stageKey] || { status: 'pending' };
-                    const meta = STAGE_META[stageKey] || { icon: '⏳', label: stageKey, desc: '' };
+                    const meta = STAGE_META[stageKey] || { icon: '', label: stageKey, desc: '' };
 
                     return (
                         <div
@@ -143,7 +143,7 @@ export function ResearchTimeline({ stages, stageOrder }) {
                                 {stage.status === 'running' ? (
                                     <span className="spinner spinner-sm" />
                                 ) : stage.status === 'complete' ? (
-                                    <span className="research-stage-check">✓</span>
+                                    <span className="research-stage-check"></span>
                                 ) : stage.status === 'error' ? (
                                     <span className="research-stage-error-icon">!</span>
                                 ) : (
@@ -152,7 +152,6 @@ export function ResearchTimeline({ stages, stageOrder }) {
                             </div>
                             <div className="research-stage-content">
                                 <div className="research-stage-header">
-                                    <span className="research-stage-icon">{meta.icon}</span>
                                     <span className="research-stage-label">{meta.label}</span>
                                     {stage.status === 'running' && (
                                         <span className="research-stage-running-text pulse">

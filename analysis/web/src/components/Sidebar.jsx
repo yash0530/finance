@@ -2,19 +2,19 @@ import { useState } from 'react';
 import { useRipple } from '../hooks/useRipple';
 
 const NAV_ITEMS = [
-    { id: 'advisor',        icon: '🧭', label: 'Advisor',        section: 'main' },
-    { id: 'portfolio',      icon: '💼', label: 'Portfolio',      section: 'main' },
-    { id: 'deep-research',  icon: '🧠', label: 'Deep Research',  section: 'main' },
-    { id: 'quick-research', icon: '⚡', label: 'Quick Research', section: 'main' },
-    { id: 'research',       icon: '🔬', label: 'Compare',        section: 'main' },
-    { id: 'history',        icon: '🕰️', label: 'History',        section: 'main' },
-    { id: 'watchlist',      icon: '👁️',  label: 'Watchlist',     section: 'main' },
-    { id: 'rebalance',      icon: '⚖️',  label: 'Rebalance',     section: 'main' },
-    { id: 'calibration',    icon: '🎯', label: 'Calibration',    section: 'main' },
-    { id: 'alerts',         icon: '🔔', label: 'Alerts',         section: 'main' },
-    { id: 'market',         icon: '📊', label: 'S&P 500',        section: 'tools' },
-    { id: 'docs',           icon: '📚', label: 'Docs',           section: 'tools' },
-    { id: 'settings',       icon: '⚙️',  label: 'LLM Settings',  section: 'tools' },
+    { id: 'advisor',        label: 'Advisor',        section: 'main' },
+    { id: 'portfolio',      label: 'Portfolio',      section: 'main' },
+    { id: 'deep-research',  label: 'Deep Research',  section: 'main' },
+    { id: 'quick-research', label: 'Quick Research', section: 'main' },
+    { id: 'research',       label: 'Compare',        section: 'main' },
+    { id: 'history',        label: 'History',        section: 'main' },
+    { id: 'watchlist',      label: 'Watchlist',     section: 'main' },
+    { id: 'rebalance',      label: 'Rebalance',     section: 'main' },
+    { id: 'calibration',    label: 'Calibration',    section: 'main' },
+    { id: 'alerts',         label: 'Alerts',         section: 'main' },
+    { id: 'market',         label: 'S&P 500',        section: 'tools' },
+    { id: 'docs',           label: 'Docs',           section: 'tools' },
+    { id: 'settings',       label: 'LLM Settings',  section: 'tools' },
 ];
 
 export default function Sidebar({ currentPage, onNavigate, portfolioConnected }) {
@@ -26,7 +26,7 @@ export default function Sidebar({ currentPage, onNavigate, portfolioConnected })
         <aside className="sidebar">
             {/* Logo */}
             <div className="sidebar-logo">
-                <div className="sidebar-logo-icon">📈</div>
+                <div className="sidebar-logo-icon" style={{ background: 'var(--accent-blue)', color: '#fff', fontSize: '0.9rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8 }}>PI</div>
                 <div>
                     <div className="sidebar-logo-text">Portfolio Intel</div>
                     <div className="sidebar-logo-sub">AI Research Platform</div>
@@ -43,7 +43,6 @@ export default function Sidebar({ currentPage, onNavigate, portfolioConnected })
                         className={`nav-item ${currentPage === item.id ? 'active' : ''}`}
                         onClick={(e) => { createRipple(e); onNavigate(item.id); }}
                     >
-                        <span className="nav-icon">{item.icon}</span>
                         <span>{item.label}</span>
                         {item.id === 'portfolio' && portfolioConnected && (
                             <span style={{
@@ -65,7 +64,6 @@ export default function Sidebar({ currentPage, onNavigate, portfolioConnected })
                         className={`nav-item ${currentPage === item.id ? 'active' : ''}`}
                         onClick={(e) => { createRipple(e); onNavigate(item.id); }}
                     >
-                        <span className="nav-icon">{item.icon}</span>
                         <span>{item.label}</span>
                     </button>
                 ))}

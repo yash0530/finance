@@ -6,13 +6,13 @@
 
 :root {
   /* ── Dark Neutral Palette ── */
-  --bg-deepest:    #0d0d1a;
-  --bg-primary:    #121212;
-  --bg-secondary:  #1a1a2e;
-  --bg-tertiary:   #1e1e2e;
-  --bg-card:       #252536;
-  --bg-card-hover: #2d2d3f;
-  --bg-sidebar:    #0d0d1a;
+  --bg-deepest:    #09090b;
+  --bg-primary:    #0f0f13;
+  --bg-secondary:  #18181b;
+  --bg-tertiary:   #27272a;
+  --bg-card:       #18181b;
+  --bg-card-hover: #27272a;
+  --bg-sidebar:    #09090b;
 
   /* ── Google Accent Colors ── */
   --accent-primary:        #4285F4;
@@ -53,7 +53,7 @@
   --elevation-5: 0 19px 38px rgba(0,0,0,0.42), 0 15px 12px rgba(0,0,0,0.30);
 
   /* ── Layout ── */
-  --sidebar-width: 220px;
+  --sidebar-width: 250px;
   --sidebar-collapsed: 64px;
   --topbar-height: 56px;
 
@@ -255,11 +255,10 @@ h4, h5, h6 { font-weight: 600; letter-spacing: var(--type-body-tracking); line-h
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: 0.55rem var(--spacing-sm);
-  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
   color: var(--text-secondary);
   text-decoration: none;
-  font-size: 0.825rem;
+  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
   border: none;
@@ -267,32 +266,26 @@ h4, h5, h6 { font-weight: 600; letter-spacing: var(--type-body-tracking); line-h
   width: 100%;
   position: relative;
   overflow: hidden;
-  transition: background 0.2s ease;
+  transition: color 0.2s ease;
   white-space: nowrap;
 }
 
 .nav-item:hover {
-  background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
 }
 
 .nav-item.active {
-  background: rgba(66, 133, 244, 0.12);
-  color: var(--accent-blue);
-  border-left: 3px solid var(--accent-blue);
-  padding-left: calc(var(--spacing-sm) - 3px);
-  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
-.nav-item.active:hover {
-  background: rgba(66, 133, 244, 0.12);
+.nav-item:focus-visible {
+  outline: none;
+  color: var(--text-primary);
 }
 
 .nav-item .nav-icon {
-  font-size: 1rem;
-  flex-shrink: 0;
-  width: 20px;
-  text-align: center;
+  display: none;
 }
 
 .sidebar-bottom {

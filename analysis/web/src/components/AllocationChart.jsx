@@ -45,7 +45,6 @@ export default function AllocationChart({ holdings }) {
 
     if (!data.length) return (
         <div className="empty-state" style={{ padding: 'var(--spacing-xl)' }}>
-            <div className="empty-state-icon">📊</div>
             <p>No allocation data</p>
         </div>
     );

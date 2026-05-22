@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { listDocs, getDoc } from '../utils/api';
 
 // ────────────────────────────────────────────────────────────
-// Minimal markdown → React renderer.
+// Minimal markdown  React renderer.
 // Handles: H1/H2/H3, paragraphs, bold/italic/inline-code, fenced
 // code blocks, bullet + ordered lists, links, tables, blockquotes,
 // horizontal rules. No nested lists. Strips YAML frontmatter.
@@ -21,7 +21,7 @@ function slugify(text) {
 }
 
 function renderInline(text, keyBase) {
-    // Process in order: code → bold → italic → links
+    // Process in order: code  bold  italic  links
     const parts = [];
     let remaining = text;
     let idx = 0;
@@ -316,12 +316,12 @@ export default function DocsPage() {
                                 style={{
                                     display: 'block', width: '100%', textAlign: 'left',
                                     padding: '6px 8px', marginBottom: 2,
-                                    background: d.slug === activeSlug ? 'var(--bg-elevated)' : 'transparent',
+                                    background: 'transparent',
                                     border: 'none',
                                     color: d.slug === activeSlug ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                    fontWeight: d.slug === activeSlug ? 600 : 400,
                                     cursor: 'pointer',
                                     fontSize: '0.85rem',
-                                    borderRadius: 4,
                                 }}
                             >
                                 {d.title}

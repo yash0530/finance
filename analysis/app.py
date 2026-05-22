@@ -777,7 +777,7 @@ def get_head_shoulders_patterns():
     patterns.sort(key=lambda x: x.get('confidence', 0), reverse=True)
     
     result = convert_numpy_types({
-        'title': '📊 Head & Shoulders Patterns',
+        'title': ' Head & Shoulders Patterns',
         'description': 'Stocks showing potential Head and Shoulders reversal patterns',
         'count': len(patterns),
         'patterns': patterns
@@ -1804,7 +1804,7 @@ def get_all_patterns():
     
     # Build response with pattern metadata
     result = {
-        'title': '📊 Technical Patterns Dashboard',
+        'title': ' Technical Patterns Dashboard',
         'description': 'All detected chart patterns across S&P 500 stocks',
         'pattern_types': {}
     }
@@ -2049,7 +2049,7 @@ def get_spotlight_companies():
     ].copy()
     growth_df = growth_df.sort_values('revenue_growth', ascending=False).head(5)
     spotlight['growth_stocks'] = {
-        'title': '🚀 Growth Stocks',
+        'title': 'Growth Stocks',
         'description': 'High revenue growth (>15%) with positive 52-week momentum',
         'companies': growth_df[['ticker', 'company_name', 'sector', 'revenue_growth', 
                                 'year_change', 'forward_pe', 'current_price_fmt']].to_dict(orient='records')
@@ -2059,7 +2059,7 @@ def get_spotlight_companies():
     hot_df = df[df['year_change'] > 0.20].copy()
     hot_df = hot_df.sort_values('year_change', ascending=False).head(5)
     spotlight['hot_stocks'] = {
-        'title': '🔥 Hot Stocks',
+        'title': 'Hot Stocks',
         'description': 'Strongest 52-week performance (>20% gains)',
         'companies': hot_df[['ticker', 'company_name', 'sector', 'year_change', 
                              'forward_pe', 'current_price_fmt']].to_dict(orient='records')
@@ -2073,7 +2073,7 @@ def get_spotlight_companies():
     ].copy()
     value_df = value_df.sort_values('forward_pe', ascending=True).head(5)
     spotlight['value_plays'] = {
-        'title': '💰 Value Plays',
+        'title': 'Value Plays',
         'description': 'Low forward P/E (<15) with expected earnings growth',
         'companies': value_df[['ticker', 'company_name', 'sector', 'forward_pe', 
                                'trailing_pe', 'pe_ratio', 'current_price_fmt']].to_dict(orient='records')
@@ -2083,7 +2083,7 @@ def get_spotlight_companies():
     momentum_df = df[df['pe_ratio'] > 1.2].copy()
     momentum_df = momentum_df.sort_values('pe_ratio', ascending=False).head(5)
     spotlight['momentum_leaders'] = {
-        'title': '📈 Momentum Leaders',
+        'title': 'Momentum Leaders',
         'description': 'P/E ratio >1.2x indicating earnings acceleration',
         'companies': momentum_df[['ticker', 'company_name', 'sector', 'pe_ratio', 
                                   'forward_pe', 'trailing_pe', 'current_price_fmt']].to_dict(orient='records')
@@ -2096,7 +2096,7 @@ def get_spotlight_companies():
     ].copy()
     quality_df = quality_df.sort_values('profit_margin', ascending=False).head(5)
     spotlight['quality_gems'] = {
-        'title': '🏆 Quality Gems',
+        'title': 'Quality Gems',
         'description': 'High profit margins (>15%) with solid revenue growth (>5%)',
         'companies': quality_df[['ticker', 'company_name', 'sector', 'profit_margin', 
                                  'revenue_growth', 'forward_pe', 'current_price_fmt']].to_dict(orient='records')
@@ -2106,7 +2106,7 @@ def get_spotlight_companies():
     dividend_df = df[df['dividend_yield'] > 0.03].copy()
     dividend_df = dividend_df.sort_values('dividend_yield', ascending=False).head(5)
     spotlight['dividend_champions'] = {
-        'title': '💵 Dividend Champions',
+        'title': 'Dividend Champions',
         'description': 'High dividend yield (>3%) for income investors',
         'companies': dividend_df[['ticker', 'company_name', 'sector', 'dividend_yield', 
                                   'forward_pe', 'current_price_fmt']].to_dict(orient='records')
@@ -2116,7 +2116,7 @@ def get_spotlight_companies():
     low_vol_df = df[(df['beta'] > 0) & (df['beta'] < 0.8)].copy()
     low_vol_df = low_vol_df.sort_values('beta', ascending=True).head(5)
     spotlight['low_volatility'] = {
-        'title': '📉 Low Volatility',
+        'title': 'Low Volatility',
         'description': 'Stable stocks with beta <0.8 for conservative investors',
         'companies': low_vol_df[['ticker', 'company_name', 'sector', 'beta', 
                                  'forward_pe', 'current_price_fmt']].to_dict(orient='records')
@@ -2126,7 +2126,7 @@ def get_spotlight_companies():
     mega_df = df[df['market_cap'] > 200e9].copy()
     mega_df = mega_df.sort_values('market_cap', ascending=False).head(5)
     spotlight['mega_caps'] = {
-        'title': '🏛️ Mega Caps',
+        'title': '� Mega Caps',
         'description': 'Largest companies with market cap >$200B',
         'companies': mega_df[['ticker', 'company_name', 'sector', 'market_cap', 
                               'market_cap_fmt', 'forward_pe', 'current_price_fmt']].to_dict(orient='records')
@@ -2139,7 +2139,7 @@ def get_spotlight_companies():
     ].copy()
     turnaround_df = turnaround_df.sort_values('year_change', ascending=True).head(5)
     spotlight['turnaround_plays'] = {
-        'title': '🔄 Turnaround Plays',
+        'title': '� Turnaround Plays',
         'description': 'Down >10% YTD but still profitable (contrarian picks)',
         'companies': turnaround_df[['ticker', 'company_name', 'sector', 'year_change', 
                                     'forward_pe', 'current_price_fmt']].to_dict(orient='records')
@@ -2149,7 +2149,7 @@ def get_spotlight_companies():
     high_beta_df = df[df['beta'] > 1.5].copy()
     high_beta_df = high_beta_df.sort_values('beta', ascending=False).head(5)
     spotlight['high_beta_movers'] = {
-        'title': '⚡ High Beta Movers',
+        'title': 'High Beta Movers',
         'description': 'High volatility stocks (beta >1.5) for aggressive traders',
         'companies': high_beta_df[['ticker', 'company_name', 'sector', 'beta', 
                                    'forward_pe', 'current_price_fmt']].to_dict(orient='records')
@@ -2181,7 +2181,7 @@ def get_spotlight_category(category: str):
     # Define category configurations
     categories = {
         'growth_stocks': {
-            'title': '🚀 Growth Stocks',
+            'title': 'Growth Stocks',
             'description': 'High revenue growth (>15%) with positive 52-week momentum',
             'filter': lambda d: d[(d['revenue_growth'] > 0.15) & (d['year_change'] > 0)],
             'sort_by': 'revenue_growth',
@@ -2189,7 +2189,7 @@ def get_spotlight_category(category: str):
             'columns': ['ticker', 'company_name', 'sector', 'revenue_growth', 'year_change', 'forward_pe', 'current_price_fmt']
         },
         'hot_stocks': {
-            'title': '🔥 Hot Stocks',
+            'title': 'Hot Stocks',
             'description': 'Strongest 52-week performance (>20% gains)',
             'filter': lambda d: d[d['year_change'] > 0.20],
             'sort_by': 'year_change',
@@ -2197,7 +2197,7 @@ def get_spotlight_category(category: str):
             'columns': ['ticker', 'company_name', 'sector', 'year_change', 'forward_pe', 'current_price_fmt']
         },
         'value_plays': {
-            'title': '💰 Value Plays',
+            'title': 'Value Plays',
             'description': 'Low forward P/E (<15) with expected earnings growth',
             'filter': lambda d: d[(d['forward_pe'] > 0) & (d['forward_pe'] < 15) & (d['pe_ratio'] > 1)],
             'sort_by': 'forward_pe',
@@ -2205,7 +2205,7 @@ def get_spotlight_category(category: str):
             'columns': ['ticker', 'company_name', 'sector', 'forward_pe', 'trailing_pe', 'pe_ratio', 'current_price_fmt']
         },
         'momentum_leaders': {
-            'title': '📈 Momentum Leaders',
+            'title': 'Momentum Leaders',
             'description': 'P/E ratio >1.2x indicating earnings acceleration',
             'filter': lambda d: d[d['pe_ratio'] > 1.2],
             'sort_by': 'pe_ratio',
@@ -2213,7 +2213,7 @@ def get_spotlight_category(category: str):
             'columns': ['ticker', 'company_name', 'sector', 'pe_ratio', 'forward_pe', 'trailing_pe', 'current_price_fmt']
         },
         'quality_gems': {
-            'title': '🏆 Quality Gems',
+            'title': 'Quality Gems',
             'description': 'High profit margins (>15%) with solid revenue growth (>5%)',
             'filter': lambda d: d[(d['profit_margin'] > 0.15) & (d['revenue_growth'] > 0.05)],
             'sort_by': 'profit_margin',
@@ -2221,7 +2221,7 @@ def get_spotlight_category(category: str):
             'columns': ['ticker', 'company_name', 'sector', 'profit_margin', 'revenue_growth', 'forward_pe', 'current_price_fmt']
         },
         'dividend_champions': {
-            'title': '💵 Dividend Champions',
+            'title': 'Dividend Champions',
             'description': 'High dividend yield (>3%) for income investors',
             'filter': lambda d: d[d['dividend_yield'] > 0.03],
             'sort_by': 'dividend_yield',
@@ -2229,7 +2229,7 @@ def get_spotlight_category(category: str):
             'columns': ['ticker', 'company_name', 'sector', 'dividend_yield', 'forward_pe', 'current_price_fmt']
         },
         'low_volatility': {
-            'title': '📉 Low Volatility',
+            'title': 'Low Volatility',
             'description': 'Stable stocks with beta <0.8 for conservative investors',
             'filter': lambda d: d[(d['beta'] > 0) & (d['beta'] < 0.8)],
             'sort_by': 'beta',
@@ -2237,7 +2237,7 @@ def get_spotlight_category(category: str):
             'columns': ['ticker', 'company_name', 'sector', 'beta', 'forward_pe', 'current_price_fmt']
         },
         'mega_caps': {
-            'title': '🏛️ Mega Caps',
+            'title': '� Mega Caps',
             'description': 'Largest companies with market cap >$200B',
             'filter': lambda d: d[d['market_cap'] > 200e9],
             'sort_by': 'market_cap',
@@ -2245,7 +2245,7 @@ def get_spotlight_category(category: str):
             'columns': ['ticker', 'company_name', 'sector', 'market_cap', 'market_cap_fmt', 'forward_pe', 'current_price_fmt']
         },
         'turnaround_plays': {
-            'title': '🔄 Turnaround Plays',
+            'title': '� Turnaround Plays',
             'description': 'Down >10% YTD but still profitable (contrarian picks)',
             'filter': lambda d: d[(d['year_change'] < -0.10) & (d['forward_pe'] > 0)],
             'sort_by': 'year_change',
@@ -2253,7 +2253,7 @@ def get_spotlight_category(category: str):
             'columns': ['ticker', 'company_name', 'sector', 'year_change', 'forward_pe', 'current_price_fmt']
         },
         'high_beta_movers': {
-            'title': '⚡ High Beta Movers',
+            'title': 'High Beta Movers',
             'description': 'High volatility stocks (beta >1.5) for aggressive traders',
             'filter': lambda d: d[d['beta'] > 1.5],
             'sort_by': 'beta',

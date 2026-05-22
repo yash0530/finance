@@ -58,7 +58,7 @@ function ThesisCard({ thesis }) {
             ) : (
                 <>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-md)' }}>
-                        <h3 style={{ fontSize: '0.925rem', color: 'var(--text-primary)' }}>🤖 AI Investment Thesis</h3>
+                        <h3 style={{ fontSize: '0.925rem', color: 'var(--text-primary)' }}> AI Investment Thesis</h3>
                         <div style={{ display: 'flex', gap: 8 }}>
                             <span className={`badge badge-${thesis.recommendation === 'BUY' ? 'green' : thesis.recommendation === 'HOLD' ? 'yellow' : 'red'}`}>
                                 {thesis.recommendation}
@@ -103,7 +103,7 @@ function ThesisCard({ thesis }) {
                             </div>
                             {thesis.action_items.map((a, i) => (
                                 <div key={i} style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', padding: '3px 0' }}>
-                                    → {a}
+                                     {a}
                                 </div>
                             ))}
                         </div>
@@ -159,9 +159,9 @@ function TechnicalsTab({ tech }) {
         ['MACD Signal', tech.macd?.signal_label],
         ['50-Day MA', tech.ma_50 != null ? `$${tech.ma_50}` : null],
         ['200-Day MA', tech.ma_200 != null ? `$${tech.ma_200}` : null],
-        ['Golden Cross', tech.golden_cross != null ? (tech.golden_cross ? '✅ Yes' : '❌ No') : null],
-        ['Above 50-DMA', tech.above_50ma != null ? (tech.above_50ma ? '✅' : '❌') : null],
-        ['Above 200-DMA', tech.above_200ma != null ? (tech.above_200ma ? '✅' : '❌') : null],
+        ['Golden Cross', tech.golden_cross != null ? (tech.golden_cross ? ' Yes' : ' No') : null],
+        ['Above 50-DMA', tech.above_50ma != null ? (tech.above_50ma ? '' : '') : null],
+        ['Above 200-DMA', tech.above_200ma != null ? (tech.above_200ma ? '' : '') : null],
         ['1Y Return', tech.year_return_pct != null ? `${tech.year_return_pct > 0 ? '+' : ''}${tech.year_return_pct.toFixed(2)}%` : null],
         ['Volatility (Ann.)', tech.annualized_volatility_pct != null ? `${tech.annualized_volatility_pct.toFixed(1)}%` : null],
         ['Bollinger Position', tech.bollinger?.position != null ? tech.bollinger.position.toFixed(2) : null],
@@ -211,13 +211,13 @@ function EdgarTab({ edgar }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
             {edgar.filing_date && (
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    📄 {edgar.form_type} filed {edgar.filing_date}
+                     {edgar.form_type} filed {edgar.filing_date}
                 </div>
             )}
             {[
-                { key: 'business', label: '🏢 Business Description' },
-                { key: 'risks',    label: '⚠️ Key Risk Factors' },
-                { key: 'mda',      label: '📈 Management Discussion & Analysis' },
+                { key: 'business', label: ' Business Description' },
+                { key: 'risks',    label: ' Key Risk Factors' },
+                { key: 'mda',      label: ' Management Discussion & Analysis' },
             ].map(({ key, label }) => edgar[key] ? (
                 <div key={key}>
                     <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>{label}</div>
@@ -271,11 +271,11 @@ export default function ResearchPage() {
     }
 
     const tabs = [
-        { id: 'overview',     label: '🎯 Overview' },
-        { id: 'fundamentals', label: '📊 Fundamentals' },
-        { id: 'technicals',   label: '📈 Technicals' },
-        { id: 'sentiment',    label: '🌡️ Sentiment' },
-        { id: 'edgar',        label: '📄 SEC Filings' },
+        { id: 'overview',     label: ' Overview' },
+        { id: 'fundamentals', label: ' Fundamentals' },
+        { id: 'technicals',   label: ' Technicals' },
+        { id: 'sentiment',    label: ' Sentiment' },
+        { id: 'edgar',        label: ' SEC Filings' },
     ];
 
     return (
@@ -290,7 +290,7 @@ export default function ResearchPage() {
                     className={`btn ${compareMode ? 'btn-primary' : 'btn-secondary'}`}
                     onClick={() => { setCompare(!compareMode); setComparison(null); setError(''); }}
                 >
-                    ⚖️ {compareMode ? 'Single Mode' : 'Compare Mode'}
+                     {compareMode ? 'Single Mode' : 'Compare Mode'}
                 </button>
             </div>
 
@@ -306,12 +306,12 @@ export default function ResearchPage() {
                         style={{ maxWidth: 320 }}
                     />
                     <button id="btn-research" className="btn btn-primary" type="submit" disabled={loading}>
-                        {loading ? <><span className="spinner spinner-sm" /> Analyzing…</> : '🔬 Analyze'}
+                        {loading ? <><span className="spinner spinner-sm" /> Analyzing…</> : ' Analyze'}
                     </button>
                     {report && (
                         <button type="button" className="btn btn-secondary"
                             onClick={() => { setLoading(true); getResearchReport(ticker, { refresh: true, noEdgar: false }).then(setReport).finally(() => setLoading(false)); }}>
-                            🔄 Refresh
+                            Refresh
                         </button>
                     )}
                 </form>
@@ -326,7 +326,7 @@ export default function ResearchPage() {
                         style={{ maxWidth: 460 }}
                     />
                     <button id="btn-compare" className="btn btn-primary" type="submit" disabled={loading}>
-                        {loading ? <><span className="spinner spinner-sm" /> Comparing…</> : '⚖️ Compare'}
+                        {loading ? <><span className="spinner spinner-sm" /> Comparing…</> : ' Compare'}
                     </button>
                 </form>
             )}
@@ -463,7 +463,6 @@ export default function ResearchPage() {
             {!report && !comparison && !loading && (
                 <div className="glass-card">
                     <div className="empty-state">
-                        <div className="empty-state-icon">🔬</div>
                         <h3 style={{ color: 'var(--text-secondary)' }}>Enter a ticker to start deep research</h3>
                         <p style={{ fontSize: '0.825rem', maxWidth: 400 }}>
                             Get fundamentals, technical signals, sentiment scoring, SEC filing summaries,

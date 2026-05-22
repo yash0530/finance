@@ -53,9 +53,9 @@ function ConnectModal({ onClose, onConnected }) {
 
                 <div className="tabs" style={{ marginBottom: 'var(--spacing-lg)' }}>
                     <button className={`tab-btn ${tab === 'robinhood' ? 'active' : ''}`}
-                        onClick={() => setTab('robinhood')}>🏦 Robinhood</button>
+                        onClick={() => setTab('robinhood')}>Robinhood</button>
                     <button className={`tab-btn ${tab === 'csv' ? 'active' : ''}`}
-                        onClick={() => setTab('csv')}>📋 Manual CSV</button>
+                        onClick={() => setTab('csv')}>Manual CSV</button>
                 </div>
 
                 {tab === 'robinhood' ? (
@@ -77,7 +77,7 @@ function ConnectModal({ onClose, onConnected }) {
                         </div>
                         {error && <div className="alert alert-error">{error}</div>}
                         <div className="alert alert-info" style={{ fontSize: '0.75rem' }}>
-                            🔒 Credentials are never stored. Only a session token is cached for 24 hours.
+                            � Credentials are never stored. Only a session token is cached for 24 hours.
                         </div>
                         <button id="btn-rh-connect" className="btn btn-primary" type="submit" disabled={loading}>
                             {loading ? <><span className="spinner spinner-sm" /> Connecting…</> : 'Connect Robinhood'}
@@ -214,7 +214,7 @@ export default function PortfolioPage({ onConnected }) {
                     {status?.connected && (
                         <>
                             <button id="btn-sync" className="btn btn-secondary" onClick={handleSync} disabled={syncing}>
-                                {syncing ? <><span className="spinner spinner-sm" /> Syncing…</> : '🔄 Sync'}
+                                {syncing ? <><span className="spinner spinner-sm" /> Syncing…</> : '� Sync'}
                             </button>
                             <button id="btn-disconnect" className="btn btn-danger" onClick={handleDisconnect}>
                                 Disconnect
@@ -236,7 +236,6 @@ export default function PortfolioPage({ onConnected }) {
             ) : !loaded ? null : holdings.length === 0 ? (
                 <div className="glass-card">
                     <div className="empty-state">
-                        <div className="empty-state-icon">💼</div>
                         <h3 style={{ color: 'var(--text-secondary)' }}>No portfolio connected</h3>
                         <p style={{ fontSize: '0.825rem', maxWidth: 360 }}>
                             Connect your Robinhood account or paste a CSV to start tracking your holdings.
@@ -277,7 +276,7 @@ export default function PortfolioPage({ onConnected }) {
                         <div className="stat-tile">
                             <div className="stat-tile-label">Connection</div>
                             <div className="stat-tile-value" style={{ fontSize: '1rem', color: status?.connected ? 'var(--accent-green)' : 'var(--text-muted)' }}>
-                                {status?.connected ? '● Live' : '○ Manual'}
+                                {status?.connected ? 'Live' : 'Manual'}
                             </div>
                             <div className="stat-tile-sub">{status?.username || 'CSV import'}</div>
                         </div>

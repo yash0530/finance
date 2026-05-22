@@ -110,7 +110,6 @@ export default function AlertsPage() {
             ) : !loaded ? null : alerts.length === 0 ? (
                 <div className="glass-card">
                     <div className="empty-state">
-                        <div className="empty-state-icon">🔔</div>
                         <h3 style={{ color: 'var(--text-secondary)' }}>No alerts set</h3>
                         <p style={{ fontSize: '0.825rem' }}>Create an alert above to get notified on price moves.</p>
                     </div>
@@ -138,7 +137,7 @@ export default function AlertsPage() {
                                         </td>
                                         <td>
                                             <span className={`badge ${a.is_triggered ? 'badge-green' : 'badge-yellow'}`}>
-                                                {a.is_triggered ? '✓ Triggered' : '⏳ Watching'}
+                                                {a.is_triggered ? ' Triggered' : ' Watching'}
                                             </span>
                                         </td>
                                         <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>

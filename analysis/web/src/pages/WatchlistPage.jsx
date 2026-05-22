@@ -75,7 +75,6 @@ export default function WatchlistPage({ onResearch }) {
             ) : !loaded ? null : items.length === 0 ? (
                 <div className="glass-card">
                     <div className="empty-state">
-                        <div className="empty-state-icon">👁️</div>
                         <h3 style={{ color: 'var(--text-secondary)' }}>Watchlist is empty</h3>
                         <p style={{ fontSize: '0.825rem' }}>Add tickers above to start tracking them.</p>
                     </div>
@@ -111,7 +110,7 @@ export default function WatchlistPage({ onResearch }) {
                                                     onClick={() => onResearch && onResearch(item.ticker)}
                                                     title="Research this ticker"
                                                 >
-                                                    🔬
+                                                    
                                                 </button>
                                                 <button
                                                     id={`btn-remove-${item.ticker}`}

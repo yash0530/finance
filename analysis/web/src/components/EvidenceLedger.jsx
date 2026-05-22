@@ -9,7 +9,7 @@ export default function EvidenceLedger({ results = [] }) {
     return (
         <div className="glass-card fade-in">
             <h3 style={{ fontSize: '0.85rem', margin: '0 0 var(--spacing-md) 0', color: 'var(--text-primary)' }}>
-                📋 Evidence Ledger ({results.length} tool{results.length === 1 ? '' : 's'})
+                 Evidence Ledger ({results.length} tool{results.length === 1 ? '' : 's'})
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {results.map((r, i) => (
@@ -71,7 +71,7 @@ function EvidenceRow({ result }) {
                                 <div style={{ marginTop: 6, fontSize: '0.7rem' }}>
                                     {sources.slice(0, 5).map((s, i) => (
                                         <div key={i} style={{ color: 'var(--text-muted)', padding: '2px 0' }}>
-                                            📎 {s.tool || ''}:{s.field || ''}{s.url ? ` — ${s.url}` : ''}
+                                            � {s.tool || ''}:{s.field || ''}{s.url ? ` — ${s.url}` : ''}
                                         </div>
                                     ))}
                                 </div>

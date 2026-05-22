@@ -19,7 +19,6 @@ function TechnicalPatternsDashboard({ onBack, onCompanySelect }) {
         confidenceMin: '',
         confidenceMax: '',
         potentialMin: '',
-        potentialMin: '',
         potentialMax: '',
         peRatioMin: '',
         peRatioMax: '',
@@ -83,7 +82,7 @@ function TechnicalPatternsDashboard({ onBack, onCompanySelect }) {
     };
 
     const getSignalEmoji = (signal) => {
-        return signal === 'bullish' ? '📈' : '📉';
+        return signal === 'bullish' ? '' : '';
     };
 
     // Get all patterns flat for the "all" view
@@ -141,9 +140,7 @@ function TechnicalPatternsDashboard({ onBack, onCompanySelect }) {
             confidenceMin: '',
             confidenceMax: '',
             potentialMin: '',
-            potentialMin: '',
-            potentialMax: '',
-            peRatioMin: '',
+            potentialMax: '',            peRatioMin: '',
             peRatioMax: '',
             forwardPeMin: '',
             forwardPeMax: '',
@@ -341,7 +338,7 @@ function TechnicalPatternsDashboard({ onBack, onCompanySelect }) {
                             onClick={() => setShowFilters(!showFilters)}
                             style={{ padding: '0.4rem 0.8rem', fontSize: '13px' }}
                         >
-                            🔍 {showFilters ? 'Hide Filters' : 'Show Filters'}
+                             {showFilters ? 'Hide Filters' : 'Show Filters'}
                         </button>
                     </div>
                     <p className="patterns-dashboard-desc">{data.description}</p>
@@ -356,11 +353,11 @@ function TechnicalPatternsDashboard({ onBack, onCompanySelect }) {
                 </div>
                 <div className="summary-stat bullish">
                     <span className="stat-value">{data.summary?.bullish_patterns || 0}</span>
-                    <span className="stat-label">📈 Bullish</span>
+                    <span className="stat-label"> Bullish</span>
                 </div>
                 <div className="summary-stat bearish">
                     <span className="stat-value">{data.summary?.bearish_patterns || 0}</span>
-                    <span className="stat-label">📉 Bearish</span>
+                    <span className="stat-label"> Bearish</span>
                 </div>
             </div>
 
@@ -376,13 +373,13 @@ function TechnicalPatternsDashboard({ onBack, onCompanySelect }) {
                     className={`filter-btn bullish ${activeFilter === 'bullish' ? 'active' : ''}`}
                     onClick={() => setActiveFilter('bullish')}
                 >
-                    📈 Bullish
+                     Bullish
                 </button>
                 <button
                     className={`filter-btn bearish ${activeFilter === 'bearish' ? 'active' : ''}`}
                     onClick={() => setActiveFilter('bearish')}
                 >
-                    📉 Bearish
+                     Bearish
                 </button>
                 <div className="filter-divider"></div>
                 {tabs.map(tab => (
@@ -556,7 +553,6 @@ function TechnicalPatternsDashboard({ onBack, onCompanySelect }) {
             {/* Patterns Table */}
             {filteredAndSortedData.length === 0 ? (
                 <div className="patterns-no-data">
-                    <div className="no-data-icon">🔍</div>
                     <h3>No Patterns Found</h3>
                     <p>No patterns match the current filter.</p>
                 </div>
@@ -636,7 +632,7 @@ function TechnicalPatternsDashboard({ onBack, onCompanySelect }) {
 
             {/* Info Panel */}
             <div className="patterns-info-panel">
-                <h4>📘 About Technical Patterns</h4>
+                <h4>� About Technical Patterns</h4>
                 <div className="patterns-info-grid">
                     <div className="info-section">
                         <h5>Reversal Patterns</h5>

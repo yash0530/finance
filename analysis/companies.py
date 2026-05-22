@@ -48,7 +48,7 @@ def get_sp500_companies() -> List[Dict]:
     """
     Fetches the list of S&P 500 companies from Wikipedia (FREE).
     """
-    print("📊 Fetching S&P 500 company list from Wikipedia...")
+    print(" Fetching S&P 500 company list from Wikipedia...")
     
     url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
     
@@ -71,11 +71,11 @@ def get_sp500_companies() -> List[Dict]:
                 'industry': row['GICS Sub-Industry']
             })
         
-        print(f"✅ Found {len(companies)} S&P 500 companies\n")
+        print(f" Found {len(companies)} S&P 500 companies\n")
         return companies
         
     except Exception as e:
-        print(f"❌ Error fetching S&P 500 list: {e}")
+        print(f" Error fetching S&P 500 list: {e}")
         sys.exit(1)
 
 
@@ -93,15 +93,15 @@ def load_cache() -> Optional[Dict]:
         # Check expiry
         cached_time = datetime.fromisoformat(cache.get('timestamp', '2000-01-01'))
         if datetime.now() - cached_time > timedelta(hours=CACHE_EXPIRY_HOURS):
-            print("⚠️  Cache expired, fetching fresh data...\n")
+            print("  Cache expired, fetching fresh data...\n")
             return None
         
-        print(f"✅ Loaded {len(cache.get('data', []))} companies from cache")
+        print(f" Loaded {len(cache.get('data', []))} companies from cache")
         print(f"   Cache age: {(datetime.now() - cached_time).total_seconds() / 3600:.1f} hours\n")
         return cache
         
     except Exception as e:
-        print(f"⚠️  Cache read error: {e}")
+        print(f"  Cache read error: {e}")
         return None
 
 
@@ -117,9 +117,9 @@ def save_cache(data: List[Dict]) -> None:
         }
         with open(cache_file, 'w') as f:
             json.dump(cache, f)
-        print(f"💾 Cached {len(data)} companies for future runs\n")
+        print(f"� Cached {len(data)} companies for future runs\n")
     except Exception as e:
-        print(f"⚠️  Cache write error: {e}")
+        print(f"  Cache write error: {e}")
 
 
 def get_ticker_data_with_retry(symbol: str, delay: float = REQUEST_DELAY) -> Dict:
@@ -256,7 +256,7 @@ def fetch_all_data(companies: List[Dict], max_workers: int = MAX_WORKERS) -> Lis
     failed = 0
     retried = 0
     
-    print(f"📈 Fetching financial data for {len(symbols)} companies...")
+    print(f" Fetching financial data for {len(symbols)} companies...")
     print(f"   Workers: {max_workers} | Delay: {REQUEST_DELAY}s | Retries: {MAX_RETRIES}")
     print(f"   Estimated time: {len(symbols) * REQUEST_DELAY / max_workers:.0f}-{len(symbols) * REQUEST_DELAY * 2 / max_workers:.0f} seconds\n")
     
@@ -298,7 +298,7 @@ def fetch_all_data(companies: List[Dict], max_workers: int = MAX_WORKERS) -> Lis
                       f"Success: {len(results)} | Failed: {failed} | ETA: {eta:.0f}s")
     
     elapsed = time.time() - start_time
-    print(f"\n✅ Completed in {elapsed:.1f}s | Success: {len(results)} | Failed: {failed}\n")
+    print(f"\n Completed in {elapsed:.1f}s | Success: {len(results)} | Failed: {failed}\n")
     
     return results
 
@@ -306,7 +306,7 @@ def fetch_all_data(companies: List[Dict], max_workers: int = MAX_WORKERS) -> Lis
 def display_by_sector(data: List[Dict]) -> None:
     """Groups companies by sector and displays sorted by forward P/E."""
     if not data:
-        print("❌ No data to display")
+        print(" No data to display")
         return
     
     df = pd.DataFrame(data)
@@ -314,7 +314,7 @@ def display_by_sector(data: List[Dict]) -> None:
     sector_names = sorted(df['sector'].unique())
     
     print("=" * 120)
-    print("📊 S&P 500 COMPANIES BY SECTOR - SORTED BY FORWARD P/E")
+    print(" S&P 500 COMPANIES BY SECTOR - SORTED BY FORWARD P/E")
     print("=" * 120)
     
     for sector in sector_names:
@@ -332,7 +332,7 @@ def display_by_sector(data: List[Dict]) -> None:
         market_cap_str = f"${total_market_cap/1e12:.2f}T" if pd.notna(total_market_cap) else 'N/A'
         
         print(f"\n{'─' * 120}")
-        print(f"🏢 {sector.upper()}")
+        print(f" {sector.upper()}")
         print(f"   Companies: {company_count} | Avg Forward P/E: {avg_pe_str} | Total Market Cap: {market_cap_str}")
         print(f"{'─' * 120}")
         
@@ -356,7 +356,7 @@ def display_by_sector(data: List[Dict]) -> None:
     
     # Summary
     print("\n" + "=" * 120)
-    print("📈 SUMMARY STATISTICS")
+    print(" SUMMARY STATISTICS")
     print("=" * 120)
     
     for sector in sector_names:
@@ -379,7 +379,7 @@ def display_by_sector(data: List[Dict]) -> None:
 def export_to_csv(data: List[Dict], filename: str = "sp500_analysis.csv") -> None:
     """Exports the analysis data to a CSV file."""
     if not data:
-        print("❌ No data to export")
+        print(" No data to export")
         return
     
     df = pd.DataFrame(data)
@@ -398,7 +398,7 @@ def export_to_csv(data: List[Dict], filename: str = "sp500_analysis.csv") -> Non
     
     export_columns = [col for col in export_columns if col in df.columns]
     df[export_columns].to_csv(filename, index=False)
-    print(f"\n📁 Data exported to: {filename}")
+    print(f"\n� Data exported to: {filename}")
 
 
 def main():
@@ -406,7 +406,7 @@ def main():
     print("\n" + "=" * 60)
     print("   S&P 500 COMPANY ANALYSIS - ROBUST EDITION")
     print("   Data source: Wikipedia + Yahoo Finance (yfinance)")
-    print("   ⚡ Rate-limited, cached, and retry-enabled")
+    print("    Rate-limited, cached, and retry-enabled")
     print("=" * 60 + "\n")
     
     try:
@@ -420,7 +420,7 @@ def main():
         
         if cache and cache.get('data'):
             company_data = cache['data']
-            print(f"📦 Using cached data for {len(company_data)} companies\n")
+            print(f"� Using cached data for {len(company_data)} companies\n")
         else:
             # Step 1: Get S&P 500 list from Wikipedia
             sp500_companies = get_sp500_companies()
@@ -438,14 +438,14 @@ def main():
         # Step 5: Export to CSV
         export_to_csv(company_data)
         
-        print("\n✅ Analysis complete!")
-        print("📊 Data is cached for 12 hours. Use --no-cache for fresh data.")
+        print("\n Analysis complete!")
+        print(" Data is cached for 12 hours. Use --no-cache for fresh data.")
         
     except KeyboardInterrupt:
-        print("\n\n⚠️  Analysis interrupted by user")
+        print("\n\n  Analysis interrupted by user")
         sys.exit(1)
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        print(f"\n Error: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

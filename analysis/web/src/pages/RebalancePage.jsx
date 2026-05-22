@@ -37,7 +37,7 @@ function ResearchChip({ research }) {
                     {research.recommendation} · {research.conviction}
                 </span>
                 <span style={{ color: stale ? 'var(--accent-red)' : 'var(--text-muted)' }}>
-                    {stale ? `⚠ stale (${age})` : `Research age: ${age}`}
+                    {stale ? ` stale (${age})` : `Research age: ${age}`}
                 </span>
             </summary>
             <div style={{ marginTop: 6, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
@@ -125,7 +125,6 @@ export default function RebalancePage() {
             {!loaded ? null : holdings.length === 0 ? (
                 <div className="glass-card">
                     <div className="empty-state">
-                        <div className="empty-state-icon">⚖️</div>
                         <h3 style={{ color: 'var(--text-secondary)' }}>No portfolio data</h3>
                         <p style={{ fontSize: '0.825rem' }}>Connect a portfolio on the Portfolio page first.</p>
                     </div>
@@ -192,7 +191,7 @@ export default function RebalancePage() {
                         </div>
                     ) : (
                         <div className="alert alert-success" style={{ marginBottom: 'var(--spacing-lg)' }}>
-                            ✅ Portfolio looks well-balanced for your {PROFILE_LABELS[profile].toLowerCase()} risk profile.
+                             Portfolio looks well-balanced for your {PROFILE_LABELS[profile].toLowerCase()} risk profile.
                         </div>
                     )}
 
@@ -233,7 +232,7 @@ export default function RebalancePage() {
                                         </div>
                                         <span style={{ fontFamily: 'monospace', color: overLimit ? 'var(--accent-red)' : 'var(--text-secondary)' }}>
                                             {pct.toFixed(1)}%
-                                            {overLimit && ' ⚠️'}
+                                            {overLimit && ' '}
                                         </span>
                                     </div>
                                     <div className="sentiment-bar-track">

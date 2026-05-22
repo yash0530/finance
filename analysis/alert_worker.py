@@ -93,7 +93,7 @@ def _check_alerts() -> None:
                     triggered = True
                     
             if triggered:
-                logger.info(f"🚨 Alert triggered for {ticker}: {condition} {threshold} (Current: {current_price})")
+                logger.info(f"� Alert triggered for {ticker}: {condition} {threshold} (Current: {current_price})")
                 db.mark_alert_triggered(alert["id"])
                 
     except Exception as e:

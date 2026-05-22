@@ -15,7 +15,7 @@ function SentimentMeter({ sentiment }) {
     return (
         <div className="glass-card fade-in">
             <div className="card-header" style={{ marginBottom: 'var(--spacing-sm)' }}>
-                <span className="card-title">🌡️ Market Sentiment</span>
+                <span className="card-title"> Market Sentiment</span>
                 <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.9rem' }}>
                     {score.toFixed(1)} / 10
                     <span className={`badge badge-${label === 'bullish' ? 'green' : label === 'bearish' ? 'red' : 'yellow'}`}
@@ -73,7 +73,7 @@ function FundamentalsCard({ fund }) {
     return (
         <div className="glass-card fade-in">
             <div className="card-header">
-                <span className="card-title">📊 Fundamentals</span>
+                <span className="card-title"> Fundamentals</span>
             </div>
             <div className="grid grid-2" style={{ gap: 'var(--spacing-xs)' }}>
                 {rows.filter(([, v]) => v != null && v !== 'N/A').map(([label, val]) => (
@@ -99,7 +99,7 @@ function TechnicalsCard({ tech }) {
         ['MACD Signal', tech.macd?.signal_label],
         ['50-Day MA', tech.ma_50 != null ? `$${tech.ma_50}` : null],
         ['200-Day MA', tech.ma_200 != null ? `$${tech.ma_200}` : null],
-        ['Golden Cross', tech.golden_cross != null ? (tech.golden_cross ? '✅ Yes' : '❌ No') : null],
+        ['Golden Cross', tech.golden_cross != null ? (tech.golden_cross ? ' Yes' : ' No') : null],
         ['1Y Return', tech.year_return_pct != null ? `${tech.year_return_pct > 0 ? '+' : ''}${tech.year_return_pct.toFixed(2)}%` : null],
         ['Volatility (Ann.)', tech.annualized_volatility_pct != null ? `${tech.annualized_volatility_pct.toFixed(1)}%` : null],
     ];
@@ -107,7 +107,7 @@ function TechnicalsCard({ tech }) {
     return (
         <div className="glass-card fade-in">
             <div className="card-header">
-                <span className="card-title">🔧 Technical Analysis</span>
+                <span className="card-title"> Technical Analysis</span>
             </div>
             <div className="grid grid-2" style={{ gap: 'var(--spacing-xs)', marginBottom: tech.patterns?.length ? 'var(--spacing-md)' : 0 }}>
                 {rows.filter(([, v]) => v != null).map(([label, val]) => (
@@ -145,7 +145,7 @@ function EdgarCard({ edgar }) {
     if (!edgar.available && !edgar.business) {
         return (
             <div className="glass-card fade-in">
-                <div className="card-header"><span className="card-title">📄 SEC Filings</span></div>
+                <div className="card-header"><span className="card-title"> SEC Filings</span></div>
                 <div className="alert alert-warning" style={{ fontSize: '0.8rem' }}>
                     {edgar.error || 'SEC filing data unavailable for this ticker'}
                 </div>
@@ -156,7 +156,7 @@ function EdgarCard({ edgar }) {
     return (
         <div className="glass-card fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
             <div className="card-header" style={{ marginBottom: 0 }}>
-                <span className="card-title">📄 SEC Filings</span>
+                <span className="card-title"> SEC Filings</span>
                 {edgar.filing_date && (
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
                         {edgar.form_type} filed {edgar.filing_date}
@@ -164,9 +164,9 @@ function EdgarCard({ edgar }) {
                 )}
             </div>
             {[
-                { key: 'business', label: '🏢 Business Description' },
-                { key: 'risks', label: '⚠️ Key Risk Factors' },
-                { key: 'mda', label: '📈 Management Discussion & Analysis' },
+                { key: 'business', label: ' Business Description' },
+                { key: 'risks', label: ' Key Risk Factors' },
+                { key: 'mda', label: ' Management Discussion & Analysis' },
             ].map(({ key, label }) => edgar[key] ? (
                 <div key={key}>
                     <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>{label}</div>
@@ -194,7 +194,7 @@ function ThesisCard({ thesis }) {
             ) : (
                 <>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-md)' }}>
-                        <h3 style={{ fontSize: '0.925rem', color: 'var(--text-primary)' }}>🤖 AI Investment Thesis</h3>
+                        <h3 style={{ fontSize: '0.925rem', color: 'var(--text-primary)' }}> AI Investment Thesis</h3>
                         <div style={{ display: 'flex', gap: 8 }}>
                             <span className={`badge badge-${thesis.recommendation === 'BUY' ? 'green' : thesis.recommendation === 'HOLD' ? 'yellow' : 'red'}`}
                                 style={{ fontSize: '0.8rem', padding: '4px 12px' }}>
@@ -256,7 +256,7 @@ function ThesisCard({ thesis }) {
                     {(thesis._raw_bull_pass || thesis._raw_bear_pass) && (
                         <details style={{ marginTop: 'var(--spacing-md)', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm)' }}>
                             <summary style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)', cursor: 'pointer', outline: 'none', padding: '4px 8px' }}>
-                                🔍 View AI Adversarial Debate (3-Pass Output)
+                                 View AI Adversarial Debate (3-Pass Output)
                             </summary>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', padding: '12px 8px 4px 8px', marginTop: 8, borderTop: '1px solid var(--border-color)' }}>
                                 {thesis._raw_bull_pass && (
@@ -279,7 +279,7 @@ function ThesisCard({ thesis }) {
                         <div style={{ marginTop: 'var(--spacing-md)', padding: 'var(--spacing-sm) var(--spacing-md)', background: 'rgba(124,58,237,0.08)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(124,58,237,0.15)' }}>
                             <div style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--accent-purple)', marginBottom: 6 }}>Key Catalysts</div>
                             {thesis.key_catalysts.map((c, i) => (
-                                <div key={i} style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', padding: '2px 0' }}>⚡ {c}</div>
+                                <div key={i} style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', padding: '2px 0' }}> {c}</div>
                             ))}
                         </div>
                     )}
@@ -290,7 +290,7 @@ function ThesisCard({ thesis }) {
                                 Action Items
                             </div>
                             {thesis.action_items.map((a, i) => (
-                                <div key={i} style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', padding: '3px 0' }}>→ {a}</div>
+                                <div key={i} style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', padding: '3px 0' }}> {a}</div>
                             ))}
                         </div>
                     )}
@@ -343,7 +343,7 @@ export default function QuickResearchPage() {
             {/* Header */}
             <div className="page-header">
                 <div>
-                    <h1 className="page-title">⚡ Quick Research</h1>
+                    <h1 className="page-title"> Quick Research</h1>
                     <p className="page-subtitle">Fast AI analysis with live streaming results</p>
                 </div>
                 {isStreaming && (
@@ -374,7 +374,7 @@ export default function QuickResearchPage() {
                     {isStreaming ? (
                         <><span className="spinner spinner-sm" /> Researching…</>
                     ) : (
-                        '⚡ Quick Research'
+                        ' Quick Research'
                     )}
                 </button>
             </form>
@@ -474,7 +474,7 @@ export default function QuickResearchPage() {
                             textAlign: 'center', padding: 'var(--spacing-md)',
                             fontSize: '0.72rem', color: 'var(--text-muted)'
                         }}>
-                            ✅ Research complete · {report.total_llm_calls} AI calls · Report {report.report_id?.slice(0, 8)}
+                             Research complete · {report.total_llm_calls} AI calls · Report {report.report_id?.slice(0, 8)}
                         </div>
                     )}
                 </div>
@@ -484,7 +484,6 @@ export default function QuickResearchPage() {
             {!hasAnyData && !isStreaming && stageOrder.length === 0 && (
                 <div className="glass-card">
                     <div className="empty-state">
-                        <div className="empty-state-icon">🧠</div>
                         <h3 style={{ color: 'var(--text-secondary)' }}>Enter a ticker to start quick research</h3>
                         <p style={{ fontSize: '0.825rem', maxWidth: 460, lineHeight: 1.7 }}>
                             Fast AI triage: fundamentals, technicals, sentiment, SEC filings,

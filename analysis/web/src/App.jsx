@@ -116,7 +116,7 @@ export default function App() {
                         }}
                     >
                         <span>
-                            ⚠ Backend was updated (was <code>{bootSha}</code>, now <code>{liveSha}</code>).
+                             Backend was updated (was <code>{bootSha}</code>, now <code>{liveSha}</code>).
                             Refresh to pick up new endpoints.
                         </span>
                         <button

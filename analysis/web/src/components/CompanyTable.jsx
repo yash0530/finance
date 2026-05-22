@@ -311,7 +311,7 @@ function CompanyTable({ sector, searchResults, showAll, onCompanySelect }) {
                         className={`btn btn-filter ${showFilters ? 'active' : ''}`}
                         onClick={() => setShowFilters(!showFilters)}
                     >
-                        🔍 {showFilters ? 'Hide Filters' : 'Show Filters'}
+                         {showFilters ? 'Hide Filters' : 'Show Filters'}
                     </button>
                 )}
             </div>
