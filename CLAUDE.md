@@ -9,33 +9,37 @@ Single-investor research and decision-support tool. The owner is deploying $10K 
 - **Backend**: Flask on `:5001` (`analysis/app.py`). SQLite at `~/.portfolio_intelligence/finance.db` (WAL mode). LLM abstraction in `analysis/llm_service.py` (Claude / Gemini / Ollama).
 - **Frontend**: React 18 + Vite (`analysis/web/`). All API calls go through `src/utils/api.js`. Pages are lazy-loaded from `src/pages/`.
 - **Run**: `analysis/start.sh` boots backend and frontend. Tests: `cd analysis && python3 -m pytest tests/`.
+- **Robinhood sessions**: Stored in RAM only (`_RAM_SESSION` in `portfolio_service.py`). No tokens are written to disk. Session expires after 24 hours or on app restart.
 
-## v1 vs v2
-- **v1** (shipped): fixed 8-stage research pipeline in `research_engine.py` + `research_stream.py`. Endpoint `/api/research/<ticker>/stream`.
-- **v2** "Living Analyst" (in build, mostly complete): agentic loop in `agent_loop.py` + multi-agent debate in `agents/` + Living Memo in `living_memo.py` + per-sector specialization in `analyzers/`. Endpoint `/api/research/<ticker>/v2/stream`.
+## Research surface
+One primary research path: **Deep Research** — agentic loop in `agent_loop.py` + multi-agent debate in `agents/` + Living Memo in `living_memo.py` + per-sector specialization in `analyzers/`. Endpoint `/api/research/<ticker>/v2/stream`.
 
-**v2 is additive.** Do not break v1 endpoints, v1 tables, or v1 user flows during v2 work. The two surfaces coexist; the UI exposes both pages until calibration earns v2 the default slot.
+The legacy v1 fixed 8-stage pipeline (`research_engine.py`) is preserved as a dependency for tools but its dedicated UI page and Quick Research sidebar entry have been removed.
 
 ## Golden rules
-1. **Never commit API keys** or `.cache/rh_session.json`. Both are in `.gitignore` — keep them there.
-2. **Never alter v1 DB tables** (`portfolio_holdings`, `watchlist`, `alerts`, `research_cache`, `research_reports`, `llm_settings`). Add new tables for new features.
+1. **Never commit API keys** or Robinhood session tokens. Both are in `.gitignore` — keep them there. Robinhood tokens must never be written to disk (`store_session=False`).
+2. **Never alter core DB tables** (`portfolio_holdings`, `research_cache`, `research_reports`, `llm_settings`). Add new tables for new features.
 3. **Never delete `living_memo_versions` rows.** The memo history is the user's audit trail; loss is unrecoverable.
 4. **New data fetches must be Tools.** Add to `analysis/tools/<name>.py` and the autoload list in `tools/__init__.py`. Don't inline fetches in `app.py` or agents.
 5. **Every LLM-emitted claim must cite evidence.** Bull/Bear/Judge prompts require `evidence_refs`. Don't soften the validators.
 6. **Respect the budget.** All new LLM calls flow through `agent_loop` so `Budget` enforces cost ceilings. No standalone `provider.complete(...)` calls in new code.
 7. **No `pip install` without updating `analysis/requirements.txt`.** Same for `npm install` and `analysis/web/package.json`.
 
+## Current nav pages
+`Advisor` · `Portfolio` · `Deep Research` · `History` · `Rebalance` · `Calibration` · `S&P 500` · `Docs` · `LLM Settings`
+
 ## Where things live
-- `analysis/agent_loop.py` — v2 orchestrator + SSE streaming + `run_deep_research()`
+- `analysis/agent_loop.py` — orchestrator + SSE streaming + `run_deep_research()`
 - `analysis/agents/` — bull, bear, judge, self_critique, planner, memo_synth
 - `analysis/tools/` — all data fetches; each subclasses `Tool` and `register()`s itself
 - `analysis/analyzers/` — sector-specialized KPI templates and peer cohorts
 - `analysis/living_memo.py` — per-ticker evolving knowledge document
 - `analysis/sector_router.py` — ticker → sector classification
+- `analysis/portfolio_service.py` — Robinhood RAM-session + CSV ingestion, P&L enrichment
 - `analysis/db.py` — single source of truth for schema; `init_db()` runs on import
 - `analysis/docs/next_gen_tool.md` — architecture spec (engineering)
 - `analysis/docs/deep_research_guide.md` — power-user docs (UX/behavior)
-- `analysis/tests/` — pytest suite (97+ tests as of last run)
+- `analysis/tests/` — pytest suite (189 tests as of last run)
 - `analysis/web/tests/e2e/` — Playwright browser UAT
 
 ## Doc-code drift

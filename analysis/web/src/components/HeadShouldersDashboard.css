@@ -52,7 +52,7 @@
 .hs-no-patterns {
     text-align: center;
     padding: 4rem 2rem;
-    background: var(--card-bg);
+    background: var(--bg-card);
     border-radius: 1rem;
     border: 1px solid var(--border-color);
 }
@@ -80,7 +80,7 @@
 .hs-dashboard-table-container {
     overflow-x: auto;
     border-radius: 0.75rem;
-    background: var(--card-bg);
+    background: var(--bg-card);
     border: 1px solid var(--border-color);
 }
 
@@ -205,7 +205,7 @@
 .hs-info-panel {
     margin-top: 2rem;
     padding: 1.5rem;
-    background: var(--card-bg);
+    background: var(--bg-card);
     border-radius: 0.75rem;
     border: 1px solid var(--border-color);
 }

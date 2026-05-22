@@ -81,7 +81,7 @@ Check the backend logs: `tail -f ~/.portfolio_intelligence/logs/server.log` (pat
 This is by design. You need at least 20 closed recommendations with at least the 1-month outcome populated before the tool will display a calibration number. Earlier than that, the sample is dominated by variance and would mislead you.
 
 To accelerate:
-- Run more Deep Research v2 sessions (each produces a recommendation).
+- Run more Deep Research sessions (each produces a recommendation).
 - Wait — the outcome worker backfills returns daily.
 - Manually trigger: `POST /api/advisor/calibration?backfill=1`.
 

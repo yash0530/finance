@@ -13,11 +13,12 @@
     background: var(--bg-card);
     border-radius: 12px;
     box-shadow: var(--elevation-1);
-    transition: box-shadow 200ms ease, background 200ms ease;
+    transition: box-shadow 200ms ease, background 200ms ease, border-color 200ms ease;
 }
 
 .chart-card:hover {
-    background: var(--bg-card-hover);
+    cursor: pointer;
+    background: var(--bg-card);
     box-shadow: var(--elevation-2);
 }
 

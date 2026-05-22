@@ -5,7 +5,6 @@ db.py — SQLite database layer for the Next-Gen Portfolio Intelligence Tool.
 Tables:
   - portfolio_holdings  : Robinhood/manual holdings
   - watchlist           : User-tracked tickers
-  - alerts              : Price/change alerts
   - research_cache      : Cached AI research reports
   - llm_settings        : LLM provider configuration
 """
@@ -75,17 +74,6 @@ def init_db() -> None:
                 ticker    TEXT NOT NULL UNIQUE,
                 added_at  TEXT NOT NULL,
                 notes     TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS alerts (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                ticker      TEXT NOT NULL,
-                condition   TEXT NOT NULL,   -- 'above' | 'below' | 'change_pct_up' | 'change_pct_down'
-                threshold   REAL NOT NULL,
-                is_active   INTEGER DEFAULT 1,
-                is_triggered INTEGER DEFAULT 0,
-                triggered_at TEXT,
-                created_at  TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS research_cache (
@@ -374,120 +362,15 @@ def clear_holdings() -> None:
         conn.close()
 
 
-# ============================================================================
-# Watchlist
-# ============================================================================
-
-def add_to_watchlist(ticker: str, notes: str = "") -> Dict:
-    """Add a ticker to the watchlist. Returns the row."""
+def clear_robinhood_holdings() -> None:
+    """Remove only Robinhood holdings (e.g., on session expiration)."""
     conn = get_connection()
     try:
-        ticker = ticker.upper().strip()
-        now = datetime.now().isoformat()
-        conn.execute(
-            "INSERT OR IGNORE INTO watchlist (ticker, added_at, notes) VALUES (?, ?, ?)",
-            (ticker, now, notes)
-        )
-        conn.commit()
-        row = conn.execute("SELECT * FROM watchlist WHERE ticker = ?", (ticker,)).fetchone()
-        return dict(row) if row else {}
-    finally:
-        conn.close()
-
-
-def remove_from_watchlist(ticker: str) -> bool:
-    """Remove a ticker from the watchlist. Returns True if removed."""
-    conn = get_connection()
-    try:
-        cursor = conn.execute("DELETE FROM watchlist WHERE ticker = ?", (ticker.upper(),))
-        conn.commit()
-        return cursor.rowcount > 0
-    finally:
-        conn.close()
-
-
-def get_watchlist() -> List[Dict]:
-    """Return all watchlist entries."""
-    conn = get_connection()
-    try:
-        rows = conn.execute("SELECT * FROM watchlist ORDER BY added_at DESC").fetchall()
-        return [dict(r) for r in rows]
-    finally:
-        conn.close()
-
-
-def is_on_watchlist(ticker: str) -> bool:
-    conn = get_connection()
-    try:
-        row = conn.execute("SELECT 1 FROM watchlist WHERE ticker = ?", (ticker.upper(),)).fetchone()
-        return row is not None
-    finally:
-        conn.close()
-
-
-# ============================================================================
-# Alerts
-# ============================================================================
-
-def create_alert(ticker: str, condition: str, threshold: float) -> Dict:
-    """Create a new price alert.
-
-    Args:
-        ticker: Stock ticker (e.g. 'NVDA')
-        condition: 'above' | 'below' | 'change_pct_up' | 'change_pct_down'
-        threshold: Price level or % change (e.g. 150.0 or 5.0 for 5%)
-    """
-    conn = get_connection()
-    try:
-        now = datetime.now().isoformat()
-        cursor = conn.execute(
-            "INSERT INTO alerts (ticker, condition, threshold, created_at) VALUES (?, ?, ?, ?)",
-            (ticker.upper(), condition, threshold, now)
-        )
-        conn.commit()
-        row = conn.execute("SELECT * FROM alerts WHERE id = ?", (cursor.lastrowid,)).fetchone()
-        return dict(row)
-    finally:
-        conn.close()
-
-
-def get_alerts(active_only: bool = True) -> List[Dict]:
-    """Return alerts. Optionally filter to only non-triggered ones."""
-    conn = get_connection()
-    try:
-        if active_only:
-            rows = conn.execute(
-                "SELECT * FROM alerts WHERE is_active = 1 AND is_triggered = 0 ORDER BY created_at DESC"
-            ).fetchall()
-        else:
-            rows = conn.execute("SELECT * FROM alerts ORDER BY created_at DESC").fetchall()
-        return [dict(r) for r in rows]
-    finally:
-        conn.close()
-
-
-def mark_alert_triggered(alert_id: int) -> None:
-    """Mark an alert as triggered."""
-    conn = get_connection()
-    try:
-        conn.execute(
-            "UPDATE alerts SET is_triggered = 1, triggered_at = ? WHERE id = ?",
-            (datetime.now().isoformat(), alert_id)
-        )
+        conn.execute("DELETE FROM portfolio_holdings WHERE source = 'robinhood'")
         conn.commit()
     finally:
         conn.close()
 
-
-def delete_alert(alert_id: int) -> bool:
-    """Delete an alert by ID."""
-    conn = get_connection()
-    try:
-        cursor = conn.execute("DELETE FROM alerts WHERE id = ?", (alert_id,))
-        conn.commit()
-        return cursor.rowcount > 0
-    finally:
-        conn.close()
 
 
 # ============================================================================

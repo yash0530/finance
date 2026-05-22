@@ -34,7 +34,7 @@ The tool exists to enforce all three.
 
 ### Researching a new ticker (30–60 minutes)
 
-1. **Deep Research v2** — let it run. Watch the SSE stream so you absorb the reasoning, not just the verdict.
+1. **Deep Research** — let it run. Watch the SSE stream so you absorb the reasoning, not just the verdict.
 2. **Read the Living Memo** end-to-end. Pay attention to open questions — those are gaps the tool itself flagged.
 3. **Read the bull and bear cases**. If you can't articulate the bear case in your own words, you don't understand the position well enough to size it.
 4. **Read the verdict + what would change my mind**. Is the falsifiability concrete? "Margins compress below 30%" is concrete. "Sentiment turns" is not.
@@ -43,7 +43,7 @@ The tool exists to enforce all three.
 
 ### Reviewing a held position (15 minutes, monthly per position)
 
-1. **Re-run Deep Research v2** on the ticker. The Living Memo carries forward; the new run reads it and refines.
+1. **Re-run Deep Research** on the ticker. The Living Memo carries forward; the new run reads it and refines.
 2. Compare the new verdict to your original entry thesis. Has anything material changed?
 3. If conviction has dropped from HIGH to MEDIUM, consider trimming. If it's dropped to LOW, exit unless you have a non-tool reason to hold.
 4. If "what would change my mind" has triggered, exit. No negotiation. (The whole point of falsifiability is to bind your future self.)

@@ -31,6 +31,40 @@ PRICES_CACHE_FILE = CACHE_DIR / "latest_prices.json"
 
 CACHE_DIR.mkdir(exist_ok=True)
 
+# RAM-only session storage
+_RAM_SESSION = {
+    "username": None,
+    "synced_at": None,
+    "login_result": None
+}
+
+def _cleanup_disk_tokens() -> None:
+    """Permanently delete existing cached Robinhood session tokens on disk."""
+    try:
+        # 1. Clean up our own cache rh_session.json
+        if SESSION_FILE.exists():
+            SESSION_FILE.unlink()
+        
+        # 2. Clean up robin_stocks token pickle files
+        tokens_dir = Path.home() / ".tokens"
+        if tokens_dir.exists():
+            for pickle_file in tokens_dir.glob("*.pickle"):
+                try:
+                    pickle_file.unlink()
+                except Exception:
+                    pass
+            try:
+                # If directory is empty, remove it
+                if not any(tokens_dir.iterdir()):
+                    tokens_dir.rmdir()
+            except Exception:
+                pass
+    except Exception as e:
+        logger.warning(f"Error cleaning up disk session tokens: {e}")
+
+# Run cleanup immediately on module import
+_cleanup_disk_tokens()
+
 
 # ============================================================================
 # Robinhood Integration
@@ -63,8 +97,8 @@ def connect_robinhood(username: str, password: str, otp: str) -> Dict:
             username=username,
             password=password,
             mfa_code=otp,
-            store_session=True,  # Caches to pickle file managed by robin_stocks
-            expiresIn=86400      # 24-hour session
+            store_session=False,  # RAM-only session, no caching to disk
+            expiresIn=86400       # 24-hour session
         )
 
         if login_result and login_result.get("access_token"):
@@ -99,20 +133,27 @@ def disconnect_robinhood() -> None:
     except Exception:
         pass
 
-    if SESSION_FILE.exists():
-        SESSION_FILE.unlink()
+    _RAM_SESSION["username"] = None
+    _RAM_SESSION["synced_at"] = None
+    _RAM_SESSION["login_result"] = None
+
+    _cleanup_disk_tokens()
 
 
 def is_connected() -> bool:
     """Check if we have an active Robinhood session."""
-    if not SESSION_FILE.exists():
+    if _RAM_SESSION["username"] is None or _RAM_SESSION["synced_at"] is None:
         return False
     try:
-        session = json.loads(SESSION_FILE.read_text())
-        synced_at = datetime.fromisoformat(session.get("synced_at", "2000-01-01"))
+        synced_at = _RAM_SESSION["synced_at"]
         # Session expires after 24 hours
         from datetime import timedelta
-        return datetime.now() - synced_at < timedelta(hours=24)
+        is_conn = datetime.now() - synced_at < timedelta(hours=24)
+        if not is_conn:
+            disconnect_robinhood()
+            from db import clear_robinhood_holdings
+            clear_robinhood_holdings()
+        return is_conn
     except Exception:
         return False
 
@@ -275,6 +316,8 @@ def get_enriched_holdings() -> List[Dict]:
     import pandas as pd
 
     raw_holdings = db_get_holdings()
+    if not is_connected():
+        raw_holdings = [h for h in raw_holdings if h.get("source") != "robinhood"]
     if not raw_holdings:
         return []
 
@@ -454,13 +497,10 @@ def get_portfolio_summary(enriched_holdings: Optional[List[Dict]] = None) -> Dic
 # ============================================================================
 
 def _save_session_marker(username: str, login_result: Dict) -> None:
-    """Save a non-sensitive session marker to disk."""
-    marker = {
-        "username": username,
-        "synced_at": datetime.now().isoformat(),
-        "has_session": True
-    }
-    SESSION_FILE.write_text(json.dumps(marker))
+    """Save a non-sensitive session marker to RAM."""
+    _RAM_SESSION["username"] = username
+    _RAM_SESSION["synced_at"] = datetime.now()
+    _RAM_SESSION["login_result"] = login_result
 
 
 def _get_ticker_from_instrument(instrument_url: str) -> Optional[str]:
@@ -477,14 +517,9 @@ def _get_ticker_from_instrument(instrument_url: str) -> Optional[str]:
 
 def get_session_info() -> Dict:
     """Return non-sensitive session status info."""
-    if not SESSION_FILE.exists():
-        return {"connected": False}
-    try:
-        session = json.loads(SESSION_FILE.read_text())
-        return {
-            "connected": is_connected(),
-            "username": session.get("username", ""),
-            "synced_at": session.get("synced_at")
-        }
-    except Exception:
-        return {"connected": False}
+    connected = is_connected()
+    return {
+        "connected": connected,
+        "username": _RAM_SESSION["username"] if connected else "",
+        "synced_at": _RAM_SESSION["synced_at"].isoformat() if (connected and _RAM_SESSION["synced_at"]) else None
+    }

@@ -2,6 +2,10 @@
 
 React 18 + Vite. Single-page app. Dark terminal aesthetic.
 
+## Current pages
+
+`Advisor` · `Portfolio` · `Deep Research` · `History` · `Rebalance` · `Calibration` · `S&P 500` · `Docs` · `LLM Settings`
+
 ## Page wiring
 
 1. Create page component under `src/pages/<Name>Page.jsx`

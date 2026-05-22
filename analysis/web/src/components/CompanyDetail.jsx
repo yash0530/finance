@@ -139,7 +139,7 @@ function CompanyDetail({ ticker, onBack }) {
     if (error) {
         return (
             <div className="company-detail-error">
-                <p> {error}</p>
+                <p>⚠️ {error}</p>
                 <button className="btn btn-secondary" onClick={onBack}>Back to Dashboard</button>
             </div>
         );
@@ -169,9 +169,9 @@ function CompanyDetail({ ticker, onBack }) {
                     <p className="tooltip-price">${payload[0].value.toFixed(2)}</p>
                     {isPatternPoint && (
                         <p className="tooltip-pattern">
-                            {dataPoint.isLeftShoulder && '� Left Shoulder'}
-                            {dataPoint.isHead && '� Head'}
-                            {dataPoint.isRightShoulder && '� Right Shoulder'}
+                            {dataPoint.isLeftShoulder && '📍 Left Shoulder'}
+                            {dataPoint.isHead && '📍 Head'}
+                            {dataPoint.isRightShoulder && '📍 Right Shoulder'}
                         </p>
                     )}
                 </div>
@@ -200,12 +200,13 @@ function CompanyDetail({ ticker, onBack }) {
                     ← Back to Dashboard
                 </button>
                 <button
-                    className="btn btn-refresh"
+                    id="btn-refresh-company"
+                    className={`btn btn-secondary company-refresh-btn ${refreshing ? 'loading' : ''}`}
                     onClick={handleRefresh}
                     disabled={refreshing}
                     title="Fetch fresh data from API"
                 >
-                    {refreshing ? 'Refreshing...' : 'Refresh Data'}
+                    {refreshing ? '⏳ Refreshing...' : '🔄 Refresh Data'}
                 </button>
             </div>
 
@@ -233,7 +234,7 @@ function CompanyDetail({ ticker, onBack }) {
             {/* Stock Price History Chart */}
             <div className="detail-section glass-card fade-in stock-chart-section">
                 <div className="section-header-with-controls">
-                    <h3 className="section-heading"> Stock Price History</h3>
+                    <h3 className="section-heading">📈 Stock Price History</h3>
                     <div className="period-selector">
                         {periods.map(p => (
                             <button
@@ -251,6 +252,7 @@ function CompanyDetail({ ticker, onBack }) {
                 {patternData?.detected && patternConfig && (
                     <div className={`pattern-alert ${patternConfig.signal}`}>
                         <div className="pattern-alert-header">
+                            <span className="pattern-alert-icon">{patternConfig.signal === 'bullish' ? '📈' : '📉'}</span>
                             <span className="pattern-alert-title">{patternConfig.name} Pattern Detected</span>
                             <span className={`pattern-confidence ${patternData.confidence >= 70 ? 'high' : patternData.confidence >= 50 ? 'medium' : 'low'}`}>
                                 {patternData.confidence}% Confidence
@@ -302,7 +304,7 @@ function CompanyDetail({ ticker, onBack }) {
                             </div>
                         </div>
                         <p className="pattern-alert-note">
-                            {patternConfig.signal === 'bullish' ? '' : ''} {patternConfig.description}
+                            {patternConfig.signal === 'bullish' ? '📈' : '⚠️'} {patternConfig.description}
                         </p>
                     </div>
                 )}
@@ -401,7 +403,7 @@ function CompanyDetail({ ticker, onBack }) {
             <div className="detail-grid">
                 {/* Market Data Section */}
                 <div className="detail-section glass-card fade-in">
-                    <h3 className="section-heading"> Market Data</h3>
+                    <h3 className="section-heading">📊 Market Data</h3>
                     <div className="metrics-list">
                         <div className="metric-row">
                             <span className="metric-name">Market Cap</span>
@@ -432,7 +434,7 @@ function CompanyDetail({ ticker, onBack }) {
 
                 {/* Valuation Section */}
                 <div className="detail-section glass-card fade-in">
-                    <h3 className="section-heading"> Valuation</h3>
+                    <h3 className="section-heading">💰 Valuation</h3>
                     <div className="metrics-list">
                         <div className="metric-row">
                             <span className="metric-name">Forward P/E</span>
@@ -485,7 +487,7 @@ function CompanyDetail({ ticker, onBack }) {
 
                 {/* Revenue & Income Section - Enhanced with time period labels */}
                 <div className="detail-section glass-card fade-in">
-                    <h3 className="section-heading">� Revenue & Income</h3>
+                    <h3 className="section-heading">💵 Revenue & Income</h3>
                     <div className="metrics-list">
                         <div className="metric-row">
                             <span className="metric-name">Total Revenue <span className="metric-period">(TTM)</span></span>
@@ -506,7 +508,7 @@ function CompanyDetail({ ticker, onBack }) {
 
                 {/* Profitability Section */}
                 <div className="detail-section glass-card fade-in">
-                    <h3 className="section-heading"> Profitability</h3>
+                    <h3 className="section-heading">🎯 Profitability</h3>
                     <div className="metrics-list">
                         <div className="metric-row">
                             <span className="metric-name">Profit Margin</span>
@@ -533,7 +535,7 @@ function CompanyDetail({ ticker, onBack }) {
             {/* Quarterly Financials Charts */}
             {financials && (financials.quarterly_revenue?.length > 0 || financials.quarterly_earnings?.length > 0) && (
                 <div className="financials-section">
-                    <h2 className="financials-title"> Quarterly Financials</h2>
+                    <h2 className="financials-title">📊 Quarterly Financials</h2>
                     <div className="financials-grid">
                         {financials.quarterly_revenue?.length > 0 && (
                             <div className="detail-section glass-card fade-in chart-card">
@@ -596,7 +598,7 @@ function CompanyDetail({ ticker, onBack }) {
             {/* Annual Financials */}
             {financials && (financials.annual_revenue?.length > 0) && (
                 <div className="financials-section">
-                    <h2 className="financials-title">� Annual Financials</h2>
+                    <h2 className="financials-title">📅 Annual Financials</h2>
                     <div className="financials-grid">
                         {financials.annual_revenue?.length > 0 && (
                             <div className="detail-section glass-card fade-in chart-card">

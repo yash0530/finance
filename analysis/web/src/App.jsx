@@ -8,13 +8,9 @@ import { getPortfolioStatus, getVersion } from './utils/api';
 const PortfolioPage      = lazy(() => import('./pages/PortfolioPage'));
 const AdvisorPage        = lazy(() => import('./pages/AdvisorPage'));
 const DeepResearchPage   = lazy(() => import('./pages/DeepResearchPage'));
-const QuickResearchPage  = lazy(() => import('./pages/QuickResearchPage'));
-const ResearchPage      = lazy(() => import('./pages/ResearchPage'));
 const ResearchHistoryPage = lazy(() => import('./pages/ResearchHistoryPage'));
-const WatchlistPage     = lazy(() => import('./pages/WatchlistPage'));
 const RebalancePage     = lazy(() => import('./pages/RebalancePage'));
 const CalibrationPage   = lazy(() => import('./pages/CalibrationPage'));
-const AlertsPage        = lazy(() => import('./pages/AlertsPage'));
 const DocsPage          = lazy(() => import('./pages/DocsPage'));
 const LLMSettingsPage   = lazy(() => import('./pages/LLMSettingsPage'));
 
@@ -79,13 +75,9 @@ export default function App() {
             case 'portfolio':       return <PortfolioPage onConnected={() => setPortfolioConnected(true)} />;
             case 'advisor':        return <AdvisorPage />;
             case 'deep-research':   return <DeepResearchPage />;
-            case 'quick-research':  return <QuickResearchPage />;
-            case 'research':       return <ResearchPage />;
             case 'history':        return <ResearchHistoryPage />;
-            case 'watchlist':      return <WatchlistPage onResearch={(t) => setPage('research')} />;
             case 'rebalance':      return <RebalancePage />;
             case 'calibration':    return <CalibrationPage />;
-            case 'alerts':         return <AlertsPage />;
             case 'docs':           return <DocsPage />;
             case 'market':         return <MarketPage />;
             case 'settings':       return <LLMSettingsPage />;
@@ -116,7 +108,7 @@ export default function App() {
                         }}
                     >
                         <span>
-                             Backend was updated (was <code>{bootSha}</code>, now <code>{liveSha}</code>).
+                            ⚠️ Backend was updated (was <code>{bootSha}</code>, now <code>{liveSha}</code>).
                             Refresh to pick up new endpoints.
                         </span>
                         <button

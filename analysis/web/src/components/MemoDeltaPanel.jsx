@@ -9,7 +9,7 @@ export default function MemoDeltaPanel({ delta }) {
     return (
         <details className="glass-card fade-in" style={{ padding: 'var(--spacing-md)', borderColor: 'rgba(124, 58, 237, 0.3)' }}>
             <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)', outline: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span> Living Memo Update</span>
+                <span>📓 Living Memo Update</span>
                 {delta.new_version && <span className="badge badge-purple" style={{ fontSize: '0.65rem' }}>v{delta.new_version}</span>}
             </summary>
             <div style={{ marginTop: 'var(--spacing-md)' }}>

@@ -359,11 +359,87 @@ def _compute_trend_signals(quarters: List[Dict]) -> Dict:
 # Intrinsic Valuation (DCF) & Peer Comparison
 # ============================================================================
 
+def get_dynamic_wacc(ticker: str, info: Dict, stock: yf.Ticker) -> float:
+    """Calculate the dynamic Weighted Average Cost of Capital (WACC) using CAPM."""
+    rf = 0.042  # Standard 4.2% Risk-Free Rate fallback
+    try:
+        tnx = yf.Ticker("^TNX")
+        tnx_hist = tnx.history(period="1d")
+        if not tnx_hist.empty:
+            rf = float(tnx_hist["Close"].iloc[-1]) / 100.0
+    except Exception as e:
+        logger.warning(f"[{ticker}] Failed to fetch ^TNX risk-free rate: {e}")
+
+    # Beta
+    beta = info.get("beta")
+    if beta is None or math.isnan(beta):
+        beta = 1.0
+
+    # Cost of Equity (CAPM)
+    mrp = 0.055  # 5.5% Market Risk Premium
+    re = rf + beta * mrp
+
+    # Market Value of Equity & Debt
+    market_cap = info.get("marketCap") or 0.0
+    total_debt = info.get("totalDebt") or 0.0
+
+    # Cost of Debt (Rd) & Tax Rate (T)
+    rd = rf + 0.02  # standard spread fallback (Rf + 200bps)
+    tax_rate = 0.21  # default US corporate rate (21%)
+
+    try:
+        financials = stock.financials
+        if financials is not None and not financials.empty:
+            def _find_row(df, possible_names):
+                for name in possible_names:
+                    for idx in df.index:
+                        if idx.lower().strip() == name.lower().strip():
+                            return df.loc[idx]
+                return None
+
+            interest_exp_series = _find_row(financials, [
+                "Interest Expense", "InterestExpense",
+                "Interest Expense Net Of Interest Income"
+            ])
+            if interest_exp_series is not None and not interest_exp_series.empty:
+                for val in interest_exp_series:
+                    if pd.notna(val) and val != 0:
+                        interest_val = abs(float(val))
+                        if total_debt > 0:
+                            rd = interest_val / total_debt
+                        break
+
+            tax_prov_series = _find_row(financials, ["Tax Provision", "Income Tax Expense", "IncomeTaxExpense"])
+            pretax_inc_series = _find_row(financials, ["Pretax Income", "Income Before Tax", "IncomeBeforeTax"])
+            if tax_prov_series is not None and pretax_inc_series is not None:
+                for tax_val, pretax_val in zip(tax_prov_series, pretax_inc_series):
+                    if pd.notna(tax_val) and pd.notna(pretax_val) and pretax_val > 0:
+                        computed_t = float(tax_val) / float(pretax_val)
+                        if 0 <= computed_t <= 0.45:
+                            tax_rate = computed_t
+                        break
+    except Exception as e:
+        logger.warning(f"[{ticker}] Failed to calculate dynamic Rd or Tax Rate: {e}")
+
+    rd = max(rf, min(0.15, rd))
+
+    # WACC Weights
+    v = market_cap + total_debt
+    if v <= 0:
+        wacc = re
+    else:
+        wacc = (market_cap / v * re) + (total_debt / v * rd * (1.0 - tax_rate))
+
+    wacc_clamped = max(0.05, min(0.18, wacc))
+    logger.info(f"[{ticker}] Dynamic WACC calculated: {wacc_clamped:.4f} (Re={re:.4f}, Rd={rd:.4f}, Tax={tax_rate:.4f})")
+    return wacc_clamped
+
+
 def compute_intrinsic_value(ticker: str, fundamentals: Dict, trends: Dict) -> Dict:
     """Compute intrinsic value using a Discounted Cash Flow (DCF) model.
 
     Uses an automated 3-scenario model (Base, Bull, Bear) based on
-    latest FCF, revenue growth trajectories, and standard discount rates.
+    latest FCF, revenue growth trajectories, and a dynamically computed WACC.
     """
     if fundamentals.get("is_etf"):
         return {"skipped": True, "reason": "Not applicable for ETFs"}
@@ -372,6 +448,7 @@ def compute_intrinsic_value(ticker: str, fundamentals: Dict, trends: Dict) -> Di
     fcf = None
     shares_outstanding = None
     growth_rate = 0.05  # Default 5%
+    discount_rate = 0.09  # default fallback
 
     try:
         stock = yf.Ticker(ticker.upper())
@@ -388,6 +465,9 @@ def compute_intrinsic_value(ticker: str, fundamentals: Dict, trends: Dict) -> Di
         # Fallback to Yahoo Finance info
         if not fcf:
             fcf = info.get("freeCashflow")
+
+        # Dynamically compute WACC
+        discount_rate = get_dynamic_wacc(ticker, info, stock)
     except Exception as e:
         logger.warning(f"[{ticker}] Failed to fetch inputs for DCF: {e}")
 
@@ -403,7 +483,6 @@ def compute_intrinsic_value(ticker: str, fundamentals: Dict, trends: Dict) -> Di
             growth_rate = max(0.02, min(0.25, avg_recent_growth))
 
     # Standard DCF parameters
-    discount_rate = 0.09  # 9% WACC assumption
     terminal_growth_rate = 0.025  # 2.5% terminal growth
     years = 5
 

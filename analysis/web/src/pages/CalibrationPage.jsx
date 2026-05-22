@@ -171,8 +171,8 @@ export default function CalibrationPage() {
                     </p>
                     <p style={{ marginTop: 8 }}>
                         <strong>Hit rate</strong>: fraction of recommendations where the
-                        direction was right (BUY  positive return, SELL  negative,
-                        HOLD  within a small band). <strong>Avg return</strong>: signed
+                        direction was right (BUY → positive return, SELL → negative,
+                        HOLD → within a small band). <strong>Avg return</strong>: signed
                         forward return at the horizon, regardless of direction.
                     </p>
                 </div>

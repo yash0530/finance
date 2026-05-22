@@ -12,17 +12,16 @@ For the full engineering spec, see `next_gen_tool.md` in the repo. This page is 
 
 ---
 
-## Two research surfaces
+## Deep Research Architecture
 
-| | Quick Research | Deep Research |
-|---|---|---|
-| Pipeline | Fixed 8-stage | Agentic loop |
-| Files | `research_engine.py`, `research_stream.py` | `agent_loop.py`, `agents/`, `analyzers/` |
-| Output | Single report | Verdict + Living Memo + evidence ledger |
-| Endpoint | `/api/research/<ticker>/stream` | `/api/research/<ticker>/v2/stream` |
-| Use when | Fast triage | Anything you plan to trade |
+The main research surface is **Deep Research**, which runs an advanced agentic loop to perform thorough analysis.
 
-Both surfaces coexist. Quick Research is a fast triage path; Deep Research is the analytical depth path. The user picks per-research which one to run.
+- **Pipeline**: Dynamic agentic loop with planner, executor, bull/bear advocates, judge, self-critique, and memo synthesizer.
+- **Files**: `agent_loop.py`, `agents/`, `analyzers/`
+- **Output**: Structured Verdict + Living Memo + cited evidence ledger
+- **Endpoint**: `/api/research/<ticker>/v2/stream` (SSE EventSource)
+
+Deep Research distills fundamentals, sentiment, QoE forensics, options metrics, and SEC filings, storing the evolving knowledge inside an append-only Living Memo.
 
 ---
 
@@ -31,8 +30,8 @@ Both surfaces coexist. Quick Research is a fast triage path; Deep Research is th
 - **Flask** on `:5001` (`analysis/app.py`) — routes only; business logic lives in service modules.
 - **SQLite** at `~/.portfolio_intelligence/finance.db` (WAL mode) — single source of truth for portfolio, research, recommendations, monitoring digests, calibration outcomes.
 - **LLM abstraction** in `analysis/llm_service.py` — Claude / Gemini / Ollama, with `_get_provider_and_model(task_type)` routing fast vs. deep tasks to different models.
+- **Robinhood sessions** stored in RAM only (`_RAM_SESSION` in `portfolio_service.py`). `store_session=False` ensures no tokens are written to disk. Session auto-expires after 24 hours.
 - **Background workers** (started on app boot):
-  - `alert_worker.py` — price alerts
   - `monitoring_worker.py` — hourly thesis decay
   - `outcome_worker.py` — daily recommendation outcome backfill
 
@@ -135,7 +134,7 @@ The agent loop's `force_refresh=True` flag bypasses all caches for a single sess
 
 ```
 analysis/
-├── app.py                  Flask routes (quick + deep research + advisor + docs)
+├── app.py                  Flask routes (portfolio + deep research + advisor + docs + S&P 500)
 ├── agent_loop.py           Deep research orchestrator + SSE streaming
 ├── agents/                 bull, bear, judge, self_critique, planner, memo_synth
 ├── analyzers/              per-sector specialization
@@ -143,6 +142,7 @@ analysis/
 ├── llm_service.py          multi-provider LLM abstraction
 ├── living_memo.py          per-ticker evolving memo
 ├── sector_router.py        ticker → sector classification
+├── portfolio_service.py    Robinhood RAM-session + CSV ingestion + P&L enrichment
 ├── monitoring_worker.py    hourly thesis-decay daemon
 ├── outcome_worker.py       daily recommendation outcome backfill
 ├── rebalancing_engine.py   holdings-aware rebalance signals
@@ -154,6 +154,6 @@ analysis/
 
 ## What NOT to touch
 
-- Core DB tables: `portfolio_holdings`, `watchlist`, `alerts`, `research_cache`, `research_reports`, `llm_settings`.
+- Core DB tables: `portfolio_holdings`, `research_cache`, `research_reports`, `llm_settings`.
 - `living_memo_versions` rows — append-only, never delete.
-- Functions in `research_engine.py` — they back quick research endpoints and are wrapped as Tools; the originals stay.
+- Functions in `research_engine.py` — they are wrapped as Tools; the originals stay.

@@ -337,15 +337,16 @@ h4, h5, h6 { font-weight: 600; letter-spacing: var(--type-body-tracking); line-h
    GLASS CARDS
    ════════════════════════════════════════════════════════ */
 .glass-card {
-  background: var(--bg-tertiary);
+  background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   padding: var(--spacing-lg);
   box-shadow: var(--elevation-1);
-  transition: background 0.2s ease, box-shadow 0.2s ease;
+  transition: background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .glass-card:hover {
+  cursor: pointer;
   background: var(--bg-card);
   box-shadow: var(--elevation-2);
   border-color: var(--border-color-hover);
@@ -375,6 +376,13 @@ h4, h5, h6 { font-weight: 600; letter-spacing: var(--type-body-tracking); line-h
   border-radius: 12px;
   padding: var(--spacing-lg);
   box-shadow: var(--elevation-1);
+  transition: background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.stat-tile:hover {
+  cursor: pointer;
+  box-shadow: var(--elevation-2);
+  border-color: var(--border-color-hover);
 }
 
 .stat-tile-label {

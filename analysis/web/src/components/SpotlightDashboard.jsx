@@ -283,7 +283,7 @@ function SpotlightDashboard({ category, onBack, onCompanySelect }) {
                             onClick={() => setShowFilters(!showFilters)}
                             style={{ padding: '0.4rem 0.8rem', fontSize: '13px' }}
                         >
-                             {showFilters ? 'Hide Filters' : 'Show Filters'}
+                             🔍 {showFilters ? 'Hide Filters' : 'Show Filters'}
                         </button>
                     </div>
                     <p className="spotlight-dashboard-desc">{data.description}</p>

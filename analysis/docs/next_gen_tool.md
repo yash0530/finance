@@ -10,7 +10,7 @@
 
 This spec is split into two parts:
 
-- **Part I — Foundation (v1.0)**: what's shipped today. The 8-stage pipeline, Robinhood ingestion, alerts daemon, S&P 500 scanner.
+- **Part I — Foundation (v1.0)**: what's shipped today. The 8-stage pipeline, Robinhood ingestion, S&P 500 scanner.
 - **Part II — Living Analyst (v2.0)**: the in-design upgrade. Tool-based agent loop, per-ticker Living Memo, multi-agent debate, citation infrastructure, sector specialization, personalization, calibration.
 
 v2.0 is *additive* — v1 endpoints stay; v2 adds a parallel `/api/research/<ticker>/v2/stream` and a new memo/chat/calibration surface. Migration is opt-in per UI toggle until v2 is the default.
@@ -47,8 +47,8 @@ The original tool was a passive S&P 500 viewer. v1 bridged that gap: it connects
 ### 2.3 Portfolio rebalancing
 Risk-profile-driven allocation analysis (Conservative / Moderate / Aggressive) → prioritized trim/add actions.
 
-### 2.4 Watchlist + alerts
-Watchlist: notes + one-click research. Alerts: daemon thread (`alert_worker.py`) polls every 60s for `above | below | change_pct_up | change_pct_down` triggers.
+### 2.4 Watchlist
+Watchlist: notes + one-click research.
 
 ### 2.5 S&P 500 scanner (legacy)
 Sector tables, market stats, technical pattern hunting, spotlight categories.
@@ -70,7 +70,6 @@ Sector tables, market stats, technical pattern hunting, spotlight categories.
 │  edgar_service       ── SEC 10-K/10-Q                 │
 │  llm_service         ── Claude / Gemini / Ollama      │
 │  rebalancing_engine  ── allocation analysis           │
-│  alert_worker        ── daemon, 60s poll              │
 │  db.py               ── SQLite (WAL)                  │
 └───────────────────────────────────────────────────────┘
 ```
@@ -102,7 +101,6 @@ Sector tables, market stats, technical pattern hunting, spotlight categories.
 ```
 portfolio_holdings  (id, ticker, shares, avg_cost, source, synced_at)
 watchlist           (id, ticker, added_at, notes)
-alerts              (id, ticker, condition, threshold, is_active, is_triggered, triggered_at, created_at)
 research_cache      (id, ticker UNIQUE, report_json, llm_provider, generated_at)
 research_reports    (id UUID, ticker, full JSON, llm_conversations, generated_at)
 llm_settings        (id singleton, provider, model_fast, model_deep, api_key, base_url)
@@ -723,7 +721,6 @@ analysis/
 ├── sentiment_service.py
 ├── edgar_service.py
 ├── rebalancing_engine.py
-├── alert_worker.py
 └── companies.py
 ```
 

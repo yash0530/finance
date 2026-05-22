@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { listDocs, getDoc } from '../utils/api';
 
 // ────────────────────────────────────────────────────────────
-// Minimal markdown  React renderer.
+// Minimal markdown → React renderer.
 // Handles: H1/H2/H3, paragraphs, bold/italic/inline-code, fenced
 // code blocks, bullet + ordered lists, links, tables, blockquotes,
 // horizontal rules. No nested lists. Strips YAML frontmatter.
@@ -21,7 +21,7 @@ function slugify(text) {
 }
 
 function renderInline(text, keyBase) {
-    // Process in order: code  bold  italic  links
+    // Process in order: code → bold → italic → links
     const parts = [];
     let remaining = text;
     let idx = 0;
@@ -243,6 +243,7 @@ export default function DocsPage() {
     const [doc, setDoc] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [activeAnchor, setActiveAnchor] = useState(null);
     const contentRef = useRef(null);
 
     useEffect(() => {
@@ -260,10 +261,33 @@ export default function DocsPage() {
         if (!activeSlug) return;
         setLoading(true);
         setError(null);
+        setActiveAnchor(null);
         getDoc(activeSlug)
             .then(d => { setDoc(d); setLoading(false); })
             .catch(e => { setError(`Failed to load doc: ${e.message}`); setLoading(false); });
     }, [activeSlug]);
+
+    // Handle scroll spy for Table of Contents
+    useEffect(() => {
+        const el = contentRef.current;
+        if (!el || !doc) return;
+        const headings = el.querySelectorAll('h2, h3');
+        if (headings.length === 0) return;
+
+        const observer = new IntersectionObserver((entries) => {
+            const visible = entries.filter(e => e.isIntersecting);
+            if (visible.length > 0) {
+                // Pick the one that is closest to the top of the viewport
+                visible.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+                setActiveAnchor(visible[0].target.id);
+            }
+        }, {
+            rootMargin: '-80px 0px -60% 0px'
+        });
+
+        headings.forEach(h => observer.observe(h));
+        return () => observer.disconnect();
+    }, [doc]);
 
     // Handle internal markdown link clicks (slug or anchor)
     useEffect(() => {
@@ -299,30 +323,20 @@ export default function DocsPage() {
     }, [index]);
 
     return (
-        <div className="docs-shell" style={{ display: 'grid', gridTemplateColumns: '220px 1fr 200px', gap: 'var(--spacing-lg)' }}>
+        <div className="docs-shell">
             {/* Left: doc index */}
-            <aside className="glass-card" style={{ position: 'sticky', top: 0, alignSelf: 'start', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto' }}>
-                <h1 style={{ fontSize: '1rem', marginBottom: 'var(--spacing-md)' }}>Docs</h1>
+            <aside className="docs-nav-container">
+                <h1 className="docs-nav-title">Docs</h1>
                 {Object.entries(grouped).map(([cat, docs]) => (
-                    <div key={cat} style={{ marginBottom: 'var(--spacing-md)' }}>
-                        <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 4, letterSpacing: '0.05em' }}>
+                    <div key={cat} className="docs-category-group">
+                        <div className="docs-category-label">
                             {cat}
                         </div>
                         {docs.map(d => (
                             <button
                                 key={d.slug}
                                 onClick={() => setActiveSlug(d.slug)}
-                                className="docs-nav-item"
-                                style={{
-                                    display: 'block', width: '100%', textAlign: 'left',
-                                    padding: '6px 8px', marginBottom: 2,
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: d.slug === activeSlug ? 'var(--text-primary)' : 'var(--text-secondary)',
-                                    fontWeight: d.slug === activeSlug ? 600 : 400,
-                                    cursor: 'pointer',
-                                    fontSize: '0.85rem',
-                                }}
+                                className={`docs-nav-item ${d.slug === activeSlug ? 'active' : ''}`}
                             >
                                 {d.title}
                             </button>
@@ -332,49 +346,49 @@ export default function DocsPage() {
             </aside>
 
             {/* Center: rendered markdown */}
-            <main>
-                {error && <div className="glass-card" style={{ color: 'var(--accent-red)' }}>{error}</div>}
+            <main className="docs-main">
+                {error && <div className="glass-card" style={{ color: 'var(--accent-red)', padding: 'var(--spacing-md)' }}>{error}</div>}
                 {loading && <div className="loading-state" style={{ minHeight: 200 }}><div className="spinner" /></div>}
                 {!loading && doc && (
-                    <article ref={contentRef} className="docs-content markdown-body" style={{ padding: 'var(--spacing-md)' }}>
-                        {renderMarkdown(doc.body)}
-                    </article>
+                    <div className="docs-article-wrapper fade-in" key={activeSlug}>
+                        <article ref={contentRef} className="docs-content markdown-body">
+                            {renderMarkdown(doc.body)}
+                        </article>
+                    </div>
                 )}
                 {!loading && !doc && !error && (
-                    <div className="glass-card" style={{ color: 'var(--text-muted)' }}>No doc selected.</div>
+                    <div className="glass-card" style={{ color: 'var(--text-muted)', padding: 'var(--spacing-md)' }}>No doc selected.</div>
                 )}
             </main>
 
             {/* Right: TOC */}
-            <aside style={{ position: 'sticky', top: 0, alignSelf: 'start', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto' }}>
+            <aside className="docs-toc-container">
                 {doc && doc.toc && doc.toc.length > 0 && (
-                    <div className="glass-card">
-                        <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8, letterSpacing: '0.05em' }}>
+                    <>
+                        <div className="docs-toc-title">
                             On this page
                         </div>
-                        {doc.toc.map((h, i) => (
-                            <a
-                                key={i}
-                                href={`#${h.anchor}`}
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    const node = contentRef.current?.querySelector(`#${CSS.escape(h.anchor)}`);
-                                    if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                }}
-                                style={{
-                                    display: 'block',
-                                    fontSize: '0.78rem',
-                                    color: 'var(--text-secondary)',
-                                    paddingLeft: (h.level - 2) * 12,
-                                    paddingTop: 3,
-                                    paddingBottom: 3,
-                                    textDecoration: 'none',
-                                }}
-                            >
-                                {h.text}
-                            </a>
-                        ))}
-                    </div>
+                        <div className="docs-toc-list">
+                            {doc.toc.map((h, i) => (
+                                <a
+                                    key={i}
+                                    href={`#${h.anchor}`}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        const node = contentRef.current?.querySelector(`#${CSS.escape(h.anchor)}`);
+                                        if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                        setActiveAnchor(h.anchor);
+                                    }}
+                                    className={`docs-toc-link ${h.anchor === activeAnchor ? 'active' : ''}`}
+                                    style={{
+                                        paddingLeft: (h.level - 2) * 12 + 12,
+                                    }}
+                                >
+                                    {h.text}
+                                </a>
+                            ))}
+                        </div>
+                    </>
                 )}
             </aside>
         </div>

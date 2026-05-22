@@ -72,6 +72,7 @@ function SearchBar({ onResults }) {
         <div className="search-wrapper" ref={wrapperRef}>
             <form onSubmit={handleSubmit} className="search-form">
                 <div className="search-input-wrapper">
+                    <span className="search-icon">🔍</span>
                     <input
                         type="text"
                         className="search-input"

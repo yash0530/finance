@@ -31,7 +31,7 @@ function SpotlightPanel({ onCompanySelect, onCategorySelect }) {
     if (loading) {
         return (
             <section className="spotlight-panel">
-                <h2 className="section-title"> Spotlight Companies</h2>
+                <h2 className="section-title">✨ Spotlight Companies</h2>
                 <div className="spotlight-loading">Loading spotlight...</div>
             </section>
         );
@@ -110,7 +110,7 @@ function SpotlightPanel({ onCompanySelect, onCategorySelect }) {
 
     return (
         <section className="spotlight-panel">
-            <h2 className="section-title"> Spotlight Companies</h2>
+            <h2 className="section-title">✨ Spotlight Companies</h2>
             <p className="section-subtitle">Potential buy candidates based on fundamental analysis</p>
 
             <div className="spotlight-grid">
@@ -133,7 +133,7 @@ function SpotlightPanel({ onCompanySelect, onCategorySelect }) {
                                 title="Click to see all matching companies"
                             >
                                 <h3 className="spotlight-title">{category.title}</h3>
-                                <span className="spotlight-expand-icon"></span>
+                                <span className="spotlight-expand-icon">→</span>
                             </div>
                             <p className="spotlight-description">{category.description}</p>
 

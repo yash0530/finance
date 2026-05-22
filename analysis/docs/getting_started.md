@@ -46,10 +46,7 @@ Paste the API key, pick `model_fast` (cheap, for monitoring) and `model_deep` (s
 
 ### 3. Run your first research
 
-Two paths:
-
-- **Quick Research** (sidebar) — for any ticker, runs the v1 8-stage pipeline. Faster, more deterministic.
-- **Deep Research v2** (sidebar) — runs the agentic loop. Slower, more thorough, produces a Living Memo. **This is the one you should use for anything you plan to trade.**
+Open **Deep Research** in the left nav. It runs the agentic loop, which is thorough and produces a Living Memo. **This is the one you should use for anything you plan to trade.**
 
 Type a ticker, hit Run, and watch the SSE stream. Each event shows what the tool is doing — which tool is being called, what each agent is concluding, how the budget is being spent.
 

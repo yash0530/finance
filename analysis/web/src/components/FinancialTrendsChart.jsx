@@ -6,7 +6,7 @@ function TrendArrow({ direction }) {
     const config = {
         expanding:            { arrow: '↑', color: 'var(--accent-green)',  label: 'Expanding' },
         slightly_expanding:   { arrow: '↗', color: 'var(--accent-green)',  label: 'Slight expansion' },
-        stable:               { arrow: '', color: 'var(--accent-yellow)', label: 'Stable' },
+        stable:               { arrow: '→', color: 'var(--accent-yellow)', label: 'Stable' },
         slightly_contracting: { arrow: '↘', color: 'var(--accent-red)',    label: 'Slight contraction' },
         contracting:          { arrow: '↓', color: 'var(--accent-red)',    label: 'Contracting' },
         insufficient_data:    { arrow: '—', color: 'var(--text-muted)',    label: 'Insufficient data' },
@@ -82,7 +82,7 @@ export default function FinancialTrendsChart({ trends }) {
     return (
         <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
             <div className="card-header" style={{ marginBottom: 0 }}>
-                <span className="card-title"> Financial Trajectory ({quarters.length} Quarters)</span>
+                <span className="card-title">📈 Financial Trajectory ({quarters.length} Quarters)</span>
             </div>
 
             {/* Trend Signals Summary */}

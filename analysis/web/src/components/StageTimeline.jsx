@@ -6,15 +6,15 @@ import React from 'react';
  */
 
 const STAGES = [
-    { key: 'context', label: 'Context', icon: '' },
-    { key: 'plan', label: 'Plan', icon: '' },
-    { key: 'tools', label: 'Tools', icon: '' },
-    { key: 'bull', label: 'Bull', icon: '' },
-    { key: 'bear', label: 'Bear', icon: '' },
-    { key: 'judge', label: 'Judge', icon: '' },
-    { key: 'critique', label: 'Critique', icon: '' },
-    { key: 'memo', label: 'Memo', icon: '' },
-    { key: 'done', label: 'Done', icon: '' },
+    { key: 'context', label: 'Context', icon: '📋' },
+    { key: 'plan', label: 'Plan', icon: '🧠' },
+    { key: 'tools', label: 'Tools', icon: '🔧' },
+    { key: 'bull', label: 'Bull', icon: '🐂' },
+    { key: 'bear', label: 'Bear', icon: '🐻' },
+    { key: 'judge', label: 'Judge', icon: '⚖️' },
+    { key: 'critique', label: 'Critique', icon: '🔍' },
+    { key: 'memo', label: 'Memo', icon: '📓' },
+    { key: 'done', label: 'Done', icon: '✅' },
 ];
 
 /**
@@ -59,9 +59,9 @@ export default function StageTimeline({ stageStatuses = {}, toolProgress }) {
                                 transition: 'all 0.3s ease',
                             }}>
                                 {status === 'active' && <span className="spinner spinner-sm" style={{ width: 10, height: 10 }} />}
-                                {status === 'complete' && <span style={{ fontSize: '0.7rem', color: 'var(--accent-green)' }}>Done</span>}
-                                {status === 'error' && <span style={{ fontSize: '0.7rem', color: 'var(--accent-red)' }}>Error</span>}
-                                {status === 'pending' && <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Waiting</span>}
+                                {status === 'complete' && <span style={{ fontSize: '0.7rem', color: 'var(--accent-green)' }}>✓</span>}
+                                {status === 'error' && <span style={{ fontSize: '0.7rem', color: 'var(--accent-red)' }}>!</span>}
+                                {status === 'pending' && <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>○</span>}
                                 <span style={{
                                     fontSize: '0.68rem', fontWeight: 500,
                                     color: status === 'complete' ? 'var(--accent-green)'
@@ -69,14 +69,14 @@ export default function StageTimeline({ stageStatuses = {}, toolProgress }) {
                                         : status === 'error' ? 'var(--accent-red)'
                                         : 'var(--text-muted)',
                                 }}>
-                                    {stage.label}
+                                    {stage.icon} {stage.label}
                                 </span>
                                 {stage.key === 'tools' && toolProgress && status === 'active' && (
                                     <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>({toolProgress})</span>
                                 )}
                             </div>
                             {i < STAGES.length - 1 && (
-                                <span style={{ color: 'var(--text-muted)', fontSize: '0.6rem' }}></span>
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.6rem' }}>→</span>
                             )}
                         </React.Fragment>
                     );

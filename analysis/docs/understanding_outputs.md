@@ -12,7 +12,7 @@ How to read what the tool produces, what each piece *actually means*, and when t
 
 ## The Verdict block
 
-Every Deep Research v2 run ends with a structured verdict:
+Every Deep Research run ends with a structured verdict:
 
 ```
 RECOMMENDATION:  BUY | SELL | TRIM | HOLD | AVOID

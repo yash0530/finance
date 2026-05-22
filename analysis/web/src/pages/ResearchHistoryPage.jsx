@@ -150,7 +150,7 @@ export default function ResearchHistoryPage() {
         <div className="fade-in">
             <div className="page-header">
                 <div>
-                    <h1 className="page-title"> Research History</h1>
+                    <h1 className="page-title">🕰️ Research History</h1>
                     <p className="page-subtitle">Archive of deep research reports with full telemetry</p>
                 </div>
             </div>
@@ -197,6 +197,7 @@ export default function ResearchHistoryPage() {
             {filteredReports.length === 0 ? (
                 <div className="glass-card">
                     <div className="empty-state">
+                        <div className="empty-state-icon">🗄️</div>
                         <h3 style={{ color: 'var(--text-secondary)' }}>No history found</h3>
                         <p style={{ fontSize: '0.825rem' }}>Run a deep research scan to start saving reports.</p>
                     </div>

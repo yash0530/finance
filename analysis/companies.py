@@ -117,7 +117,7 @@ def save_cache(data: List[Dict]) -> None:
         }
         with open(cache_file, 'w') as f:
             json.dump(cache, f)
-        print(f"� Cached {len(data)} companies for future runs\n")
+        print(f"💾 Cached {len(data)} companies for future runs\n")
     except Exception as e:
         print(f"  Cache write error: {e}")
 
@@ -398,7 +398,7 @@ def export_to_csv(data: List[Dict], filename: str = "sp500_analysis.csv") -> Non
     
     export_columns = [col for col in export_columns if col in df.columns]
     df[export_columns].to_csv(filename, index=False)
-    print(f"\n� Data exported to: {filename}")
+    print(f"\n📤 Data exported to: {filename}")
 
 
 def main():
@@ -420,7 +420,7 @@ def main():
         
         if cache and cache.get('data'):
             company_data = cache['data']
-            print(f"� Using cached data for {len(company_data)} companies\n")
+            print(f"⚡ Using cached data for {len(company_data)} companies\n")
         else:
             # Step 1: Get S&P 500 list from Wikipedia
             sp500_companies = get_sp500_companies()

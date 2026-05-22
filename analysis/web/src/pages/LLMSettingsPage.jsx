@@ -3,7 +3,7 @@ import { getLLMSettings, saveLLMSettings, testLLMConnection } from '../utils/api
 
 const PROVIDERS = [
     {
-        id: 'ollama', label: 'Ollama (Local)', icon: '',
+        id: 'ollama', label: 'Ollama (Local)', icon: '🦙',
         description: 'Free, runs locally. No API key needed.',
         models: { fast: 'llama3.2', deep: 'llama3.2' },
         fastOptions: ['llama3.2', 'llama3.1', 'mistral', 'phi3', 'gemma2'],
@@ -11,7 +11,7 @@ const PROVIDERS = [
         hasBaseUrl: true,
     },
     {
-        id: 'gemini', label: 'Google Gemini', icon: '',
+        id: 'gemini', label: 'Google Gemini', icon: '✨',
         description: 'Fast + high quality. Free tier available.',
         models: { fast: 'gemini-3.1-flash-lite', deep: 'gemini-3.1-flash-lite' },
         fastOptions: ['gemini-3.1-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash'],
@@ -20,7 +20,7 @@ const PROVIDERS = [
         signupUrl: 'https://aistudio.google.com/app/apikey',
     },
     {
-        id: 'claude', label: 'Anthropic Claude', icon: '',
+        id: 'claude', label: 'Anthropic Claude', icon: '🧠',
         description: 'Best quality for research & analysis.',
         models: { fast: 'claude-3-5-haiku-20241022', deep: 'claude-opus-4-5' },
         fastOptions: ['claude-3-5-haiku-20241022', 'claude-3-haiku-20240307'],
@@ -59,7 +59,7 @@ export default function LLMSettingsPage() {
         setTesting(true); setMessage(null);
         try {
             const res = await testLLMConnection();
-            if (res.success) setMessage({ type: 'success', text: ` Connected! Test score: ${JSON.stringify(res.test_result)}` });
+            if (res.success) setMessage({ type: 'success', text: `✅ Connected! Test score: ${JSON.stringify(res.test_result)}` });
             else setMessage({ type: 'error', text: res.error });
         } catch (err) { setMessage({ type: 'error', text: err.message }); }
         finally { setTesting(false); }
@@ -103,7 +103,7 @@ export default function LLMSettingsPage() {
                                         </div>
                                     </div>
                                     {settings.provider === p.id && (
-                                        <span style={{ color: 'var(--accent-blue-bright)', fontSize: '1rem' }}></span>
+                                        <span style={{ color: 'var(--accent-blue-bright)', fontSize: '1rem' }}>✓</span>
                                     )}
                                 </div>
                             </div>
@@ -114,8 +114,8 @@ export default function LLMSettingsPage() {
                     <div className="glass-card" style={{ marginTop: 'var(--spacing-lg)' }}>
                         <div className="card-title" style={{ marginBottom: 'var(--spacing-sm)' }}>Smart Cost Routing</div>
                         <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-                            <div><strong>Fast model</strong> — Sentiment scoring, quick summaries</div>
-                            <div><strong>Deep model</strong> — Full thesis, EDGAR analysis, comparison</div>
+                            <div><strong>⚡ Fast model</strong> — Sentiment scoring, quick summaries</div>
+                            <div><strong>🧠 Deep model</strong> — Full thesis, EDGAR analysis, comparison</div>
                         </div>
                     </div>
                 </div>
@@ -180,11 +180,11 @@ export default function LLMSettingsPage() {
 
                     <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
                         <button id="btn-save-llm" className="btn btn-primary" type="submit" disabled={saving}>
-                            {saving ? <><span className="spinner spinner-sm" /> Saving…</> : 'Save Settings'}
+                            {saving ? <><span className="spinner spinner-sm" /> Saving…</> : '💾 Save Settings'}
                         </button>
                         <button id="btn-test-llm" className="btn btn-secondary" type="button"
                             onClick={handleTest} disabled={testing}>
-                            {testing ? <><span className="spinner spinner-sm" /> Testing…</> : 'Test Connection'}
+                            {testing ? <><span className="spinner spinner-sm" /> Testing…</> : '🧪 Test Connection'}
                         </button>
                     </div>
                 </form>

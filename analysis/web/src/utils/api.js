@@ -1,6 +1,6 @@
 /**
  * api.js — Unified API client for all backend endpoints.
- * Extends the existing S&P 500 calls with portfolio, research, settings, watchlist, alerts.
+ * Extends the existing S&P 500 calls with portfolio, research, settings, watchlist.
  */
 
 const API_BASE = 'http://localhost:5001/api';
@@ -135,92 +135,12 @@ export const getDoc = (slug) =>
 // Research
 // ──────────────────────────────────────────────────────────
 
-export const getResearchReport = (ticker, { refresh = false, noEdgar = false } = {}) => {
-    const params = new URLSearchParams();
-    if (refresh) params.set('refresh', 'true');
-    if (noEdgar) params.set('no_edgar', 'true');
-    const qs = params.toString();
-    return apiFetch(`${API_BASE}/research/${encodeURIComponent(ticker)}${qs ? '?' + qs : ''}`);
-};
 
-export const getTicker = (ticker) =>
-    apiFetch(`${API_BASE}/research/${encodeURIComponent(ticker)}/thesis`);
-
-export const compareTickers = (tickers) =>
-    apiFetch(`${API_BASE}/research/compare`, {
-        method: 'POST',
-        body: JSON.stringify({ tickers }),
-    });
 
 export const getSectorResearch = (sector) =>
     apiFetch(`${API_BASE}/research/sector/${encodeURIComponent(sector)}`);
 
-/**
- * Open an SSE stream for quick research on a ticker (fixed pipeline).
- *
- * @param {string} ticker - Stock symbol
- * @param {object} callbacks - Event handlers
- * @param {function} callbacks.onPipelineStart - Called when pipeline begins
- * @param {function} callbacks.onStageStart - Called when a stage begins
- * @param {function} callbacks.onStageComplete - Called when a stage finishes with data
- * @param {function} callbacks.onStageError - Called when a stage fails (non-fatal)
- * @param {function} callbacks.onReportComplete - Called when full report is assembled
- * @param {function} callbacks.onError - Called on connection error
- * @param {object} options - { noEdgar: boolean }
- * @returns {function} cleanup - Call to close the connection
- */
-export function streamQuickResearch(ticker, callbacks, options = {}) {
-    const params = new URLSearchParams();
-    if (options.noEdgar) params.set('no_edgar', 'true');
-    const qs = params.toString();
-    const url = `${API_BASE}/research/${encodeURIComponent(ticker)}/stream${qs ? '?' + qs : ''}`;
 
-    const eventSource = new EventSource(url);
-    let eventsReceived = 0;
-    let completedCleanly = false;
-
-    const bump = (handler) => (e) => {
-        eventsReceived += 1;
-        handler(e);
-    };
-
-    eventSource.addEventListener('pipeline_start', bump((e) => {
-        callbacks.onPipelineStart?.(JSON.parse(e.data));
-    }));
-
-    eventSource.addEventListener('stage_start', bump((e) => {
-        callbacks.onStageStart?.(JSON.parse(e.data));
-    }));
-
-    eventSource.addEventListener('stage_complete', bump((e) => {
-        callbacks.onStageComplete?.(JSON.parse(e.data));
-    }));
-
-    eventSource.addEventListener('stage_error', bump((e) => {
-        callbacks.onStageError?.(JSON.parse(e.data));
-    }));
-
-    eventSource.addEventListener('report_complete', bump((e) => {
-        callbacks.onReportComplete?.(JSON.parse(e.data));
-        completedCleanly = true;
-        eventSource.close();
-    }));
-
-    eventSource.onerror = () => {
-        // EventSource auto-reconnects on transient errors; only surface terminal CLOSED.
-        if (eventSource.readyState !== EventSource.CLOSED) return;
-        if (completedCleanly) return;
-        const msg = eventsReceived === 0
-            ? `Backend rejected the stream (route missing, CORS, or backend down). Tried ${url}`
-            : `Stream ended unexpectedly after ${eventsReceived} event(s) without completing`;
-        callbacks.onError?.({ error: msg, eventsReceived });
-    };
-
-    // Return cleanup function
-    return () => {
-        eventSource.close();
-    };
-}
 
 export const getResearchHistory = (ticker, limit = 10) =>
     apiFetch(`${API_BASE}/research/reports/${encodeURIComponent(ticker)}?limit=${limit}`);
@@ -365,37 +285,6 @@ export const saveLLMSettings = (settings) =>
 
 export const testLLMConnection = () =>
     apiFetch(`${API_BASE}/settings/llm/test`, { method: 'POST' });
-
-// ──────────────────────────────────────────────────────────
-// Watchlist
-// ──────────────────────────────────────────────────────────
-
-export const getWatchlist = () => apiFetch(`${API_BASE}/watchlist`);
-
-export const addToWatchlist = (ticker, notes = '') =>
-    apiFetch(`${API_BASE}/watchlist`, {
-        method: 'POST',
-        body: JSON.stringify({ ticker, notes }),
-    });
-
-export const removeFromWatchlist = (ticker) =>
-    apiFetch(`${API_BASE}/watchlist/${encodeURIComponent(ticker)}`, { method: 'DELETE' });
-
-// ──────────────────────────────────────────────────────────
-// Alerts
-// ──────────────────────────────────────────────────────────
-
-export const getAlerts = (activeOnly = true) =>
-    apiFetch(`${API_BASE}/alerts?active_only=${activeOnly}`);
-
-export const createAlert = (ticker, condition, threshold) =>
-    apiFetch(`${API_BASE}/alerts`, {
-        method: 'POST',
-        body: JSON.stringify({ ticker, condition, threshold }),
-    });
-
-export const deleteAlert = (alertId) =>
-    apiFetch(`${API_BASE}/alerts/${alertId}`, { method: 'DELETE' });
 
 // ──────────────────────────────────────────────────────────
 // Formatting & Color Helpers

@@ -314,7 +314,7 @@ function HeadShouldersDashboard({ onBack, onCompanySelect }) {
                             onClick={() => setShowFilters(!showFilters)}
                             style={{ padding: '0.4rem 0.8rem', fontSize: '13px' }}
                         >
-                             {showFilters ? 'Hide Filters' : 'Show Filters'}
+                             🔍 {showFilters ? 'Hide Filters' : 'Show Filters'}
                         </button>
                     </div>
                     <p className="hs-dashboard-desc">{data.description}</p>
@@ -502,6 +502,7 @@ function HeadShouldersDashboard({ onBack, onCompanySelect }) {
 
             {data.count === 0 ? (
                 <div className="hs-no-patterns">
+                    <div className="hs-no-patterns-icon">📈</div>
                     <h3>No Patterns Detected</h3>
                     <p>No Head & Shoulders patterns were found in the current S&P 500 stocks.</p>
                     <p className="hs-note">Patterns are scanned using the last 6 months of price data.</p>
@@ -569,7 +570,7 @@ function HeadShouldersDashboard({ onBack, onCompanySelect }) {
             )}
 
             <div className="hs-info-panel">
-                <h4>� What is a Head & Shoulders Pattern?</h4>
+                <h4>📘 What is a Head & Shoulders Pattern?</h4>
                 <p>
                     A Head and Shoulders pattern is a chart formation that predicts a bearish reversal.
                     It consists of three peaks: a higher middle peak (head) between two lower peaks (shoulders).

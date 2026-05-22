@@ -15,24 +15,18 @@
 | `living_memo.py` | Per-ticker evolving memo + diff/render helpers |
 | `sector_router.py` | Ticker → sector classification (rule-based, cached) |
 | `llm_service.py` | Multi-provider LLM abstraction (Claude / Gemini / Ollama) |
-| `research_engine.py` | Quick research fixed pipeline functions — preserved, not extended |
-| `research_stream.py` | Quick research SSE — preserved |
-| `portfolio_service.py` | Robinhood + CSV ingestion, P&L enrichment |
+| `research_engine.py` | Fixed pipeline fetch helpers — preserved as Tool dependencies, not extended |
+| `portfolio_service.py` | Robinhood RAM-session + CSV ingestion, P&L enrichment. **No disk token caching** (`store_session=False`). |
 | `sentiment_service.py` | Finnhub + Reddit + yfinance composite |
 | `edgar_service.py` | SEC 10-K/10-Q fetch + section extraction |
 | `rebalancing_engine.py` | Risk-profile portfolio analysis |
-| `alert_worker.py` | Background daemon polling prices for alert triggers |
 | `companies.py` | S&P 500 batch fetch (legacy) |
 
-## Two research surfaces
+## Research surface
 
-| | Quick Research | Deep Research |
-|---|---|---|
-| Pipeline | Fixed 8-stage | Agentic loop |
-| Files | `research_engine.py`, `research_stream.py` | `agent_loop.py`, `agents/`, `analyzers/` |
-| Output | Single report | Verdict + Living Memo + evidence ledger |
-| Endpoint | `/api/research/<ticker>/stream` | `/api/research/<ticker>/v2/stream` |
-| Use when | Fast triage | Anything you plan to trade |
+One primary research path: **Deep Research** — agentic loop in `agent_loop.py`, multi-agent debate in `agents/`, Living Memo in `living_memo.py`, sector analyzers in `analyzers/`. Endpoint: `/api/research/<ticker>/v2/stream`.
+
+`research_engine.py` is preserved as a dependency for Tools (several tools call its fetch helpers) but the dedicated Quick Research UI page and sidebar entry have been removed.
 
 ## Citation contract
 
@@ -73,6 +67,6 @@ Don't add LLM calls outside `agent_loop`'s budget tracking.
 
 ## What NOT to touch
 
-- `research_engine.py` core functions (`fetch_fundamentals`, `fetch_financial_trends`, etc.) — they're wrapped as Tools but the originals stay for quick research endpoints.
-- `research_stream.py` — preserved for quick research SSE endpoint.
+- `research_engine.py` core functions (`fetch_fundamentals`, `fetch_financial_trends`, etc.) — wrapped as Tools; the originals stay.
 - Existing DB schema in `db.py.init_db()` — additive only.
+- `portfolio_service._cleanup_disk_tokens()` and `store_session=False` in `connect_robinhood()` — Robinhood tokens must never hit disk.

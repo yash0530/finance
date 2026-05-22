@@ -8,7 +8,7 @@ export default function ValuationCard({ valuation }) {
     if (!intrinsic_value || intrinsic_value.error) {
         return (
              <div className="glass-card fade-in">
-                <div className="card-header"><span className="card-title"> Valuation & Intrinsic Value</span></div>
+                <div className="card-header"><span className="card-title">⚖️ Valuation & Intrinsic Value</span></div>
                 <div className="alert alert-warning" style={{ fontSize: '0.8rem' }}>
                     {intrinsic_value?.error || 'Valuation data unavailable for this ticker'}
                 </div>
@@ -38,7 +38,7 @@ export default function ValuationCard({ valuation }) {
     return (
         <div className="glass-card fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
             <div className="card-header" style={{ marginBottom: 0 }}>
-                <span className="card-title"> DCF Valuation (5-Year)</span>
+                <span className="card-title">⚖️ DCF Valuation (5-Year)</span>
                 <span className={`badge ${mosClass}`}>{verdict}</span>
             </div>
 
@@ -120,7 +120,7 @@ export default function ValuationCard({ valuation }) {
                              {margin_of_safety_pct > 0 ? '+' : ''}{margin_of_safety_pct}%
                          </div>
                      </div>
-                     <div style={{ fontSize: '1.5rem' }}>{margin_of_safety_pct > 20 ? '' : margin_of_safety_pct > 0 ? '' : ''}</div>
+                     <div style={{ fontSize: '1.5rem' }}>{margin_of_safety_pct > 20 ? '🛡️' : margin_of_safety_pct > 0 ? '✓' : '⚠️'}</div>
                 </div>
 
                 {/* Peer Comparison (mocked) */}
