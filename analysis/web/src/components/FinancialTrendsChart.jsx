@@ -82,7 +82,7 @@ export default function FinancialTrendsChart({ trends }) {
     return (
         <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
             <div className="card-header" style={{ marginBottom: 0 }}>
-                <span className="card-title">📈 Financial Trajectory ({quarters.length} Quarters)</span>
+                <span className="card-title">Financial Trajectory ({quarters.length} Quarters)</span>
             </div>
 
             {/* Trend Signals Summary */}

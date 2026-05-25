@@ -31,7 +31,7 @@ function SpotlightPanel({ onCompanySelect, onCategorySelect }) {
     if (loading) {
         return (
             <section className="spotlight-panel">
-                <h2 className="section-title">✨ Spotlight Companies</h2>
+                <h2 className="section-title">Spotlight Companies</h2>
                 <div className="spotlight-loading">Loading spotlight...</div>
             </section>
         );
@@ -125,7 +125,7 @@ function SpotlightPanel({ onCompanySelect, onCategorySelect }) {
                         <div
                             key={key}
                             className="spotlight-card glass-card fade-in"
-                            style={{ borderTopColor: accentColor }}
+                            style={{ borderLeftColor: accentColor }}
                         >
                             <div
                                 className="spotlight-header clickable-header"

@@ -11,7 +11,7 @@ export default function RiskCard({ riskData }) {
     return (
         <div className="glass-card fade-in" style={{ borderColor: 'rgba(239, 68, 68, 0.25)' }}>
             <div className="card-header" style={{ marginBottom: 'var(--spacing-md)' }}>
-                <span className="card-title">🛡️ Risk & Position Sizing</span>
+                <span className="card-title">Risk & Position Sizing</span>
                 <span className="badge badge-purple">Half-Kelly Criterion</span>
             </div>
 

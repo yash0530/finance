@@ -59,7 +59,7 @@ export default function FullDebate({ bull, bear, verdict }) {
                 {/* Judge reasoning */}
                 {verdict && (
                     <div style={{ padding: 14, borderLeft: '3px solid var(--accent-blue)', background: 'rgba(45, 126, 247, 0.04)', borderRadius: 'var(--radius-sm)' }}>
-                        <strong style={{ fontSize: '0.8rem', color: 'var(--accent-blue)', textTransform: 'uppercase' }}>⚖️ Judge Reasoning</strong>
+                        <strong style={{ fontSize: '0.8rem', color: 'var(--accent-blue)', textTransform: 'uppercase' }}>Judge Reasoning</strong>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.7, marginTop: 8 }}>
                             {verdict.summary}
                         </div>

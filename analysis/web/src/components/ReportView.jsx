@@ -30,7 +30,7 @@ export default function ReportView({ report, mode = 'live', drift, telemetry }) 
     if (report.version !== 'deep' && report.version !== 'v2' && !verdict.recommendation) {
         return (
             <div className="glass-card" style={{ padding: 'var(--spacing-lg)', textAlign: 'center' }}>
-                <div style={{ fontSize: '1.2rem', marginBottom: 8 }}>📄 Legacy Research Report</div>
+                <div style={{ fontSize: '1.2rem', marginBottom: 8 }}>Legacy Research Report</div>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
                     This is a legacy archived report. Detailed analysis and views are optimized for agentic deep research v2 reports.
                 </p>
@@ -93,8 +93,8 @@ export default function ReportView({ report, mode = 'live', drift, telemetry }) 
 
                 {/* Telemetry bar */}
                 <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    {telemetry?.evidence_tool_count != null && <span>✅ {telemetry.evidence_tool_count} tools</span>}
-                    {telemetry?.total_llm_calls != null && telemetry.total_llm_calls > 0 && <span>🧠 {telemetry.total_llm_calls} LLM calls</span>}
+                    {telemetry?.evidence_tool_count != null && <span>{telemetry.evidence_tool_count} tools</span>}
+                    {telemetry?.total_llm_calls != null && telemetry.total_llm_calls > 0 && <span>{telemetry.total_llm_calls} LLM calls</span>}
                     {telemetry?.cost_used_usd != null && telemetry.cost_used_usd > 0 && (
                         <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>${telemetry.cost_used_usd.toFixed(3)}</span>
                     )}
@@ -125,7 +125,7 @@ export default function ReportView({ report, mode = 'live', drift, telemetry }) 
             {critique?.weakest_claims?.length > 0 && (
                 <details className="glass-card" style={{ padding: 'var(--spacing-md)' }}>
                     <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
-                         🔍 Self-Critique: {critique.weakest_claims.length} weak claim(s)
+                         Self-Critique: {critique.weakest_claims.length} weak claim(s)
                         {critique.should_revise_verdict && ' — revision suggested'}
                     </summary>
                     <div style={{ marginTop: 10 }}>

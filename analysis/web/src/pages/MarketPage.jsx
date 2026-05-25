@@ -74,7 +74,7 @@ export default function MarketPage() {
                 <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
                     <SearchBar onResults={r => { setSearchResults(r); setSelectedSector(null); }} />
                     <button id="btn-refresh-market" className="btn btn-secondary" onClick={handleRefresh} disabled={refreshing}>
-                        {refreshing ? '⏳ Refreshing…' : '🔄 Refresh'}
+                        {refreshing ? <><span className="spinner spinner-sm" /> Refreshing…</> : 'Refresh'}
                     </button>
                 </div>
             </div>
@@ -95,10 +95,10 @@ export default function MarketPage() {
                 <>
                     <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-lg)' }}>
                         <button id="btn-all-companies" className="btn btn-primary" onClick={() => setShowAll(true)}>
-                            📋 All Companies
+                            All Companies
                         </button>
                         <button id="btn-patterns" className="btn btn-secondary" onClick={() => setShowPatterns(true)}>
-                            📊 Technical Patterns
+                            Technical Patterns
                         </button>
                     </div>
                     <SpotlightPanel onCompanySelect={setSelectedCompany} onCategorySelect={setSelectedSpotlight} />

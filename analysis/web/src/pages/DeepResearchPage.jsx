@@ -163,10 +163,10 @@ export default function DeepResearchPage() {
         <div className="fade-in">
             <div className="page-header">
                 <div>
-                    <h1 className="page-title">🧠 Deep Research</h1>
+                    <h1 className="page-title">Deep Research</h1>
                     <p className="page-subtitle">Agentic loop · Bull/Bear/Judge debate · Living Memo · Citation-first</p>
                 </div>
-                {isStreaming && <button className="btn btn-danger" onClick={cancel}>⏹ Stop</button>}
+                {isStreaming && <button className="btn btn-danger" onClick={cancel}>Stop</button>}
             </div>
 
             {/* ── Input Form ── */}
@@ -193,7 +193,7 @@ export default function DeepResearchPage() {
                     <option value="deep">Deep (~$2.00)</option>
                 </select>
                 <button id="btn-deep-research" className="btn btn-primary" type="submit" disabled={isStreaming || !ticker.trim()}>
-                    {isStreaming ? <><span className="spinner spinner-sm" /> Researching…</> : '🚀 Research'}
+                    {isStreaming ? <><span className="spinner spinner-sm" /> Researching…</> : 'Research'}
                 </button>
             </form>
 
@@ -220,7 +220,7 @@ export default function DeepResearchPage() {
                         cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem',
                         color: 'var(--text-secondary)', padding: '8px 0', outline: 'none',
                     }}>
-                        {isStreaming ? '🔄' : '📋'} Live Activity
+                        Live Activity
                         ({plans.length} plan{plans.length !== 1 ? 's' : ''} · {toolsCompleted} tool{toolsCompleted !== 1 ? 's' : ''}{toolsErrored > 0 ? ` · ${toolsErrored} error${toolsErrored !== 1 ? 's' : ''}` : ''})
                     </summary>
 
@@ -237,7 +237,7 @@ export default function DeepResearchPage() {
                         {plans.map((p, i) => (
                             <div key={`plan-${i}`} className="glass-card fade-in" style={{ padding: 12, background: 'rgba(124,58,237,0.08)', borderColor: 'rgba(124,58,237,0.25)' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                                    <strong style={{ color: 'var(--accent-purple)', fontSize: '0.8rem' }}>📋 Planner round {i + 1}</strong>
+                                    <strong style={{ color: 'var(--accent-purple)', fontSize: '0.8rem' }}>Planner round {i + 1}</strong>
                                     {p.done && <span className="badge badge-green" style={{ fontSize: '0.65rem' }}>done</span>}
                                 </div>
                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{p.summary}</div>
@@ -273,13 +273,13 @@ export default function DeepResearchPage() {
                         {/* Debate turns (raw) */}
                         {debateTurns.bull && (
                             <div style={{ padding: 10, borderLeft: '3px solid var(--accent-green)', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                                <strong style={{ color: 'var(--accent-green)' }}>🐂 Bull</strong>
+                                <strong style={{ color: 'var(--accent-green)' }}>Bull</strong>
                                 <div style={{ marginTop: 4, whiteSpace: 'pre-line', maxHeight: 120, overflow: 'hidden' }}>{debateTurns.bull.thesis_md?.slice(0, 300)}…</div>
                             </div>
                         )}
                         {debateTurns.bear && (
                             <div style={{ padding: 10, borderLeft: '3px solid var(--accent-red)', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                                <strong style={{ color: 'var(--accent-red)' }}>🐻 Bear</strong>
+                                <strong style={{ color: 'var(--accent-red)' }}>Bear</strong>
                                 <div style={{ marginTop: 4, whiteSpace: 'pre-line', maxHeight: 120, overflow: 'hidden' }}>{debateTurns.bear.attack_md?.slice(0, 300)}…</div>
                             </div>
                         )}
@@ -291,7 +291,7 @@ export default function DeepResearchPage() {
             {!isStreaming && !reportId && (
                 <div className="glass-card">
                     <div className="empty-state">
-                        <div className="empty-state-icon">🧠</div>
+                        <div className="empty-state-icon"></div>
                         <h3 style={{ color: 'var(--text-secondary)' }}>Living Analyst</h3>
                         <p style={{ fontSize: '0.825rem', maxWidth: 480, lineHeight: 1.7 }}>
                             Agentic loop with multi-agent debate, per-ticker Living Memo, citation-first.

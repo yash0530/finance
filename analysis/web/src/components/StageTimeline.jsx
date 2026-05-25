@@ -6,15 +6,15 @@ import React from 'react';
  */
 
 const STAGES = [
-    { key: 'context', label: 'Context', icon: '📋' },
-    { key: 'plan', label: 'Plan', icon: '🧠' },
-    { key: 'tools', label: 'Tools', icon: '🔧' },
-    { key: 'bull', label: 'Bull', icon: '🐂' },
-    { key: 'bear', label: 'Bear', icon: '🐻' },
-    { key: 'judge', label: 'Judge', icon: '⚖️' },
-    { key: 'critique', label: 'Critique', icon: '🔍' },
-    { key: 'memo', label: 'Memo', icon: '📓' },
-    { key: 'done', label: 'Done', icon: '✅' },
+    { key: 'context', label: 'Context' },
+    { key: 'plan', label: 'Plan' },
+    { key: 'tools', label: 'Tools' },
+    { key: 'bull', label: 'Bull' },
+    { key: 'bear', label: 'Bear' },
+    { key: 'judge', label: 'Judge' },
+    { key: 'critique', label: 'Critique' },
+    { key: 'memo', label: 'Memo' },
+    { key: 'done', label: 'Done' },
 ];
 
 /**
@@ -69,7 +69,7 @@ export default function StageTimeline({ stageStatuses = {}, toolProgress }) {
                                         : status === 'error' ? 'var(--accent-red)'
                                         : 'var(--text-muted)',
                                 }}>
-                                    {stage.icon} {stage.label}
+                                    {stage.label}
                                 </span>
                                 {stage.key === 'tools' && toolProgress && status === 'active' && (
                                     <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>({toolProgress})</span>
