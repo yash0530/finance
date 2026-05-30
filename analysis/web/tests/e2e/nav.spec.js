@@ -11,7 +11,7 @@ import { test, expect } from '@playwright/test';
 const PAGES = [
     { id: 'nav-market',   heading: 'S&P 500 Intelligence' },
     { id: 'nav-research', heading: 'Deep Research' },
-    { id: 'nav-terminal', heading: 'Terminal' },
+    { id: 'nav-terminal', heading: 'Daily Scan' },
     { id: 'nav-console',  heading: 'Console' },
     { id: 'nav-library',  heading: 'Library' },
     { id: 'nav-screener', heading: 'Screener' },

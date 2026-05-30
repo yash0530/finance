@@ -13,7 +13,7 @@ const DEFAULT_ORDER = ['movers', 'theme-heat', 'watchlist', 'hypotheses', 'catal
 const COLSPAN = { movers: 2, 'news-tape': 2 };
 
 /**
- * Terminal — daily scan dashboard. Pull-based: each panel refreshes manually.
+ * Daily Scan dashboard. Pull-based: each panel refreshes manually.
  * Panels are drag-to-reorder; the order persists to dashboard_layout. The only
  * LLM spend is the Hypotheses panel's per-ticker Generate button.
  */
@@ -66,7 +66,7 @@ export default function TerminalPage({ onSelectTicker }) {
         <div className="fade-in">
             <div className="page-header">
                 <div>
-                    <h1 className="page-title">Terminal</h1>
+                    <h1 className="page-title">Daily Scan</h1>
                     <p className="page-subtitle">Daily scan · drag panels to reorder · pull-based</p>
                 </div>
             </div>

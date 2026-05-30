@@ -64,7 +64,7 @@ export default function ResultsTable({ result, onSelectTicker }) {
 
 function formatValue(v) {
     if (v == null) return '—';
-    if (typeof v === 'boolean') return v ? '✓' : '✗';
+    if (typeof v === 'boolean') return v ? 'Yes' : 'No';
     if (typeof v === 'number') return Number.isInteger(v) ? v : v.toFixed(2);
     return String(v);
 }

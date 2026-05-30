@@ -65,7 +65,7 @@ export default function MoversPanel({ onSelectTicker, area = 'movers' }) {
         >
             {confidence === 'low' && (
                 <div className="alert alert-warning" style={{ fontSize: '0.72rem', padding: '6px 10px', marginBottom: 12, borderLeft: '3px solid var(--accent-yellow)' }}>
-                    ⚠️ Sparse data: Only {data?.resolved}/{data?.universe_size} tickers resolved. Data may be incomplete.
+                    Sparse data: only {data?.resolved}/{data?.universe_size} tickers resolved. Data may be incomplete.
                 </div>
             )}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>

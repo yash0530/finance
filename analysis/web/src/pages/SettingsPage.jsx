@@ -61,7 +61,7 @@ function LLMSettingsSection() {
         setTesting(true); setMessage(null);
         try {
             const res = await testLLMConnection();
-            if (res.success) setMessage({ type: 'success', text: `✅ Connected! Test score: ${JSON.stringify(res.test_result)}` });
+            if (res.success) setMessage({ type: 'success', text: `Connected. Test score: ${JSON.stringify(res.test_result)}` });
             else setMessage({ type: 'error', text: res.error });
         } catch (err) { setMessage({ type: 'error', text: err.message }); }
         finally { setTesting(false); }
@@ -97,7 +97,7 @@ function LLMSettingsSection() {
                                     </div>
                                 </div>
                                 {settings.provider === p.id && (
-                                    <span style={{ color: 'var(--accent-blue-bright)', fontSize: '1rem' }}>✓</span>
+                                    <span style={{ color: 'var(--accent-blue-bright)', fontSize: '0.7rem', fontWeight: 700 }}>SELECTED</span>
                                 )}
                             </div>
                         </div>

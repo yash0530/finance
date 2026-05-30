@@ -11,7 +11,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
 /**
  * Stock View — single-ticker cockpit. Each section lazy-fetches in parallel and
  * fails independently. No LLM spend on mount; the CTA bar deep-links to the
- * Console for on-demand reports.
+ * Research page and Console for on-demand reports.
  */
 export default function StockViewPage({ ticker, onRunCommand, onRunResearch }) {
     if (!ticker) {
@@ -20,7 +20,7 @@ export default function StockViewPage({ ticker, onRunCommand, onRunResearch }) {
                 <div className="glass-card" style={{ cursor: 'default' }}>
                     <div className="empty-state">
                         <h3 style={{ color: 'var(--text-secondary)' }}>No ticker selected</h3>
-                        <p style={{ fontSize: '0.825rem' }}>Pick a ticker from the Terminal to open its cockpit.</p>
+                        <p style={{ fontSize: '0.825rem' }}>Pick a ticker from Market or Daily Scan to open its cockpit.</p>
                     </div>
                 </div>
             </div>

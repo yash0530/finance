@@ -203,7 +203,7 @@ export default function StockTechnicals({ ticker }) {
                             const desc = isDict && p.description ? ` (${p.description})` : '';
                             return (
                                 <span key={i} className="badge badge-gray" style={{ fontSize: '0.66rem', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                    🎯 {type}{desc}
+                                    Pattern: {type}{desc}
                                 </span>
                             );
                         })}

@@ -120,7 +120,7 @@ export default function ValuationCard({ valuation }) {
                              {margin_of_safety_pct > 0 ? '+' : ''}{margin_of_safety_pct}%
                          </div>
                      </div>
-                     <div style={{ fontSize: '1.5rem' }}>{margin_of_safety_pct > 20 ? '✓' : margin_of_safety_pct > 0 ? '✓' : '!'}</div>
+                     <div style={{ fontSize: '0.8rem', fontWeight: 700 }}>{margin_of_safety_pct > 0 ? 'OK' : '!'}</div>
                 </div>
 
                 {/* Peer Comparison (mocked) */}

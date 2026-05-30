@@ -404,7 +404,7 @@ export default function DeepResearchPage({ initialTicker = '' }) {
                                                                 }}>{JSON.stringify(v, null, 2)}</pre>
                                                             );
                                                         }
-                                                        if (typeof v === 'boolean') return v ? '✅ True' : '❌ False';
+                                                        if (typeof v === 'boolean') return v ? 'True' : 'False';
                                                         if (typeof v === 'number') return v.toLocaleString(undefined, { maximumFractionDigits: 4 });
                                                         return String(v);
                                                     };

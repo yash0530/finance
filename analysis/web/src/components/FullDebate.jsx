@@ -48,7 +48,7 @@ export default function FullDebate({ bull, bear, verdict }) {
                             <div style={{ marginTop: 10 }}>
                                 {bear.key_risks.map((r, i) => (
                                     <div key={i} style={{ fontSize: '0.75rem', padding: '3px 0' }}>
-                                         ⚠ {r.risk} <span className={`badge badge-${r.severity === 'high' ? 'red' : 'yellow'}`} style={{ fontSize: '0.6rem', marginLeft: 4 }}>{r.severity}</span>
+                                         Risk: {r.risk} <span className={`badge badge-${r.severity === 'high' ? 'red' : 'yellow'}`} style={{ fontSize: '0.6rem', marginLeft: 4 }}>{r.severity}</span>
                                     </div>
                                 ))}
                             </div>

@@ -25,7 +25,7 @@ export default class ErrorBoundary extends Component {
                     padding: 'var(--spacing-md)', display: 'flex', flexDirection: 'column', gap: 6
                 }}>
                     <strong style={{ fontSize: '0.82rem', color: 'var(--accent-red, #DB4437)' }}>
-                        ⚠️ Component Load Failure
+                        Component Load Failure
                     </strong>
                     <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
                         This section failed to render due to an unexpected error.

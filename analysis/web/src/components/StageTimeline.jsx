@@ -59,9 +59,9 @@ export default function StageTimeline({ stageStatuses = {}, toolProgress }) {
                                 transition: 'all 0.3s ease',
                             }}>
                                 {status === 'active' && <span className="spinner spinner-sm" style={{ width: 10, height: 10 }} />}
-                                {status === 'complete' && <span style={{ fontSize: '0.7rem', color: 'var(--accent-green)' }}>✓</span>}
+                                {status === 'complete' && <span style={{ fontSize: '0.6rem', color: 'var(--accent-green)', fontWeight: 700 }}>OK</span>}
                                 {status === 'error' && <span style={{ fontSize: '0.7rem', color: 'var(--accent-red)' }}>!</span>}
-                                {status === 'pending' && <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>○</span>}
+                                {status === 'pending' && <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>-</span>}
                                 <span style={{
                                     fontSize: '0.68rem', fontWeight: 500,
                                     color: status === 'complete' ? 'var(--accent-green)'
