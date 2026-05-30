@@ -57,6 +57,50 @@ def _bars_from_history(hist) -> List[Dict[str, Any]]:
     return bars
 
 
+def _compute_overlays(bars: List[Dict[str, Any]]) -> Dict[str, List]:
+    """Server-computed overlay series aligned to bars: MA20, MA50, Bollinger, VWAP.
+
+    Each series is a list the same length as bars, with None where the window
+    isn't yet full. Keeps the chart client thin and consistent with technicals.
+    """
+    closes = [b["close"] for b in bars]
+    highs = [b["high"] for b in bars]
+    lows = [b["low"] for b in bars]
+    vols = [b["volume"] or 0 for b in bars]
+    n = len(bars)
+
+    def sma(period: int) -> List:
+        out = [None] * n
+        for i in range(period - 1, n):
+            window = closes[i - period + 1:i + 1]
+            out[i] = round(sum(window) / period, 4)
+        return out
+
+    ma20 = sma(20) if n >= 20 else [None] * n
+    ma50 = sma(50) if n >= 50 else [None] * n
+
+    bb_upper, bb_lower = [None] * n, [None] * n
+    if n >= 20:
+        for i in range(19, n):
+            window = closes[i - 19:i + 1]
+            mean = sum(window) / 20
+            var = sum((c - mean) ** 2 for c in window) / 20
+            sd = var ** 0.5
+            bb_upper[i] = round(mean + 2 * sd, 4)
+            bb_lower[i] = round(mean - 2 * sd, 4)
+
+    vwap = [None] * n
+    cum_pv = 0.0
+    cum_v = 0.0
+    for i in range(n):
+        typical = (highs[i] + lows[i] + closes[i]) / 3
+        cum_pv += typical * vols[i]
+        cum_v += vols[i]
+        vwap[i] = round(cum_pv / cum_v, 4) if cum_v else None
+
+    return {"ma20": ma20, "ma50": ma50, "bb_upper": bb_upper, "bb_lower": bb_lower, "vwap": vwap}
+
+
 class PriceHistoryTool(Tool):
     name = "price_history"
     description = (
@@ -130,6 +174,7 @@ class PriceHistoryTool(Tool):
             "range": rng,
             "interval": yf_interval,
             "bars": bars,
+            "overlays": _compute_overlays(bars),
             "as_of": datetime.now().isoformat(),
         }
         save_tool_cache(self.name, cache_key, data)

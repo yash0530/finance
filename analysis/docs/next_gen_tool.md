@@ -853,3 +853,35 @@ explicit Hypotheses Generate click.
 **Budget guardrail:** the quick take is the first new LLM call in v3. It flows
 through `run_quick_take`, which wraps the agent call in an `LLMCallSession` and
 charges the `quick` Budget profile — no standalone `provider.complete(...)`.
+
+## 29. Phase 3 — Stock View full build (shipped)
+
+**Charting:** `lightweight-charts` added to `package.json`.
+`tools/price_history.py` now returns server-computed `overlays` aligned to bars
+(`ma20`, `ma50`, `bb_upper`, `bb_lower`, `vwap`). `StockChart.jsx` renders a
+candlestick series and toggles overlay line series on the existing chart
+instance — toggling never re-fetches.
+
+**Relative strength:** `research_engine.fetch_technicals` now computes
+`relative_strength_vs_spy` (ticker normalized return ÷ SPY normalized return
+over the lookback; >1.0 = outperformance). Best-effort, `None` for SPY itself or
+when history is supplied directly, surfaced through the `technicals` tool.
+
+**EDGAR:** `edgar_service.list_recent_filings(ticker, limit)` returns recent
+filing metadata (form, date, URL) with no document download or LLM — keeping the
+Stock View filings timeline at $0 LLM spend.
+
+**Endpoints (new, lazy-fetched in parallel by the page):**
+
+- `GET /api/stock/<T>/header` → fundamentals snapshot.
+- `GET /api/stock/<T>/fundamentals` → fundamentals + financial_trends.
+- `GET /api/stock/<T>/technicals` → technicals incl. relative_strength_vs_spy.
+- `GET /api/stock/<T>/ownership` → institutional_13f + insider_form4.
+- `GET /api/stock/<T>/filings` → `list_recent_filings` (free metadata).
+- `GET /api/themes/by-ticker/<T>` (from Phase 2) backs the theme context.
+
+**Frontend sections:** `StockHeader`, `StockChart` (candles + overlays),
+`FundamentalsCard`, `OwnershipStrip`, `FilingsNewsTimeline` (merges SEC filings +
+news), `ThemeContext` (theme-pack membership), `StockCTABar` (deep-links to
+Console). Each section mounts its shell immediately and fails independently, so
+a slow SEC/yfinance fetch never blanks the page.

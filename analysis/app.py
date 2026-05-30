@@ -3197,6 +3197,65 @@ def themes_by_ticker(ticker):
     })
 
 
+# ============================================================================
+# Stock View — single-ticker cockpit sections (lazy-fetched in parallel)
+# ============================================================================
+
+@app.route('/api/stock/<ticker>/header', methods=['GET'])
+def stock_header(ticker):
+    """Price/mcap/fundamentals snapshot for the Stock View header."""
+    from tools import get_tool
+    result = get_tool('fundamentals').execute(ticker=ticker.upper().strip())
+    return jsonify(result.to_dict())
+
+
+@app.route('/api/stock/<ticker>/fundamentals', methods=['GET'])
+def stock_fundamentals(ticker):
+    """Fundamentals + multi-quarter financial trends for the Stock View."""
+    from tools import get_tool
+    t = ticker.upper().strip()
+    fundamentals = get_tool('fundamentals').execute(ticker=t)
+    trends = get_tool('financial_trends').execute(ticker=t)
+    return jsonify({
+        "fundamentals": fundamentals.to_dict(),
+        "trends": trends.to_dict(),
+    })
+
+
+@app.route('/api/stock/<ticker>/technicals', methods=['GET'])
+def stock_technicals(ticker):
+    """Technical indicators incl. relative_strength_vs_spy for the chart overlays."""
+    from tools import get_tool
+    result = get_tool('technicals').execute(ticker=ticker.upper().strip())
+    return jsonify(result.to_dict())
+
+
+@app.route('/api/stock/<ticker>/ownership', methods=['GET'])
+def stock_ownership(ticker):
+    """Institutional holders + insider Form-4 flow for the Ownership strip."""
+    from tools import get_tool
+    t = ticker.upper().strip()
+    inst = get_tool('institutional_13f').execute(ticker=t)
+    insider = get_tool('insider_form4').execute(ticker=t)
+    return jsonify({
+        "institutional": inst.to_dict(),
+        "insider": insider.to_dict(),
+    })
+
+
+@app.route('/api/stock/<ticker>/filings', methods=['GET'])
+def stock_filings(ticker):
+    """Recent SEC filings (free metadata, no LLM) for the Filings/News timeline."""
+    import edgar_service
+    t = ticker.upper().strip()
+    try:
+        filings = edgar_service.list_recent_filings(t, limit=15)
+    except Exception as e:
+        filings = []
+        return jsonify({"ticker": t, "filings": [], "error": str(e)})
+    return jsonify({"ticker": t, "filings": filings, "count": len(filings)})
+
+
 if __name__ == '__main__':
     print("\n" + "=" * 60)
     print("   Portfolio Intelligence Tool — API Server")

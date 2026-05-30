@@ -103,3 +103,20 @@ def test_price_history_unknown_range_defaults_to_1y(monkeypatch):
     result = PriceHistoryTool().execute(ticker="NVDA", range="bogus")
     assert result.data["range"] == "1y"
     assert capture["period"] == "1y"
+
+
+def test_price_history_includes_overlays(monkeypatch):
+    monkeypatch.setitem(sys.modules, "yfinance", _fake_yf(_ohlc(60)))
+    from tools.price_history import PriceHistoryTool
+    result = PriceHistoryTool().execute(ticker="NVDA", range="1y")
+    assert result.is_ok()
+    overlays = result.data["overlays"]
+    assert set(overlays.keys()) == {"ma20", "ma50", "bb_upper", "bb_lower", "vwap"}
+    # ma20 should be None for the first 19 bars, populated after.
+    assert overlays["ma20"][0] is None
+    assert overlays["ma20"][19] is not None
+    assert overlays["ma50"][49] is not None
+    # VWAP is defined from the first bar.
+    assert overlays["vwap"][0] is not None
+    # Bollinger upper >= lower where both populated.
+    assert overlays["bb_upper"][25] >= overlays["bb_lower"][25]

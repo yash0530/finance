@@ -134,6 +134,51 @@ def get_latest_filing_url(cik: str, form_type: str = "10-K") -> Optional[Dict]:
     return None
 
 
+def list_recent_filings(ticker: str, limit: int = 15) -> List[Dict]:
+    """Return recent SEC filings (form, date, index URL) for a ticker.
+
+    Free metadata only — no document download or LLM summarization. Used by the
+    Stock View filings timeline. Returns [] on any failure.
+    """
+    cik = get_cik(ticker)
+    if not cik:
+        return []
+    url = f"https://data.sec.gov/submissions/CIK{cik}.json"
+    try:
+        resp = _rate_limited_get(url, headers=_HEADERS)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        logger.warning(f"list_recent_filings: submissions fetch failed for {ticker}: {e}")
+        return []
+
+    recent = data.get("filings", {}).get("recent", {})
+    forms = recent.get("form", []) or []
+    accessions = recent.get("accessionNumber", []) or []
+    dates = recent.get("filingDate", []) or []
+    docs = recent.get("primaryDocument", []) or []
+
+    out: List[Dict] = []
+    n = min(len(forms), len(accessions), len(dates))
+    for i in range(n):
+        accession_clean = accessions[i].replace("-", "")
+        primary = docs[i] if i < len(docs) else ""
+        doc_url = (
+            f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{accession_clean}/{primary}"
+            if primary else
+            f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{accession_clean}/"
+        )
+        out.append({
+            "form": forms[i],
+            "filing_date": dates[i],
+            "url": doc_url,
+            "accession": accessions[i],
+        })
+        if len(out) >= limit:
+            break
+    return out
+
+
 def _get_primary_document_url(filing_info: Dict) -> Optional[str]:
     """From a filing index, find the primary HTM/HTML document URL."""
     accession_clean = filing_info["accession_number"].replace("-", "")

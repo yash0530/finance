@@ -11,6 +11,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "lightweight-charts": "^4.2.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "recharts": "^3.6.0"

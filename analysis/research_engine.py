@@ -806,6 +806,24 @@ def fetch_technicals(ticker: str, history_data: Optional[List[Dict]] = None) -> 
     else:
         volatility = None
 
+    # Relative strength vs SPY: ratio of the ticker's normalized return to SPY's
+    # normalized return over the same lookback (both indexed to 1.0 at the start).
+    # >1.0 means the ticker has outperformed SPY since the lookback start.
+    # Best-effort and skipped when history was supplied directly or for SPY itself.
+    relative_strength_vs_spy = None
+    if history_data is None and ticker.upper().strip() != "SPY":
+        try:
+            spy_hist = yf.Ticker("SPY").history(period="1y", auto_adjust=True)
+            spy_closes = spy_hist["Close"] if spy_hist is not None and not spy_hist.empty else None
+            if spy_closes is not None and len(spy_closes) > 1 and len(closes) > 1:
+                n = min(len(closes), len(spy_closes))
+                t_norm = float(closes.iloc[-1]) / float(closes.iloc[-n])
+                s_norm = float(spy_closes.iloc[-1]) / float(spy_closes.iloc[-n])
+                if s_norm:
+                    relative_strength_vs_spy = round(t_norm / s_norm, 4)
+        except Exception as e:
+            logger.debug(f"relative_strength_vs_spy unavailable for {ticker}: {e}")
+
     return {
         "current_price": current_price,
         "ma_50": ma_50,
@@ -819,6 +837,7 @@ def fetch_technicals(ticker: str, history_data: Optional[List[Dict]] = None) -> 
         "bollinger": bollinger,
         "year_return_pct": year_return,
         "annualized_volatility_pct": volatility,
+        "relative_strength_vs_spy": relative_strength_vs_spy,
         "patterns": detected_patterns,
         "data_points": len(closes),
     }

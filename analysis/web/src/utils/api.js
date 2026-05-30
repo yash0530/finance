@@ -334,6 +334,25 @@ export const getThemesByTicker = (ticker) =>
     apiFetch(`${API_BASE}/themes/by-ticker/${encodeURIComponent(ticker)}`);
 
 // ──────────────────────────────────────────────────────────
+// Stock View sections (lazy-fetched in parallel)
+// ──────────────────────────────────────────────────────────
+
+export const getStockHeader = (ticker) =>
+    apiFetch(`${API_BASE}/stock/${encodeURIComponent(ticker)}/header`);
+
+export const getStockFundamentals = (ticker) =>
+    apiFetch(`${API_BASE}/stock/${encodeURIComponent(ticker)}/fundamentals`);
+
+export const getStockTechnicals = (ticker) =>
+    apiFetch(`${API_BASE}/stock/${encodeURIComponent(ticker)}/technicals`);
+
+export const getStockOwnership = (ticker) =>
+    apiFetch(`${API_BASE}/stock/${encodeURIComponent(ticker)}/ownership`);
+
+export const getStockFilings = (ticker) =>
+    apiFetch(`${API_BASE}/stock/${encodeURIComponent(ticker)}/filings`);
+
+// ──────────────────────────────────────────────────────────
 // LLM Settings
 // ──────────────────────────────────────────────────────────
 

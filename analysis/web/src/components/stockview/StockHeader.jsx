@@ -1,44 +1,37 @@
 import { useState, useEffect } from 'react';
-import { getChart } from '../../utils/api';
-import { formatPercent } from '../../utils/api';
+import { getStockHeader, formatCurrency, formatPercent } from '../../utils/api';
 
 /**
- * Phase 1 header: ticker + latest close + day change derived from the chart
- * endpoint (1m bars). Full fundamentals/mcap/sparkline land in Phase 3.
+ * Header: ticker, name, price, day move vs 52w range, market cap. Backed by the
+ * fundamentals tool via /api/stock/<T>/header.
  */
 export default function StockHeader({ ticker }) {
-    const [last, setLast] = useState(null);
-    const [changePct, setChangePct] = useState(null);
+    const [d, setD] = useState(null);
 
     useEffect(() => {
         let cancelled = false;
         if (!ticker) return;
-        getChart(ticker, '5d').then(res => {
-            if (cancelled) return;
-            const bars = res.data?.bars || [];
-            if (bars.length >= 2) {
-                const latest = bars[bars.length - 1].close;
-                const prev = bars[bars.length - 2].close;
-                setLast(latest);
-                if (prev) setChangePct((latest - prev) / prev * 100);
-            } else if (bars.length === 1) {
-                setLast(bars[0].close);
-            }
+        getStockHeader(ticker).then(res => {
+            if (!cancelled) setD(res.data || {});
         }).catch(() => {});
         return () => { cancelled = true; };
     }, [ticker]);
 
-    const up = (changePct ?? 0) >= 0;
+    const price = d?.current_price;
+    const target = d?.analyst_target;
+    const upside = price && target ? (target - price) / price * 100 : null;
 
     return (
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, flexWrap: 'wrap' }}>
             <h1 className="page-title" style={{ margin: 0, fontFamily: 'var(--font-mono, monospace)' }}>{ticker}</h1>
-            {last != null && (
-                <span style={{ fontSize: '1.2rem', fontWeight: 700 }}>${last.toFixed(2)}</span>
+            {d?.name && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{d.name}</span>}
+            {price != null && <span style={{ fontSize: '1.25rem', fontWeight: 700 }}>${Number(price).toFixed(2)}</span>}
+            {d?.market_cap != null && (
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{formatCurrency(d.market_cap)}</span>
             )}
-            {changePct != null && (
-                <span style={{ fontSize: '0.9rem', color: up ? 'var(--accent-green)' : 'var(--accent-red)' }}>
-                    {formatPercent(changePct, true)}
+            {upside != null && (
+                <span style={{ fontSize: '0.8rem', color: upside >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                    {formatPercent(upside, true)} to target
                 </span>
             )}
         </div>

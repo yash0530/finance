@@ -25,7 +25,7 @@ Six pages, in the sidebar:
 | Page | What it's for |
 |---|---|
 | **Terminal** | Daily scan. Movers (top gainers/losers across your watchlist ∪ the theme universe), Theme Heat (per-theme median move with leader/laggard), Watchlist (with day change), Hypotheses (on-demand AI "why" per ticker), Fresh Catalysts (next 7 days), a News Tape, and a Flow snapshot (degrades cleanly without an Unusual Whales key). |
-| **Stock View** | Single-ticker cockpit. Click any ticker — in Movers, Watchlist, or the News Tape — to open it. Phase 1: price header, interactive chart with range toggles, and a CTA bar that deep-links into the Console. |
+| **Stock View** | Single-ticker cockpit. Click any ticker — in Movers, Watchlist, the News Tape, Theme Heat, or Catalysts — to open it. Price header, candlestick chart with MA/Bollinger/VWAP overlay toggles and multiple ranges, key fundamentals, ownership & insider activity, a merged filings/news timeline, theme-pack context, and a CTA bar that deep-links into the Console. |
 | **Console** | The on-demand brain. Type a slash command to kick off analysis. Phase 1: `/thesis <T>` (full report) and `/dossier <T>` (deep dive), streamed live. |
 | **Library** | Your saved reports and Living Memos. |
 | **Screener** | Rule-based screening (arrives in a later phase). |
