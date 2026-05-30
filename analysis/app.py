@@ -2955,6 +2955,105 @@ def get_doc(slug):
     })
 
 
+# ============================================================================
+# Terminal — daily scan panels (pull-based, no background workers)
+# ============================================================================
+
+def _watchlist_tickers() -> List[str]:
+    try:
+        return [w["ticker"] for w in db.get_watchlist()]
+    except Exception:
+        return []
+
+
+def _terminal_universe() -> List[str]:
+    """Resolve the default Terminal scan universe: watchlist ∪ movers default."""
+    from tools.movers import DEFAULT_UNIVERSE
+    seen, universe = set(), []
+    for t in _watchlist_tickers() + DEFAULT_UNIVERSE:
+        u = t.upper().strip()
+        if u and u not in seen:
+            seen.add(u)
+            universe.append(u)
+    return universe
+
+
+@app.route('/api/terminal/movers', methods=['GET'])
+def terminal_movers():
+    """Top gainers/losers across the requested universe. TTL handled by the tool."""
+    from tools import get_tool
+    universe_param = request.args.get('universe', 'themes')
+    if universe_param == 'watchlist':
+        tickers = _watchlist_tickers()
+    else:
+        tickers = _terminal_universe()
+    top_n = int(request.args.get('top_n', 10))
+    result = get_tool('movers').execute(tickers=tickers, top_n=top_n)
+    return jsonify(result.to_dict())
+
+
+@app.route('/api/terminal/news', methods=['GET'])
+def terminal_news():
+    """Recent news headlines across the universe (or a single theme/ticker set)."""
+    from tools import get_tool
+    limit = int(request.args.get('limit', 50))
+    theme = request.args.get('theme', 'all')
+    if theme and theme not in ('all', ''):
+        tickers = [theme.upper()]
+    else:
+        tickers = _terminal_universe()
+    result = get_tool('news_tape').execute(tickers=tickers, limit=limit)
+    return jsonify(result.to_dict())
+
+
+@app.route('/api/terminal/watchlist', methods=['GET'])
+def terminal_watchlist():
+    """Watchlist tickers enriched with day change from the movers tool."""
+    from tools.movers import fetch_quotes
+    rows = db.get_watchlist()
+    tickers = [r["ticker"] for r in rows]
+    quotes = fetch_quotes(tickers) if tickers else {}
+    items = []
+    for r in rows:
+        q = quotes.get(r["ticker"], {})
+        items.append({
+            "ticker": r["ticker"],
+            "added_at": r["added_at"],
+            "notes": r.get("notes"),
+            "price": q.get("price"),
+            "change_pct": q.get("change_pct"),
+        })
+    return jsonify({"items": items, "count": len(items)})
+
+
+@app.route('/api/terminal/watchlist', methods=['POST'])
+def terminal_watchlist_add():
+    body = request.get_json(silent=True) or {}
+    ticker = (body.get('ticker') or '').upper().strip()
+    if not ticker:
+        return jsonify({'error': 'ticker required'}), 400
+    db.add_watchlist(ticker, body.get('notes', ''))
+    return jsonify({'ok': True, 'ticker': ticker})
+
+
+@app.route('/api/terminal/watchlist/<ticker>', methods=['DELETE'])
+def terminal_watchlist_remove(ticker):
+    db.remove_watchlist(ticker)
+    return jsonify({'ok': True, 'ticker': ticker.upper().strip()})
+
+
+@app.route('/api/chart/<ticker>', methods=['GET'])
+def chart(ticker):
+    """OHLCV bars for a ticker over a range/interval, backed by price_history tool."""
+    from tools import get_tool
+    rng = request.args.get('range', '1y')
+    interval = request.args.get('interval', '')
+    result = get_tool('price_history').execute(
+        ticker=ticker.upper().strip(), range=rng, interval=interval,
+    )
+    return jsonify(result.to_dict())
+
+
 if __name__ == '__main__':
     print("\n" + "=" * 60)
     print("   Portfolio Intelligence Tool — API Server")

@@ -733,3 +733,83 @@ analysis/
 - **Delta** — the proposed change to a Living Memo after a research session (subject to user accept/edit).
 - **Calibration** — measured accuracy of the tool's recommendations over time, by conviction and sector.
 - **Falsifiability** — explicit "what would change my mind" conditions attached to every verdict.
+- **Edge** — the v3 pull-based terminal frontend wrapping the v2 brain.
+- **Theme pack** — a named cohort of tickers (e.g. `ai-infra`) used to scope movers, news, and screening.
+
+---
+
+# Part III — Edge: Personal Markets Terminal (v3.0)
+
+## 25. From report generator to pull-based terminal
+
+v2 produces deep dives on demand. v3 ("Edge") reframes the product as a
+Bloomberg-style **pull-based personal terminal**: open it, scan movers + theme
+heat + catalysts + hypotheses, click into a Stock View, and initiate on-demand
+thesis reports via a command bar. The v2 brain is preserved verbatim — the agent
+loop, all 18 tools, all 7 agents, the Living Memo, the sector analyzers. v3
+changes the *frontend pages, navigation, panel set*, and adds a command-bar
+**Console** in front of the existing deep-research engine.
+
+Out of scope (removed in v3): portfolio management (Robinhood, holdings,
+rebalancing, calibration tracking), the monitoring worker, the S&P 500 scanner,
+and technical-pattern dashboards.
+
+### Non-negotiables (all phases)
+
+1. **Citation contract unchanged.** Every Tool returns `ToolResult` with `data`,
+   `sources`, `confidence`, `cost_usd`.
+2. **Pull-based only.** No background workers, cron, queues, alerts, or push.
+   Every panel refreshes manually.
+3. **Additive-only DB.** Never alter/drop existing tables. New columns → new
+   sibling table. Always `CREATE TABLE IF NOT EXISTS`.
+4. **Budget guardrail.** Every new LLM call flows through `agent_loop`'s Budget.
+5. **Graceful degradation.** Paid-API tools gate on `os.environ.get(KEY)` inside
+   `_execute`; the free tier always works.
+
+## 26. Navigation (6 pages)
+
+| Page | Route | Purpose |
+|---|---|---|
+| Terminal | `#terminal` (default) | Daily scan: movers, theme heat, hypotheses, watchlist, catalysts, flow, news |
+| Stock View | `#stock?t=NVDA` | Single-ticker cockpit: chart, fundamentals, ownership, filings/news, memo + report CTAs |
+| Console | `#console` | Slash-command bar + SSE stream + run-history rail |
+| Library | `#library` | Saved reports + Living Memos browser |
+| Screener | `#screener` | Rule-based technical/fundamental screener with saved configs |
+| Settings | `#settings` | LLM provider/keys, data-tier badges, themes editor |
+
+Docs moved to a footer link in the sidebar. Routing is hash-based
+(`src/hooks/useHashRoute.js`) — no router dependency. `#stock?t=<T>` carries the
+ticker; Stock View CTAs deep-link to `#console` with a command pre-filled.
+
+## 27. Phase 1 — Sparse Terminal + nav reshape (shipped)
+
+**Backend tools (new):**
+
+| Tool | Source | Notes |
+|---|---|---|
+| `movers` | yfinance `fast_info`, batched in a thread pool | Top N gainers/losers by intraday % across a universe. Cached 15m. |
+| `news_tape` | Finnhub `/company-news`, yfinance `.news` fallback | Merged, de-duplicated, newest-first headlines. Cached 15m. |
+| `price_history` | yfinance `history(period, interval)` | OHLCV bars for the chart endpoint. Ranges 1d/5d/1m/3m/1y/5y. Cached by range. |
+
+**Backend endpoints (new, in `app.py`):**
+
+- `GET /api/terminal/movers?universe=themes|watchlist` → `movers` tool over
+  watchlist ∪ `movers.DEFAULT_UNIVERSE`.
+- `GET /api/terminal/news?theme=all&limit=50` → `news_tape` tool.
+- `GET /api/terminal/watchlist` → watchlist rows enriched with day change from
+  `movers.fetch_quotes`.
+- `POST /api/terminal/watchlist` `{ticker, notes?}` / `DELETE /api/terminal/watchlist/<T>`.
+- `GET /api/chart/<T>?range=&interval=` → `price_history` tool.
+
+**DB (additive):** `db.py` gains watchlist CRUD (`get_watchlist`,
+`add_watchlist`, `remove_watchlist`) over the existing `watchlist` table. No
+schema changes in Phase 1.
+
+**Frontend:** new 6-page `Sidebar.jsx` + hash router in `App.jsx`. `TerminalPage`
+renders Movers + Watchlist + News Tape (remaining panels land in Phase 2).
+`StockViewPage` ships header + chart + CTA bar (full sections in Phase 3).
+`ConsolePage` parses `/thesis` and `/dossier` and dispatches to the existing
+`/api/research/<T>/v2/stream` (full command set in Phase 4). The Phase 1 chart
+uses `recharts` (already a dependency); `lightweight-charts` arrives in Phase 3.
+
+Dashboard mounts with manual refresh per panel and $0 LLM spend.

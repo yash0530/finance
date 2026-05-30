@@ -1,18 +1,17 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import './index.css';
 import './App.css';
 import Sidebar from './components/Sidebar';
-import { getPortfolioStatus, getVersion } from './utils/api';
+import { useHashRoute } from './hooks/useHashRoute';
+import { getVersion } from './utils/api';
 
-// Lazy-load pages for fast initial load
-const PortfolioPage      = lazy(() => import('./pages/PortfolioPage'));
-const DeepResearchPage   = lazy(() => import('./pages/DeepResearchPage'));
-const ResearchHistoryPage = lazy(() => import('./pages/ResearchHistoryPage'));
-const DocsPage          = lazy(() => import('./pages/DocsPage'));
-const LLMSettingsPage   = lazy(() => import('./pages/LLMSettingsPage'));
-
-// Legacy S&P 500 pages (existing components wrapped)
-const MarketPage = lazy(() => import('./pages/MarketPage'));
+const TerminalPage   = lazy(() => import('./pages/TerminalPage'));
+const StockViewPage  = lazy(() => import('./pages/StockViewPage'));
+const ConsolePage    = lazy(() => import('./pages/ConsolePage'));
+const LibraryPage    = lazy(() => import('./pages/ResearchHistoryPage'));
+const ScreenerPage   = lazy(() => import('./pages/ScreenerPage'));
+const SettingsPage   = lazy(() => import('./pages/LLMSettingsPage'));
+const DocsPage       = lazy(() => import('./pages/DocsPage'));
 
 function PageLoader() {
     return (
@@ -24,30 +23,11 @@ function PageLoader() {
 }
 
 export default function App() {
-    const [page, setPage] = useState('portfolio');
-    const [portfolioConnected, setPortfolioConnected] = useState(false);
+    const { page, params, go } = useHashRoute();
     const [bootSha, setBootSha] = useState(null);
     const [liveSha, setLiveSha] = useState(null);
+    const [pendingCommand, setPendingCommand] = useState(null);
 
-    // Poll portfolio connection status
-    useEffect(() => {
-        async function checkStatus() {
-            try {
-                const status = await getPortfolioStatus();
-                setPortfolioConnected(status.connected && status.holdings_count > 0);
-            } catch {
-                setPortfolioConnected(false);
-            }
-        }
-        checkStatus();
-        const interval = setInterval(checkStatus, 60_000);
-        return () => clearInterval(interval);
-    }, []);
-
-    // Detect a stale backend: if the live SHA diverges from the SHA at page-load
-    // time, the backend has restarted (likely with new code). Show a banner so
-    // the user knows their tab is out of sync — don't auto-refresh because they
-    // may be mid-stream on Deep Research.
     useEffect(() => {
         let cancelled = false;
         async function poll() {
@@ -67,25 +47,31 @@ export default function App() {
 
     const backendStale = bootSha && liveSha && bootSha !== liveSha;
 
+    const selectTicker = useCallback((ticker) => {
+        go('stock', { t: ticker });
+    }, [go]);
+
+    const runCommand = useCallback((cmd) => {
+        setPendingCommand(cmd);
+        go('console');
+    }, [go]);
+
     function renderPage() {
         switch (page) {
-            case 'portfolio':       return <PortfolioPage onConnected={() => setPortfolioConnected(true)} />;
-            case 'deep-research':   return <DeepResearchPage />;
-            case 'history':        return <ResearchHistoryPage />;
-            case 'docs':           return <DocsPage />;
-            case 'market':         return <MarketPage />;
-            case 'settings':       return <LLMSettingsPage />;
-            default:               return <PortfolioPage onConnected={() => setPortfolioConnected(true)} />;
+            case 'terminal':  return <TerminalPage onSelectTicker={selectTicker} />;
+            case 'stock':     return <StockViewPage ticker={params.t} onRunCommand={runCommand} onSelectTicker={selectTicker} />;
+            case 'console':   return <ConsolePage initialCommand={pendingCommand} onCommandConsumed={() => setPendingCommand(null)} />;
+            case 'library':   return <LibraryPage />;
+            case 'screener':  return <ScreenerPage />;
+            case 'settings':  return <SettingsPage />;
+            case 'docs':      return <DocsPage />;
+            default:          return <TerminalPage onSelectTicker={selectTicker} />;
         }
     }
 
     return (
         <div className="app-shell">
-            <Sidebar
-                currentPage={page}
-                onNavigate={setPage}
-                portfolioConnected={portfolioConnected}
-            />
+            <Sidebar currentPage={page} onNavigate={go} />
             <main className="main-content">
                 {backendStale && (
                     <div
@@ -102,7 +88,7 @@ export default function App() {
                         }}
                     >
                         <span>
-                            ⚠️ Backend was updated (was <code>{bootSha}</code>, now <code>{liveSha}</code>).
+                            Backend was updated (was <code>{bootSha}</code>, now <code>{liveSha}</code>).
                             Refresh to pick up new endpoints.
                         </span>
                         <button

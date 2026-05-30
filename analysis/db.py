@@ -953,6 +953,47 @@ def update_recommendation_outcome(
 
 
 # ============================================================================
+# Watchlist
+# ============================================================================
+
+def get_watchlist() -> List[Dict]:
+    """Return all watchlist tickers (most recently added first)."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT ticker, added_at, notes FROM watchlist ORDER BY added_at DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def add_watchlist(ticker: str, notes: str = "") -> None:
+    """Add a ticker to the watchlist (idempotent on ticker)."""
+    conn = get_connection()
+    try:
+        conn.execute(
+            """INSERT INTO watchlist (ticker, added_at, notes)
+               VALUES (?, ?, ?)
+               ON CONFLICT(ticker) DO UPDATE SET notes = excluded.notes""",
+            (ticker.upper().strip(), datetime.now().isoformat(), notes),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def remove_watchlist(ticker: str) -> None:
+    """Remove a ticker from the watchlist."""
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM watchlist WHERE ticker = ?", (ticker.upper().strip(),))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# ============================================================================
 # Catalysts
 # ============================================================================
 

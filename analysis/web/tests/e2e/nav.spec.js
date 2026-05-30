@@ -2,31 +2,40 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Sidebar + Deep Research v2 navigation sanity check.
+ * Navigation — 6-page sidebar (Edge terminal) + Docs footer.
  *
- * Verifies the v2 page renders with the required form controls
- * (input, budget selector) so downstream tests can rely on them.
+ * Each page is lazy-loaded; we assert a heading renders to guard against blank
+ * screens. Tests degrade gracefully when the backend is not running — they
+ * only assert the client-side shell mounts.
  */
-test.describe('Navigation — Deep Research v2', () => {
-    test('sidebar shows main nav items and v2 page renders', async ({ page }) => {
+const PAGES = [
+    { id: 'nav-terminal', label: 'Terminal' },
+    { id: 'nav-console',  label: 'Console' },
+    { id: 'nav-library',  label: 'Library' },
+    { id: 'nav-screener', label: 'Screener' },
+    { id: 'nav-settings', label: 'Settings' },
+];
+
+test.describe('Navigation — Edge 6-page nav', () => {
+    test('sidebar shows all primary nav items + docs footer', async ({ page }) => {
         await page.goto('/');
+        for (const { id } of PAGES) {
+            await expect(page.locator(`#${id}`)).toBeVisible();
+        }
+        await expect(page.locator('#nav-stock')).toBeVisible();
+        await expect(page.locator('#nav-docs')).toBeVisible();
+    });
 
-        // Sidebar items present.
-        await expect(page.getByRole('button', { name: /Deep Research v2/ })).toBeVisible();
-        await expect(page.getByRole('button', { name: /Deep Research(?! v2)/ })).toBeVisible();
-        await expect(page.getByRole('button', { name: /Portfolio/ })).toBeVisible();
+    for (const { id, label } of PAGES) {
+        test(`${label} renders a heading`, async ({ page }) => {
+            await page.goto('/');
+            await page.locator(`#${id}`).click();
+            await expect(page.locator('h1').first()).toBeVisible({ timeout: 10_000 });
+        });
+    }
 
-        // Navigate to v2.
-        await page.locator('#nav-deep-research-v2').click();
-
-        // Heading rendered (emoji + text).
-        await expect(page.getByRole('heading', { name: /Deep Research v2/ })).toBeVisible();
-
-        // Input and budget selector present.
-        await expect(page.locator('#deep-research-v2-input')).toBeVisible();
-        await expect(page.locator('#budget-profile')).toBeVisible();
-
-        // Submit button rendered (disabled until ticker typed).
-        await expect(page.locator('#btn-deep-research-v2')).toBeVisible();
+    test('default route is Terminal', async ({ page }) => {
+        await page.goto('/');
+        await expect(page.getByRole('heading', { name: 'Terminal' })).toBeVisible({ timeout: 10_000 });
     });
 });

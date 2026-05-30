@@ -317,6 +317,9 @@ _AUTOLOAD = [
     "correlation_analysis",
     "memo_read",
     "calibration_lookup",
+    "movers",
+    "news_tape",
+    "price_history",
 ]
 
 

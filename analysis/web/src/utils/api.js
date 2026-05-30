@@ -259,6 +259,35 @@ export const getResearchReportDrift = (reportId) =>
 
 
 // ──────────────────────────────────────────────────────────
+// Terminal (daily scan) + Chart
+// ──────────────────────────────────────────────────────────
+
+export const getMovers = (universe = 'themes', topN = 10) =>
+    apiFetch(`${API_BASE}/terminal/movers?universe=${encodeURIComponent(universe)}&top_n=${topN}`);
+
+export const getTerminalNews = (theme = 'all', limit = 50) =>
+    apiFetch(`${API_BASE}/terminal/news?theme=${encodeURIComponent(theme)}&limit=${limit}`);
+
+export const getTerminalWatchlist = () => apiFetch(`${API_BASE}/terminal/watchlist`);
+
+export const addWatchlistTicker = (ticker, notes = '') =>
+    apiFetch(`${API_BASE}/terminal/watchlist`, {
+        method: 'POST',
+        body: JSON.stringify({ ticker, notes }),
+    });
+
+export const removeWatchlistTicker = (ticker) =>
+    apiFetch(`${API_BASE}/terminal/watchlist/${encodeURIComponent(ticker)}`, {
+        method: 'DELETE',
+    });
+
+export const getChart = (ticker, range = '1y', interval = '') => {
+    const qs = new URLSearchParams({ range });
+    if (interval) qs.set('interval', interval);
+    return apiFetch(`${API_BASE}/chart/${encodeURIComponent(ticker)}?${qs}`);
+};
+
+// ──────────────────────────────────────────────────────────
 // LLM Settings
 // ──────────────────────────────────────────────────────────
 

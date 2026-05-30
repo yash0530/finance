@@ -13,6 +13,40 @@ It is built on one premise: **a tool that helps you put real money to work has t
 
 ---
 
+## The terminal — navigation map
+
+Edge is a pull-based terminal. Open it and you land on the **Terminal** — a daily
+scan dashboard. Nothing fetches automatically beyond first paint, and nothing
+runs the LLM on mount. Each panel has its own Refresh button; you pull when you
+want fresh data.
+
+Six pages, in the sidebar:
+
+| Page | What it's for |
+|---|---|
+| **Terminal** | Daily scan. Phase 1: Movers (top gainers/losers across your watchlist ∪ the default theme universe), Watchlist (with day change), and a News Tape. More panels (Theme Heat, Hypotheses, Catalysts, Flow) arrive in later phases. |
+| **Stock View** | Single-ticker cockpit. Click any ticker — in Movers, Watchlist, or the News Tape — to open it. Phase 1: price header, interactive chart with range toggles, and a CTA bar that deep-links into the Console. |
+| **Console** | The on-demand brain. Type a slash command to kick off analysis. Phase 1: `/thesis <T>` (full report) and `/dossier <T>` (deep dive), streamed live. |
+| **Library** | Your saved reports and Living Memos. |
+| **Screener** | Rule-based screening (arrives in a later phase). |
+| **Settings** | LLM provider and keys; data-tier badges. |
+
+The flow is: **scan on the Terminal → click into a Stock View → run a command in
+the Console.** The Console's "Run thesis" button on a Stock View pre-fills the
+command so you go from "this looks interesting" to a streaming report in two
+clicks.
+
+### Running a command
+
+On the Console, type `/thesis NVDA` and press Run (or click "Run thesis" from any
+Stock View). The stream shows the sector classification, each tool call as it
+completes, the Bull and Bear arguments, and the Judge's verdict — the same v2
+deep-research engine described below, now driven from a command bar. `/dossier`
+is the same with a deeper budget. The remaining commands (`/why`, `/theme`,
+`/compare`) light up in later phases.
+
+---
+
 ## Philosophy — read this first
 
 ### 1. The tool reasons; you decide.
