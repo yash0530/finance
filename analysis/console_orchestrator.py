@@ -19,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any, Dict, Generator, List, Tuple
 
-from agent_loop import run_quick_take
+import agent_loop
 import db
 
 logger = logging.getLogger(__name__)
@@ -96,7 +96,7 @@ def _run_why(ticker: str) -> Generator[str, None, None]:
         yield _sse("console_complete", {"command": f"/why {ticker}", "cached": True})
         return
 
-    take = run_quick_take(ticker)
+    take = agent_loop.run_quick_take(ticker)
     db.save_hypothesis(
         ticker=ticker, content_md=take.get("why_md", ""),
         cost_usd=take.get("cost_usd", 0.0), evidence_refs=take.get("evidence_refs", []),
