@@ -2,20 +2,35 @@ import { useState, useEffect } from 'react';
 import { getScreenerFields } from '../../utils/api';
 
 const OPS = ['>', '>=', '<', '<=', '=', '!='];
+const PATTERN_OPS = ['is', 'is_not'];
 const BOOLEAN_FIELDS = new Set(['ma_50_above_ma_200', 'above_50ma', 'above_200ma']);
 const UNIVERSES = ['themes', 'watchlist', 'sp500'];
 
-function RuleRow({ rule, fields, onChange, onRemove }) {
+function RuleRow({ rule, fields, patterns, onChange, onRemove }) {
     const isBool = BOOLEAN_FIELDS.has(rule.field);
+    const isPattern = rule.field === 'pattern';
+
+    const onFieldChange = (field) => {
+        if (field === 'pattern') {
+            onChange({ field, op: 'is', value: patterns[0] || 'head_shoulders' });
+        } else {
+            onChange({ ...rule, field, op: rule.op === 'is' || rule.op === 'is_not' ? '<' : rule.op });
+        }
+    };
+
     return (
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-            <select className="select" value={rule.field} onChange={e => onChange({ ...rule, field: e.target.value })} style={{ maxWidth: 220 }}>
+            <select className="select" value={rule.field} onChange={e => onFieldChange(e.target.value)} style={{ maxWidth: 220 }}>
                 {fields.map(f => <option key={f} value={f}>{f}</option>)}
             </select>
-            <select className="select" value={rule.op} onChange={e => onChange({ ...rule, op: e.target.value })} style={{ maxWidth: 70 }}>
-                {OPS.map(o => <option key={o} value={o}>{o}</option>)}
+            <select className="select" value={rule.op} onChange={e => onChange({ ...rule, op: e.target.value })} style={{ maxWidth: 80 }}>
+                {(isPattern ? PATTERN_OPS : OPS).map(o => <option key={o} value={o}>{o}</option>)}
             </select>
-            {isBool ? (
+            {isPattern ? (
+                <select className="select" value={rule.value} onChange={e => onChange({ ...rule, value: e.target.value })} style={{ maxWidth: 180 }}>
+                    {patterns.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+            ) : isBool ? (
                 <select className="select" value={String(rule.value)} onChange={e => onChange({ ...rule, value: e.target.value === 'true' })} style={{ maxWidth: 90 }}>
                     <option value="true">true</option>
                     <option value="false">false</option>
@@ -32,9 +47,13 @@ function RuleRow({ rule, fields, onChange, onRemove }) {
 
 export default function RulesBuilder({ spec, onChange, onRun, running }) {
     const [fields, setFields] = useState(['rsi', 'forward_pe', 'yoy_revenue_growth', 'ma_50_above_ma_200']);
+    const [patterns, setPatterns] = useState([]);
 
     useEffect(() => {
-        getScreenerFields().then(res => setFields(res.fields || fields)).catch(() => {});
+        getScreenerFields().then(res => {
+            setFields(res.fields || fields);
+            setPatterns(res.patterns || []);
+        }).catch(() => {});
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -59,10 +78,17 @@ export default function RulesBuilder({ spec, onChange, onRun, running }) {
                     <option value="AND">AND</option>
                     <option value="OR">OR</option>
                 </select>
+                {spec.universe === 'sp500' && (
+                    <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5 }}
+                        title="Technical/pattern rules over the full S&P 500 require a live scan (slower).">
+                        <input type="checkbox" checked={!!spec.scan} onChange={e => onChange({ ...spec, scan: e.target.checked })} />
+                        scan (slow)
+                    </label>
+                )}
             </div>
 
             {spec.rules.map((r, i) => (
-                <RuleRow key={i} rule={r} fields={fields} onChange={(rule) => updateRule(i, rule)} onRemove={() => removeRule(i)} />
+                <RuleRow key={i} rule={r} fields={fields} patterns={patterns} onChange={(rule) => updateRule(i, rule)} onRemove={() => removeRule(i)} />
             ))}
 
             <div style={{ display: 'flex', gap: 8, marginTop: 'var(--spacing-sm)' }}>

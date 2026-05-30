@@ -201,7 +201,8 @@ export const getChart = (ticker, range = '1y', interval = '') => {
     return apiFetch(`${API_BASE}/chart/${encodeURIComponent(ticker)}?${qs}`);
 };
 
-export const getThemeHeat = () => apiFetch(`${API_BASE}/terminal/theme-heat`);
+export const getThemeHeat = (universe = 'themes') =>
+    apiFetch(`${API_BASE}/terminal/theme-heat?universe=${encodeURIComponent(universe)}`);
 
 export const getTerminalCatalysts = (days = 7) =>
     apiFetch(`${API_BASE}/terminal/catalysts?days=${days}`);

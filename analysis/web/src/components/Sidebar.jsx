@@ -38,6 +38,15 @@ export default function Sidebar({ currentPage, onNavigate }) {
 
             <div className="sidebar-bottom">
                 <button
+                    id="nav-market"
+                    className="nav-item"
+                    onClick={(e) => { createRipple(e); onNavigate('screener', { preset: 'Momentum Leaders (S&P)' }); }}
+                    title="Broad S&P 500 discovery (opens Screener with a preset)"
+                    style={{ width: '100%' }}
+                >
+                    <span>↗ Market (S&P 500)</span>
+                </button>
+                <button
                     id="nav-docs"
                     className={`nav-item ${currentPage === 'docs' ? 'active' : ''}`}
                     onClick={(e) => { createRipple(e); onNavigate('docs'); }}

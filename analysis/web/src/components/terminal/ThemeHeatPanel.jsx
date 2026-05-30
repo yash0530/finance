@@ -22,12 +22,13 @@ export default function ThemeHeatPanel({ onSelectTicker, area = 'theme-heat' }) 
     const [themes, setThemes] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [universe, setUniverse] = useState('themes');
 
     const load = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const res = await getThemeHeat();
+            const res = await getThemeHeat(universe);
             setThemes(res.data?.themes || []);
             if (res.error && !(res.data?.themes?.length)) setError(res.error);
         } catch (e) {
@@ -35,19 +36,33 @@ export default function ThemeHeatPanel({ onSelectTicker, area = 'theme-heat' }) 
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [universe]);
 
     useEffect(() => { load(); }, [load]);
+
+    const toggle = (
+        <div style={{ display: 'flex', gap: 4 }}>
+            {[['themes', 'My Themes'], ['sp500-sectors', 'S&P Sectors']].map(([id, label]) => (
+                <button
+                    key={id}
+                    className={`btn ${universe === id ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ fontSize: '0.62rem', padding: '2px 7px' }}
+                    onClick={() => setUniverse(id)}
+                >{label}</button>
+            ))}
+        </div>
+    );
 
     return (
         <PanelShell
             id="panel-theme-heat"
             title="Theme Heat"
-            subtitle={`${themes.length} themes`}
+            subtitle={universe === 'sp500-sectors' ? `${themes.length} S&P sectors` : `${themes.length} themes`}
             area={area}
             onRefresh={load}
             loading={loading}
             error={error}
+            actions={toggle}
         >
             {themes.length === 0 && !loading && (
                 <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>No themes defined.</div>

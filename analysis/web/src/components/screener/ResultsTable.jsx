@@ -1,5 +1,13 @@
 export default function ResultsTable({ result, onSelectTicker }) {
     if (!result) return null;
+    if (result.needs_scan) {
+        return (
+            <div className="alert alert-warning" style={{ fontSize: '0.78rem' }}>
+                {result.message || 'Technical/pattern rules over the S&P 500 need a live scan.'}
+                {' '}Enable the <strong>scan (slow)</strong> toggle above and re-run.
+            </div>
+        );
+    }
     if (result.error) {
         return <div className="alert alert-error" style={{ fontSize: '0.78rem' }}>{result.error}</div>;
     }

@@ -15,7 +15,7 @@ const DEFAULT_SPEC = {
 /**
  * Screener — rule-based screening over cached tool data, with saved configs.
  */
-export default function ScreenerPage({ onSelectTicker }) {
+export default function ScreenerPage({ onSelectTicker, presetName }) {
     const [spec, setSpec] = useState(DEFAULT_SPEC);
     const [result, setResult] = useState(null);
     const [running, setRunning] = useState(false);
@@ -23,22 +23,46 @@ export default function ScreenerPage({ onSelectTicker }) {
     const [name, setName] = useState('');
 
     const loadSaved = useCallback(async () => {
-        try { setSaved((await getSavedScreeners()).saved || []); } catch { /* ignore */ }
+        try {
+            const rows = (await getSavedScreeners()).saved || [];
+            setSaved(rows);
+            return rows;
+        } catch { return []; }
     }, []);
 
-    useEffect(() => { loadSaved(); }, [loadSaved]);
-
-    const run = useCallback(async () => {
+    const runSpec = useCallback(async (s) => {
         setRunning(true);
         setResult(null);
         try {
-            setResult(await runScreener(spec));
+            setResult(await runScreener(s));
         } catch (e) {
             setResult({ error: e.message });
         } finally {
             setRunning(false);
         }
-    }, [spec]);
+    }, []);
+
+    const run = useCallback(() => runSpec(spec), [runSpec, spec]);
+
+    const loadAndRun = useCallback((s) => {
+        const next = { universe: 'themes', combine: 'AND', rules: [], ...s };
+        setSpec(next);
+        runSpec(next);
+    }, [runSpec]);
+
+    useEffect(() => { loadSaved(); }, [loadSaved]);
+
+    // Deep-link from the sidebar Market shortcut: load + auto-run a named preset.
+    useEffect(() => {
+        if (!presetName) return;
+        let cancelled = false;
+        loadSaved().then(rows => {
+            if (cancelled) return;
+            const match = rows.find(s => s.name === presetName);
+            if (match) loadAndRun(match.rules);
+        });
+        return () => { cancelled = true; };
+    }, [presetName, loadSaved, loadAndRun]);
 
     const save = useCallback(async () => {
         const n = name.trim();
@@ -74,7 +98,7 @@ export default function ScreenerPage({ onSelectTicker }) {
                     <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                         {saved.map(s => (
                             <li key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid var(--border-color)' }}>
-                                <button onClick={() => setSpec({ universe: 'themes', combine: 'AND', rules: [], ...s.rules })}
+                                <button onClick={() => loadAndRun(s.rules)}
                                     style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--accent-blue-bright)', fontSize: '0.74rem', textAlign: 'left' }}>
                                     {s.name}
                                 </button>

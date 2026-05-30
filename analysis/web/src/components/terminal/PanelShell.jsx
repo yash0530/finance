@@ -1,6 +1,6 @@
 import RefreshButton from './RefreshButton';
 
-export default function PanelShell({ title, subtitle, area, onRefresh, loading, error, children, id }) {
+export default function PanelShell({ title, subtitle, area, onRefresh, loading, error, children, id, actions }) {
     return (
         <section
             id={id}
@@ -15,7 +15,10 @@ export default function PanelShell({ title, subtitle, area, onRefresh, loading, 
                     <h3 style={{ fontSize: '0.82rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>{title}</h3>
                     {subtitle && <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{subtitle}</div>}
                 </div>
-                {onRefresh && <RefreshButton onClick={onRefresh} loading={loading} />}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {actions}
+                    {onRefresh && <RefreshButton onClick={onRefresh} loading={loading} />}
+                </div>
             </header>
             {error && <div className="alert alert-error" style={{ fontSize: '0.72rem' }}>{error}</div>}
             <div style={{ flex: 1, minHeight: 0, overflow: 'auto', maxHeight: 360 }}>

@@ -66,7 +66,7 @@ export default function App() {
             case 'stock':     return <ErrorBoundary><StockViewPage ticker={params.t} onRunCommand={runCommand} onSelectTicker={selectTicker} /></ErrorBoundary>;
             case 'console':   return <ErrorBoundary><ConsolePage initialCommand={pendingCommand} onCommandConsumed={() => setPendingCommand(null)} /></ErrorBoundary>;
             case 'library':   return <ErrorBoundary><LibraryPage /></ErrorBoundary>;
-            case 'screener':  return <ErrorBoundary><ScreenerPage onSelectTicker={selectTicker} /></ErrorBoundary>;
+            case 'screener':  return <ErrorBoundary><ScreenerPage onSelectTicker={selectTicker} presetName={params.preset} /></ErrorBoundary>;
             case 'settings':  return <ErrorBoundary><SettingsPage /></ErrorBoundary>;
             case 'docs':      return <ErrorBoundary><DocsPage /></ErrorBoundary>;
             default:          return <ErrorBoundary><TerminalPage onSelectTicker={selectTicker} /></ErrorBoundary>;
