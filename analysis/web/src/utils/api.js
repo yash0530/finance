@@ -25,90 +25,9 @@ async function apiFetch(url, options = {}) {
 // Existing S&P 500 Endpoints (unchanged)
 // ──────────────────────────────────────────────────────────
 
-export const fetchCompanies = (sortBy = 'forward_pe', order = 'asc') =>
-    apiFetch(`${API_BASE}/companies?sort_by=${sortBy}&order=${order}`);
-
-export const fetchSectors = () => apiFetch(`${API_BASE}/sectors`);
-
-export const fetchCompaniesBySector = (sector) =>
-    apiFetch(`${API_BASE}/companies/${encodeURIComponent(sector)}`);
-
-export const fetchStats = () => apiFetch(`${API_BASE}/stats`);
-
-export const searchCompanies = (query) =>
-    apiFetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
-
-export const fetchCompanyByTicker = (ticker) =>
-    apiFetch(`${API_BASE}/company/${encodeURIComponent(ticker)}`);
-
-export const refreshData = () =>
-    apiFetch(`${API_BASE}/refresh`, { method: 'POST' });
-
 export const healthCheck = () => apiFetch(`${API_BASE}/health`);
 
 export const getVersion = () => apiFetch(`${API_BASE}/version`);
-
-export const fetchStockHistory = (ticker, refresh = false) =>
-    apiFetch(`${API_BASE}/company/${encodeURIComponent(ticker)}/history${refresh ? '?refresh=true' : ''}`);
-
-export const fetchFinancials = (ticker, refresh = false) =>
-    apiFetch(`${API_BASE}/company/${encodeURIComponent(ticker)}/financials${refresh ? '?refresh=true' : ''}`);
-
-export const fetchSpotlight = () => apiFetch(`${API_BASE}/spotlight`);
-
-export const fetchHeadShouldersPatterns = () =>
-    apiFetch(`${API_BASE}/patterns/head-shoulders`);
-
-export const fetchHeadShouldersForTicker = (ticker) =>
-    apiFetch(`${API_BASE}/patterns/head-shoulders/${encodeURIComponent(ticker)}`);
-
-export async function fetchAllPatternsForTicker(ticker) {
-    const patternTypes = [
-        'head-shoulders', 'inverse-head-shoulders', 'double-top', 'double-bottom',
-        'triple-top', 'triple-bottom', 'ascending-triangle', 'descending-triangle',
-        'cup-and-handle', 'bullish-flag', 'falling-wedge',
-    ];
-    const results = await Promise.all(
-        patternTypes.map(async (type) => {
-            try {
-                const data = await apiFetch(`${API_BASE}/patterns/${type}/${encodeURIComponent(ticker)}`);
-                return data.detected ? data : null;
-            } catch { return null; }
-        })
-    );
-    return results.filter(Boolean).sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
-}
-
-// ──────────────────────────────────────────────────────────
-// Portfolio
-// ──────────────────────────────────────────────────────────
-
-export const getPortfolioStatus = () => apiFetch(`${API_BASE}/portfolio/status`);
-
-export const connectRobinhood = (username, password, otp) =>
-    apiFetch(`${API_BASE}/portfolio/connect`, {
-        method: 'POST',
-        body: JSON.stringify({ username, password, otp }),
-    });
-
-export const disconnectRobinhood = () =>
-    apiFetch(`${API_BASE}/portfolio/disconnect`, { method: 'POST' });
-
-export const syncPortfolio = () =>
-    apiFetch(`${API_BASE}/portfolio/sync`, { method: 'POST' });
-
-export const importPortfolioCSV = (csv) =>
-    apiFetch(`${API_BASE}/portfolio/import`, {
-        method: 'POST',
-        body: JSON.stringify({ csv }),
-    });
-
-export const getPortfolioHoldings = () => apiFetch(`${API_BASE}/portfolio/holdings`);
-export const getPortfolioSummary = () => apiFetch(`${API_BASE}/portfolio/summary`);
-
-
-
-// ──────────────────────────────────────────────────────────
 
 
 // ──────────────────────────────────────────────────────────
@@ -123,13 +42,6 @@ export const getDoc = (slug) =>
 // ──────────────────────────────────────────────────────────
 // Research
 // ──────────────────────────────────────────────────────────
-
-
-
-export const getSectorResearch = (sector) =>
-    apiFetch(`${API_BASE}/research/sector/${encodeURIComponent(sector)}`);
-
-
 
 export const getResearchHistory = (ticker, limit = 10) =>
     apiFetch(`${API_BASE}/research/reports/${encodeURIComponent(ticker)}?limit=${limit}`);
@@ -425,6 +337,17 @@ export const saveScreener = (name, rules) =>
 
 export const deleteSavedScreener = (id) =>
     apiFetch(`${API_BASE}/screener/saved/${id}`, { method: 'DELETE' });
+
+// ──────────────────────────────────────────────────────────
+// Settings — data tier + dashboard layout
+// ──────────────────────────────────────────────────────────
+
+export const getDataTier = () => apiFetch(`${API_BASE}/settings/data-tier`);
+
+export const getDashboardLayout = () => apiFetch(`${API_BASE}/dashboard/layout`);
+
+export const saveDashboardLayout = (layout) =>
+    apiFetch(`${API_BASE}/dashboard/layout`, { method: 'POST', body: JSON.stringify({ layout }) });
 
 // ──────────────────────────────────────────────────────────
 // LLM Settings

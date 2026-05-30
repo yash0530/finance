@@ -847,18 +847,9 @@ def _detect_all_patterns(prices: list, dates: list) -> List[Dict]:
     """Run all 11 pattern detectors and return detected patterns."""
     detected = []
     try:
-        # Import pattern detection functions from the existing app.py
-        # We use a lazy import to avoid circular deps
-        import importlib.util
-        import sys
-
-        # Try to import detection functions from app module if already loaded
-        app_module = sys.modules.get("__main__") or sys.modules.get("app")
-
-        # Pattern detectors to try
         detectors = []
         try:
-            from app import (
+            from pattern_detectors import (
                 detect_head_and_shoulders,
                 detect_inverse_head_shoulders,
                 detect_double_top,

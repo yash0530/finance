@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from app import (
+from pattern_detectors import (
     detect_head_and_shoulders,
     detect_inverse_head_shoulders,
     detect_double_top,

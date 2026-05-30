@@ -250,3 +250,42 @@ def test_console_run_streams_unknown_command(client):
     text = res.get_data(as_text=True)
     assert "console_start" in text
     assert "console_error" in text
+
+
+def test_data_tier_endpoint_free_default(client, monkeypatch):
+    for k in ("FMP_API_KEY", "UNUSUAL_WHALES_API_KEY", "POLYGON_API_KEY"):
+        monkeypatch.delenv(k, raising=False)
+    res = client.get("/api/settings/data-tier")
+    assert res.status_code == 200
+    tiers = {t["id"]: t for t in res.get_json()["tiers"]}
+    assert tiers["free"]["active"] is True
+    assert tiers["uw"]["active"] is False
+    assert tiers["polygon"]["active"] is False
+
+
+def test_data_tier_endpoint_reflects_env(client, monkeypatch):
+    monkeypatch.setenv("UNUSUAL_WHALES_API_KEY", "fake")
+    res = client.get("/api/settings/data-tier")
+    tiers = {t["id"]: t for t in res.get_json()["tiers"]}
+    assert tiers["uw"]["active"] is True
+    # Secret value is never returned.
+    assert "fake" not in res.get_data(as_text=True)
+
+
+def test_dashboard_layout_roundtrip(client):
+    conn = db.get_connection()
+    try:
+        conn.execute("DELETE FROM dashboard_layout")
+        conn.commit()
+    finally:
+        conn.close()
+
+    order = ["news-tape", "movers", "flow"]
+    assert client.post("/api/dashboard/layout", json={"layout": order}).status_code == 200
+    body = client.get("/api/dashboard/layout").get_json()
+    assert body["layout"] == order
+
+
+def test_dashboard_layout_requires_layout(client):
+    res = client.post("/api/dashboard/layout", json={})
+    assert res.status_code == 400

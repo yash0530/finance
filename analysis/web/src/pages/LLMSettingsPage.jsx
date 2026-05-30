@@ -30,7 +30,7 @@ const PROVIDERS = [
     },
 ];
 
-export default function LLMSettingsPage() {
+export default function LLMSettingsPage({ embedded = false }) {
     const [settings, setSettings] = useState({ provider: 'ollama', model_fast: 'llama3.2', model_deep: 'llama3.2', base_url: 'http://localhost:11434' });
     const [apiKey, setApiKey]     = useState('');
     const [saving, setSaving]     = useState(false);
@@ -71,12 +71,14 @@ export default function LLMSettingsPage() {
 
     return (
         <div className="fade-in">
-            <div className="page-header">
-                <div>
-                    <h1 className="page-title">LLM Settings</h1>
-                    <p className="page-subtitle">Configure the AI provider for research and thesis generation</p>
+            {!embedded && (
+                <div className="page-header">
+                    <div>
+                        <h1 className="page-title">LLM Settings</h1>
+                        <p className="page-subtitle">Configure the AI provider for research and thesis generation</p>
+                    </div>
                 </div>
-            </div>
+            )}
 
             <div className="grid grid-2" style={{ gap: 'var(--spacing-xl)', alignItems: 'start' }}>
                 {/* Provider selector */}

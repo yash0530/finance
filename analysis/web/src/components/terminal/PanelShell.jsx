@@ -5,7 +5,7 @@ export default function PanelShell({ title, subtitle, area, onRefresh, loading, 
         <section
             id={id}
             className="glass-card"
-            style={{ gridArea: area, display: 'flex', flexDirection: 'column', minHeight: 0, cursor: 'default' }}
+            style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%', cursor: 'default' }}
         >
             <header style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -18,7 +18,7 @@ export default function PanelShell({ title, subtitle, area, onRefresh, loading, 
                 {onRefresh && <RefreshButton onClick={onRefresh} loading={loading} />}
             </header>
             {error && <div className="alert alert-error" style={{ fontSize: '0.72rem' }}>{error}</div>}
-            <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+            <div style={{ flex: 1, minHeight: 0, overflow: 'auto', maxHeight: 360 }}>
                 {children}
             </div>
         </section>

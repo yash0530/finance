@@ -2,9 +2,11 @@
 
 React 18 + Vite. Single-page app. Dark terminal aesthetic.
 
-## Current pages
+## Current pages (Edge v3)
 
-`Advisor` · `Portfolio` · `Deep Research` · `History` · `Rebalance` · `Calibration` · `S&P 500` · `Docs` · `LLM Settings`
+`Terminal` (#terminal, default) · `Stock View` (#stock?t=) · `Console` (#console) · `Library` (#library) · `Screener` (#screener) · `Settings` (#settings) · `Docs` (footer)
+
+Routing is hash-based via `src/hooks/useHashRoute.js` — no router dependency. `App.jsx` maps `page` → component.
 
 ## Page wiring
 
@@ -17,7 +19,7 @@ React 18 + Vite. Single-page app. Dark terminal aesthetic.
 
 **All HTTP goes through `src/utils/api.js`.** Components never call `fetch()` directly. Add new endpoints as exported functions in that file. Keep request/response shapes documented in `analysis/docs/next_gen_tool.md` §20.
 
-For SSE endpoints, mirror the event-type taxonomy from the spec. See `streamDeepResearchV2` in `api.js` as the canonical pattern.
+For SSE endpoints, mirror the event-type taxonomy from the spec. `streamDeepResearch` (GET/EventSource) and `streamConsole` (POST/fetch-reader) in `api.js` are the canonical patterns.
 
 ## Citation chips (Phase 7 — pending)
 

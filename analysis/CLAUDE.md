@@ -6,27 +6,28 @@
 
 | Module | Owns |
 |---|---|
-| `app.py` | Flask routes (quick + deep research). Routes only; logic delegated to services. |
+| `app.py` | Flask routes (terminal, stock view, console, themes, screener, library, deep-research, settings, docs). Routes only; logic delegated to services. |
 | `db.py` | SQLite schema, connection helper, all CRUD. Single source of truth for tables. |
-| `agent_loop.py` | Deep research orchestrator: planner → executor → debate → memo synth, SSE streaming |
-| `agents/` | LLM-facing reasoning agents (bull, bear, judge, self_critique, planner, memo_synth) |
+| `agent_loop.py` | Deep research orchestrator: planner → executor → debate → memo synth, SSE streaming. Also `run_quick_take` (the /why path). |
+| `console_orchestrator.py` | Slash-command dispatcher (/thesis, /dossier, /why, /theme, /compare) → SSE |
+| `agents/` | LLM-facing reasoning agents (bull, bear, judge, self_critique, planner, memo_synth, quick_take, compare_synth) |
 | `tools/` | Data-fetch + computation Tools (citation-aware, budget-aware) |
 | `analyzers/` | Per-sector specialization (KPI templates, peer cohorts, prompt prefixes) |
 | `living_memo.py` | Per-ticker evolving memo + diff/render helpers |
 | `sector_router.py` | Ticker → sector classification (rule-based, cached) |
+| `themes_service.py` · `seed_themes.py` | Theme packs (membership, scan universe, idempotent default seed) |
+| `screener_engine.py` | Rule-based screener over cached tool data |
 | `llm_service.py` | Multi-provider LLM abstraction (Claude / Gemini / Ollama) |
-| `research_engine.py` | Fixed pipeline fetch helpers — preserved as Tool dependencies, not extended |
-| `portfolio_service.py` | Robinhood RAM-session + CSV ingestion, P&L enrichment. **No disk token caching** (`store_session=False`). |
+| `research_engine.py` | Fetch helpers — **preserved as Tool dependencies** (fundamentals, technicals, financial_trends, dcf, peer_compare). Not a dead pipeline. |
+| `pattern_detectors.py` | Pure chart-pattern geometry (used by `technicals` via research_engine) |
 | `sentiment_service.py` | Finnhub + Reddit + yfinance composite |
-| `edgar_service.py` | SEC 10-K/10-Q fetch + section extraction |
-| `rebalancing_engine.py` | Risk-profile portfolio analysis |
-| `companies.py` | S&P 500 batch fetch (legacy) |
+| `edgar_service.py` | SEC 10-K/10-Q fetch + section extraction + `list_recent_filings` |
 
 ## Research surface
 
 One primary research path: **Deep Research** — agentic loop in `agent_loop.py`, multi-agent debate in `agents/`, Living Memo in `living_memo.py`, sector analyzers in `analyzers/`. Endpoint: `/api/research/<ticker>/v2/stream`.
 
-`research_engine.py` is preserved as a dependency for Tools (several tools call its fetch helpers) but the dedicated Quick Research UI page and sidebar entry have been removed.
+`research_engine.py` is preserved as a dependency for Tools (several tools call its fetch helpers). In v3 the Deep Research engine is driven from the Console (`console_orchestrator.py`) rather than a dedicated page.
 
 ## Citation contract
 
@@ -67,6 +68,6 @@ Don't add LLM calls outside `agent_loop`'s budget tracking.
 
 ## What NOT to touch
 
-- `research_engine.py` core functions (`fetch_fundamentals`, `fetch_financial_trends`, etc.) — wrapped as Tools; the originals stay.
+- `research_engine.py` core functions (`fetch_fundamentals`, `fetch_financial_trends`, `fetch_technicals`, `compute_intrinsic_value`, `get_peer_valuation`) — wrapped as Tools; the originals stay.
+- `pattern_detectors.py` — imported by `research_engine._detect_all_patterns` for the `technicals` tool.
 - Existing DB schema in `db.py.init_db()` — additive only.
-- `portfolio_service._cleanup_disk_tokens()` and `store_session=False` in `connect_robinhood()` — Robinhood tokens must never hit disk.

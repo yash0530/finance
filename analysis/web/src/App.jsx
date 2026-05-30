@@ -10,7 +10,7 @@ const StockViewPage  = lazy(() => import('./pages/StockViewPage'));
 const ConsolePage    = lazy(() => import('./pages/ConsolePage'));
 const LibraryPage    = lazy(() => import('./pages/LibraryPage'));
 const ScreenerPage   = lazy(() => import('./pages/ScreenerPage'));
-const SettingsPage   = lazy(() => import('./pages/LLMSettingsPage'));
+const SettingsPage   = lazy(() => import('./pages/SettingsPage'));
 const DocsPage       = lazy(() => import('./pages/DocsPage'));
 
 function PageLoader() {

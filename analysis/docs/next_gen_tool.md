@@ -942,3 +942,37 @@ rules. No LLM; no new network beyond the tools' own (cached) fetches.
 typed rule rows; boolean fields get a true/false select) and `ResultsTable`
 (matched tickers with the evaluated field values; ticker links open Stock View).
 Saved screens persist the full spec and reload into the builder.
+
+## 32. Phase 6 — Cleanup + data-tier toggles (shipped)
+
+**Deletions.** Removed the legacy S&P 500 scanner, portfolio, spotlight, and
+pattern HTTP routes from `app.py` (3337 → ~1100 lines) plus `companies.py`,
+`portfolio_service.py`, and the dead frontend pages/components
+(`PortfolioPage`, `MarketPage`, `DeepResearchPage`, and the
+Spotlight/HeadShoulders/TechnicalPatterns/CompanyTable/CompanyDetail/SectorChart/
+Dashboard/AllocationChart/SearchBar/PatternVisualization components).
+
+**Deviation from the plan (flagged):** the plan listed `research_engine.py` for
+deletion as "legacy v1 pipeline dead." It is NOT dead — five preserved tools
+(`fundamentals`, `technicals`, `financial_trends`, `dcf_valuation`,
+`peer_compare`) call its fetch helpers, and `analysis/CLAUDE.md` explicitly
+protects it. Deleting it would break the tool layer and the Console. It is
+**kept**. The pure chart-pattern detectors that lived in `app.py` (and were
+imported by `research_engine._detect_all_patterns` for the `technicals` tool)
+were extracted to a new `pattern_detectors.py` so the scanner's HTTP routes
+could be removed without breaking the brain.
+
+**Data-tier badges.** `GET /api/settings/data-tier` reports which tiers are live
+from `os.environ` (free / +FMP / +UW / +Polygon) without returning any secret
+value. `SettingsPage` renders them under a Data Tiers tab.
+
+**Themes editor.** `SettingsPage` Themes tab (create/delete themes, add/remove
+tickers) over the Phase 2 theme CRUD endpoints.
+
+**Dashboard layout.** `dashboard_layout` table + `GET/POST /api/dashboard/layout`.
+`TerminalPage` panels are drag-to-reorder; the order persists and is
+forward-compatible (unknown saved panels dropped, new panels appended).
+
+After Phase 6 the app boots clean with no portfolio/monitoring/scanner code; the
+deep-research brain (`agent_loop`, `agents/`, `tools/`, `living_memo`, analyzers)
+is byte-for-byte the same engine, now fronted by the Edge terminal.
