@@ -436,7 +436,7 @@ A daily background job (`monitoring_worker.py`) for each *owned position*:
 1. Re-runs cheap tools (price action, new filings, insider, news)
 2. Compares to last memo
 3. If material change → flag in a daily digest
-4. If `what_would_change_mind` condition triggered → urgent alert
+4. If `what_would_change_mind` condition triggered → decay notification
 
 ## 18. Conversational follow-up
 

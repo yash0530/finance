@@ -330,8 +330,8 @@ def get_open_questions(memo: Dict[str, Any]) -> List[str]:
 def get_falsifiability_conditions(memo: Dict[str, Any]) -> List[str]:
     """Extract `what_would_change_mind` conditions from the anti_thesis section.
 
-    Used by the monitoring daemon to know which observations should fire an
-    urgent alert.
+    Used by the monitoring daemon to know which observations should fire a
+    decay notification.
     """
     sections = _coerce_to_sections(memo)
     section = sections.get("anti_thesis") or {}
@@ -399,3 +399,50 @@ def stamp_section(section: Dict[str, Any]) -> Dict[str, Any]:
     out = dict(section)
     out["last_updated"] = datetime.now().isoformat()
     return out
+
+
+# ============================================================================
+# Staging operations
+# ============================================================================
+
+def save_staged(
+    ticker: str,
+    content_json: Dict[str, Any],
+    delta_summary: Optional[str] = None,
+    source_report_id: Optional[str] = None,
+) -> None:
+    """Save a new staged memo version to the staging table."""
+    content_json = _ensure_all_sections(content_json)
+    db.save_staged_memo(
+        ticker=ticker,
+        content_json=content_json,
+        delta_summary=delta_summary,
+        source_report_id=source_report_id,
+    )
+
+
+def get_staged(ticker: str) -> Optional[Dict[str, Any]]:
+    """Retrieve the staged memo for a ticker, or None if not found."""
+    return db.get_staged_memo(ticker)
+
+
+def accept_staged(ticker: str) -> int:
+    """Load the staged memo, save it as the current active version, and delete it from staging."""
+    staged = get_staged(ticker)
+    if not staged:
+        raise ValueError(f"No staged memo found for ticker {ticker}")
+
+    new_version = save(
+        ticker=ticker,
+        content_json=staged["content_json"],
+        delta_summary=staged.get("delta_summary") or "",
+        source_report_id=staged.get("source_report_id"),
+        user_edited=False,
+    )
+    discard_staged(ticker)
+    return new_version
+
+
+def discard_staged(ticker: str) -> None:
+    """Delete the staged memo for a ticker."""
+    db.delete_staged_memo(ticker)

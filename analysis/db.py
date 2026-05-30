@@ -143,6 +143,14 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_memo_versions_ticker
                 ON living_memo_versions(ticker);
 
+            CREATE TABLE IF NOT EXISTS living_memo_staged (
+                ticker           TEXT PRIMARY KEY,
+                content_json     TEXT NOT NULL,
+                delta_summary    TEXT,
+                source_report_id TEXT,
+                staged_at        TEXT NOT NULL
+            );
+
             -- Audit log: every tool call in a research session
             CREATE TABLE IF NOT EXISTS tool_call_log (
                 id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -599,6 +607,43 @@ def get_all_research_reports(limit: int = 50) -> List[Dict]:
         conn.close()
 
 
+def delete_research_report(report_id: str) -> bool:
+    """Delete a research report and its associated logs, recommendations, and references."""
+    conn = get_connection()
+    try:
+        exists = conn.execute("SELECT 1 FROM research_reports WHERE id = ?", (report_id,)).fetchone()
+        if not exists:
+            return False
+        conn.execute("DELETE FROM research_reports WHERE id = ?", (report_id,))
+        conn.execute("DELETE FROM tool_call_log WHERE report_id = ?", (report_id,))
+        conn.execute("DELETE FROM recommendations WHERE report_id = ?", (report_id,))
+        conn.execute("UPDATE living_memo_versions SET source_report_id = NULL WHERE source_report_id = ?", (report_id,))
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+def delete_research_reports(report_ids: list) -> int:
+    """Delete multiple research reports and their associated logs, recommendations, and references. Returns count of deleted reports."""
+    if not report_ids:
+        return 0
+    conn = get_connection()
+    try:
+        placeholders = ",".join("?" for _ in report_ids)
+        count = conn.execute(f"SELECT COUNT(*) FROM research_reports WHERE id IN ({placeholders})", tuple(report_ids)).fetchone()[0]
+        if count == 0:
+            return 0
+        conn.execute(f"DELETE FROM research_reports WHERE id IN ({placeholders})", tuple(report_ids))
+        conn.execute(f"DELETE FROM tool_call_log WHERE report_id IN ({placeholders})", tuple(report_ids))
+        conn.execute(f"DELETE FROM recommendations WHERE report_id IN ({placeholders})", tuple(report_ids))
+        conn.execute(f"UPDATE living_memo_versions SET source_report_id = NULL WHERE source_report_id IN ({placeholders})", tuple(report_ids))
+        conn.commit()
+        return count
+    finally:
+        conn.close()
+
+
 # ============================================================================
 # Living Memo
 # ============================================================================
@@ -694,6 +739,65 @@ def get_memo_version(ticker: str, version: int) -> Optional[Dict]:
         d = dict(row)
         d["content_json"] = json.loads(d["content_json"])
         return d
+    finally:
+        conn.close()
+
+
+# ============================================================================
+# Living Memo Staging
+# ============================================================================
+
+def save_staged_memo(
+    ticker: str,
+    content_json: Dict,
+    delta_summary: Optional[str] = None,
+    source_report_id: Optional[str] = None,
+) -> None:
+    """Save or overwrite a staged memo in living_memo_staged."""
+    conn = get_connection()
+    try:
+        ticker = ticker.upper()
+        now = datetime.now().isoformat()
+        json_str = json.dumps(content_json, default=str)
+        conn.execute(
+            """INSERT INTO living_memo_staged (ticker, content_json, delta_summary, source_report_id, staged_at)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(ticker) DO UPDATE SET
+                 content_json = excluded.content_json,
+                 delta_summary = excluded.delta_summary,
+                 source_report_id = excluded.source_report_id,
+                 staged_at = excluded.staged_at""",
+            (ticker, json_str, delta_summary, source_report_id, now)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_staged_memo(ticker: str) -> Optional[Dict]:
+    """Retrieve the staged memo for a ticker, returning a dict with parsed content_json, or None."""
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM living_memo_staged WHERE ticker = ?", (ticker.upper(),)
+        ).fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        d["content_json"] = json.loads(d["content_json"])
+        return d
+    finally:
+        conn.close()
+
+
+def delete_staged_memo(ticker: str) -> None:
+    """Delete the staged memo for a ticker if it exists."""
+    conn = get_connection()
+    try:
+        conn.execute(
+            "DELETE FROM living_memo_staged WHERE ticker = ?", (ticker.upper(),)
+        )
+        conn.commit()
     finally:
         conn.close()
 

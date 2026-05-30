@@ -10,10 +10,11 @@ Agentic loop for deep research:
   5. Re-plan until done / budget / iteration limit hit
   6. Bull agent argues
   7. Bear agent argues + attacks bull
-  8. Judge produces structured verdict + trade plan
-  9. Self-critique reviews verdict — may trigger an extra planner round
- 10. Memo synthesizer proposes Living Memo delta
- 11. Persist: report, tool log, recommendation, memo version
+  8. Bull rebuts Bear attacks
+  9. Judge weighs all four inputs and produces structured verdict + trade plan
+ 10. Self-critique reviews verdict — may trigger revised Judge pass
+ 11. Memo synthesizer proposes Living Memo delta in staged state
+ 12. Persist: report, tool log, recommendation, memo version
 
 Two entry points:
   run_deep_research(...)  — synchronous, returns the full report
@@ -43,7 +44,7 @@ logger = logging.getLogger(__name__)
 BUDGET_PROFILES = {
     "quick":  Budget(max_usd=0.10, max_wall_clock_sec=60),
     "normal": Budget(max_usd=0.60, max_wall_clock_sec=180),
-    "deep":   Budget(max_usd=2.00, max_wall_clock_sec=420),
+    "deep":   Budget(max_usd=15.00, max_wall_clock_sec=1800), # Maximum depth: $15 soft cap, 30 min wall clock
 }
 
 # Providers whose output is NOT persisted to the recommendations table by default.
@@ -204,7 +205,7 @@ def stream_deep_research(
 
     Yields strings in SSE format. The final event is `report_complete`.
     """
-    from agents import planner, bull, bear, judge, self_critique
+    from agents import planner, bull, bear, judge, self_critique, bull_rebuttal
     from db import (
         log_tool_call, save_research_report, save_recommendation, get_llm_settings,
     )
@@ -340,6 +341,15 @@ def stream_deep_research(
     )
     yield _sse("debate_turn", {"agent": "bear", "output": bear_thesis})
 
+    # ── Debate: Bull Rebuttal ────────────────────────────────
+    yield _sse("debate_start", {"phase": "bull_rebuttal"})
+    rebuttal = bull_rebuttal.rebut(
+        ticker=ticker, ledger=ledger, bull=bull_thesis, bear=bear_thesis,
+        sector_prompt_prefix=sector_info["prompt_prefix"],
+        memo_summary=memo_summary,
+    )
+    yield _sse("debate_turn", {"agent": "bull_rebuttal", "output": rebuttal})
+
     # ── Judge ──────────────────────────────────────────────
     yield _sse("debate_start", {"phase": "judge"})
     # Get current price from fundamentals if available; fall back to 0
@@ -350,7 +360,7 @@ def stream_deep_research(
 
     verdict = judge.synthesize(
         ticker=ticker, ledger=ledger,
-        bull=bull_thesis, bear=bear_thesis,
+        bull=bull_thesis, bear=bear_thesis, bull_rebuttal=rebuttal,
         current_price=current_price,
         sector_prompt_prefix=sector_info["prompt_prefix"],
         memo_summary=memo_summary,
@@ -363,7 +373,22 @@ def stream_deep_research(
     critique = self_critique.critique(ticker=ticker, verdict=verdict, ledger=ledger)
     yield _sse("self_critique", critique)
 
-    # ── Memo synthesis (best-effort; module may not exist yet) ──
+    # ── Self-critique Revision Loop ─────────────────────────
+    if critique.get("should_revise_verdict"):
+        yield _sse("debate_start", {"phase": "judge_revision"})
+        # Synthesize revised verdict incorporating critique feedback
+        revised_prompt_prefix = sector_info["prompt_prefix"] + f"\n\nREVISION REQUEST FROM RISK OFFICER:\n{critique.get('revision_suggestion', '')}\n\nPlease revise the verdict to address this critique."
+        verdict = judge.synthesize(
+            ticker=ticker, ledger=ledger,
+            bull=bull_thesis, bear=bear_thesis, bull_rebuttal=rebuttal,
+            current_price=current_price,
+            sector_prompt_prefix=revised_prompt_prefix,
+            memo_summary=memo_summary,
+            portfolio_context=portfolio_context,
+        )
+        yield _sse("debate_complete", {"verdict": verdict, "revised": True})
+
+    # ── Memo synthesis ──────────────────────────────────────
     memo_delta = None
     try:
         from agents import memo_synth
@@ -371,19 +396,18 @@ def stream_deep_research(
             ticker=ticker, old_memo=memo.get("content_json", {}),
             evidence_ledger=ledger, verdict=verdict,
         )
-        # Persist proposed new memo (auto-accept for now; UI can override later)
+        # Persist proposed new memo to staged state instead of head active version
         try:
             import living_memo
-            new_version = living_memo.save(
+            living_memo.save_staged(
                 ticker=ticker,
                 content_json=memo_delta.get("new_memo", memo.get("content_json", {})),
                 delta_summary=memo_delta.get("delta_summary", ""),
                 source_report_id=report_id,
-                user_edited=False,
             )
-            memo_delta["new_version"] = new_version
+            memo_delta["staged"] = True
         except Exception as e:
-            logger.warning(f"Failed to persist memo delta: {e}")
+            logger.warning(f"Failed to persist staged memo delta: {e}")
             memo_delta["persistence_error"] = str(e)
         yield _sse("memo_delta_proposed", memo_delta)
     except ImportError:
@@ -429,6 +453,7 @@ def stream_deep_research(
         "evidence": ledger.to_dict(),
         "bull_thesis": bull_thesis,
         "bear_thesis": bear_thesis,
+        "bull_rebuttal": rebuttal,
         "verdict": verdict,
         "self_critique": critique,
         "memo_delta": memo_delta,

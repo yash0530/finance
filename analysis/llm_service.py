@@ -19,6 +19,8 @@ import json
 import re
 import logging
 import time
+import random
+from functools import wraps
 from abc import ABC, abstractmethod
 from contextvars import ContextVar
 from datetime import datetime
@@ -94,6 +96,40 @@ def _route_model(task_type: str, settings: Dict) -> str:
 
 
 # ============================================================================
+# Retry Decorator with Exponential Backoff
+# ============================================================================
+
+def with_exponential_backoff(max_retries: int = 25, base_delay: float = 1.0, factor: float = 2.0, max_delay: float = 15.0):
+    """Decorator to retry flaky LLM/network calls with exponential backoff and jitter."""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            delay = base_delay
+            for attempt in range(max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    if attempt == max_retries:
+                        logger.error(f"Failed after {max_retries} retries. Error: {e}")
+                        raise
+                    
+                    # Randomized jitter (+/- 10% to prevent thunderous herds)
+                    jitter = delay * random.uniform(-0.1, 0.1)
+                    sleep_time = max(0.0, delay + jitter)
+                    
+                    logger.warning(
+                        f"Attempt {attempt + 1}/{max_retries + 1} failed with error: {e}. "
+                        f"Retrying in {sleep_time:.2f}s..."
+                    )
+                    time.sleep(sleep_time)
+                    
+                    # Update delay for next attempt, capped at max_delay
+                    delay = min(max_delay, delay * factor)
+        return wrapper
+    return decorator
+
+
+# ============================================================================
 # Provider Implementations
 # ============================================================================
 
@@ -127,6 +163,7 @@ class ClaudeProvider(BaseLLMProvider):
                 "anthropic package not installed. Run: pip install anthropic"
             )
 
+    @with_exponential_backoff()
     def complete(self, system_prompt: str, user_prompt: str, model: str) -> str:
         message = self._client.messages.create(
             model=model,
@@ -135,6 +172,10 @@ class ClaudeProvider(BaseLLMProvider):
             messages=[{"role": "user", "content": user_prompt}]
         )
         return message.content[0].text
+
+    @with_exponential_backoff()
+    def complete_json(self, system_prompt: str, user_prompt: str, model: str) -> Dict:
+        return super().complete_json(system_prompt, user_prompt, model)
 
 
 class GeminiProvider(BaseLLMProvider):
@@ -150,6 +191,7 @@ class GeminiProvider(BaseLLMProvider):
                 "google-generativeai not installed. Run: pip install google-generativeai"
             )
 
+    @with_exponential_backoff()
     def complete(self, system_prompt: str, user_prompt: str, model: str) -> str:
         gem_model = self._genai.GenerativeModel(
             model_name=model,
@@ -157,6 +199,10 @@ class GeminiProvider(BaseLLMProvider):
         )
         response = gem_model.generate_content(user_prompt)
         return response.text
+
+    @with_exponential_backoff()
+    def complete_json(self, system_prompt: str, user_prompt: str, model: str) -> Dict:
+        return super().complete_json(system_prompt, user_prompt, model)
 
 
 class OllamaProvider(BaseLLMProvider):
@@ -167,6 +213,7 @@ class OllamaProvider(BaseLLMProvider):
         self._requests = requests
         self._base_url = base_url.rstrip("/")
 
+    @with_exponential_backoff()
     def complete(self, system_prompt: str, user_prompt: str, model: str) -> str:
         payload = {
             "model": model,
@@ -183,6 +230,10 @@ class OllamaProvider(BaseLLMProvider):
         )
         resp.raise_for_status()
         return resp.json()["message"]["content"]
+
+    @with_exponential_backoff()
+    def complete_json(self, system_prompt: str, user_prompt: str, model: str) -> Dict:
+        return super().complete_json(system_prompt, user_prompt, model)
 
 
 # ============================================================================
@@ -318,56 +369,56 @@ def generate_thesis(context_bundle: Dict, on_progress=None) -> Dict:
     if on_progress:
         on_progress("bull", "Drafting Bull Case (Optimistic projection)...")
     bull_prompt = f"""Analyze this stock and draft a highly optimistic BULL CASE.
-Focus on the best possible outcomes for growth, margins, and market share.
-Ignore risks for now.
+    Focus on the best possible outcomes for growth, margins, and market share.
+    Ignore risks for now.
 
-CONTEXT:
-{context_str}
+    CONTEXT:
+    {context_str}
 
-Return ONLY plain text paragraphs (no json, no markdown headers)."""
+    Return ONLY plain text paragraphs (no json, no markdown headers)."""
     bull_thesis = provider.complete("You are an optimistic hedge fund manager.", bull_prompt, model)
     
     # Pass 2: Devil's Advocate
     if on_progress:
         on_progress("bear", "Drafting Devil's Advocate (Attacking the Bull Case)...")
     bear_prompt = f"""You are a skeptical short-seller. Read this Bull Case and destroy it.
-Highlight valuation risks, macro headwinds, competition, and flaws in the bullish logic.
+    Highlight valuation risks, macro headwinds, competition, and flaws in the bullish logic.
 
-BULL CASE:
-{bull_thesis}
+    BULL CASE:
+    {bull_thesis}
 
-CONTEXT:
-{context_str}
+    CONTEXT:
+    {context_str}
 
-Return ONLY plain text paragraphs (no json, no markdown headers)."""
+    Return ONLY plain text paragraphs (no json, no markdown headers)."""
     bear_thesis = provider.complete("You are a ruthless short-seller looking for flaws.", bear_prompt, model)
     
     # Pass 3: Final Synthesis
     if on_progress:
         on_progress("synthesis", "Synthesizing final balanced thesis...")
     synth_prompt = f"""You are a senior portfolio manager. Review the Bull Case and the Bear Case.
-Weigh both arguments against the raw data context, and provide a final verdict.
+    Weigh both arguments against the raw data context, and provide a final verdict.
 
-BULL CASE:
-{bull_thesis}
+    BULL CASE:
+    {bull_thesis}
 
-BEAR CASE:
-{bear_thesis}
+    BEAR CASE:
+    {bear_thesis}
 
-RAW CONTEXT:
-{context_str}
+    RAW CONTEXT:
+    {context_str}
 
-Respond ONLY with a JSON object matching this exact schema:
-{{
-  "summary": "<one sentence final verdict>",
-  "bull_case": ["<reason 1>", "<reason 2>", "<reason 3>"],
-  "bear_case": ["<risk 1>", "<risk 2>", "<risk 3>"],
-  "key_catalysts": ["<upcoming event or catalyst>"],
-  "recommendation": "<BUY | HOLD | TRIM | AVOID>",
-  "conviction": "<HIGH | MEDIUM | LOW>",
-  "target_price_range": {{"low": 0, "high": 0, "timeframe": "12 months"}},
-  "action_items": ["<specific actionable step>"]
-}}"""
+    Respond ONLY with a JSON object matching this exact schema:
+    {{
+      "summary": "<one sentence final verdict>",
+      "bull_case": ["<reason 1>", "<reason 2>", "<reason 3>"],
+      "bear_case": ["<risk 1>", "<risk 2>", "<risk 3>"],
+      "key_catalysts": ["<upcoming event or catalyst>"],
+      "recommendation": "<BUY | HOLD | TRIM | AVOID>",
+      "conviction": "<HIGH | MEDIUM | LOW>",
+      "target_price_range": {{"low": 0, "high": 0, "timeframe": "12 months"}},
+      "action_items": ["<specific actionable step>"]
+    }}"""
     
     result = provider.complete_json("You are an objective, data-driven portfolio manager.", synth_prompt, model)
     

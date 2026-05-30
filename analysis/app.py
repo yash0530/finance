@@ -3,7 +3,7 @@
 S&P 500 Analysis Playground + Portfolio Intelligence Tool — Flask Backend API
 
 All original S&P 500 analysis endpoints are preserved.
-New routes for portfolio, research, settings, watchlist, and alerts are added below.
+New routes for portfolio, research, settings, and watchlist are added below.
 """
 
 from flask import Flask, jsonify, request, Response
@@ -2489,32 +2489,6 @@ def portfolio_summary():
     return jsonify(convert_numpy_types(summary))
 
 
-@app.route('/api/portfolio/rebalance', methods=['GET'])
-def portfolio_rebalance():
-    """Holdings × latest Deep Research recommendation → TRIM/ADD/EXIT/HOLD.
-
-    Query params:
-        profile: 'conservative' | 'moderate' | 'aggressive' (default 'moderate')
-    """
-    if not PORTFOLIO_ENABLED:
-        return _portfolio_unavailable()
-
-    import rebalancing_engine
-    profile = request.args.get('profile', 'moderate')
-    holdings = portfolio_svc.get_enriched_holdings()
-    summary = portfolio_svc.get_portfolio_summary(holdings)
-    analysis = rebalancing_engine.analyze_portfolio(holdings, profile)
-
-    return jsonify(convert_numpy_types({
-        'profile': analysis['profile'],
-        'rules': analysis['rules'],
-        'issues': analysis['issues'],
-        'actions': analysis['actions'],
-        'research_coverage': analysis['research_coverage'],
-        'holdings': holdings,
-        'summary': summary,
-    }))
-
 
 # ============================================================================
 # LLM Settings Routes
@@ -2612,6 +2586,30 @@ def get_research_report_by_id(report_id: str):
     if not report:
         return jsonify({'error': f'Report {report_id} not found'}), 404
     return jsonify(convert_numpy_types(report))
+
+
+@app.route('/api/research/report/<report_id>', methods=['DELETE'])
+def delete_research_report_route(report_id: str):
+    """Delete a research report by its UUID."""
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+    success = db.delete_research_report(report_id)
+    if not success:
+        return jsonify({'error': f'Report {report_id} not found'}), 404
+    return jsonify({'success': True, 'message': f'Report {report_id} deleted successfully'})
+
+
+@app.route('/api/research/reports/delete-bulk', methods=['POST'])
+def delete_research_reports_bulk_route():
+    """Delete multiple research reports by their UUIDs."""
+    if not PORTFOLIO_ENABLED:
+        return _portfolio_unavailable()
+    body = request.get_json() or {}
+    report_ids = body.get('report_ids', [])
+    if not report_ids:
+        return jsonify({'error': 'No report_ids provided'}), 400
+    count = db.delete_research_reports(report_ids)
+    return jsonify({'success': True, 'message': f'{count} reports deleted successfully'})
 
 
 @app.route('/api/research/report/<report_id>/drift', methods=['GET'])
@@ -2726,7 +2724,7 @@ def research_v2_stream(ticker):
     except ImportError as e:
         return jsonify({'error': f'Agent loop unavailable: {e}'}), 500
 
-    profile = request.args.get('budget', 'normal')
+    profile = request.args.get('budget', 'deep')
     force = request.args.get('refresh', 'false').lower() == 'true'
 
     # Best-effort portfolio context
@@ -2822,47 +2820,6 @@ def tool_log(ticker, report_id):
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/research/<ticker>/calibration', methods=['GET'])
-def ticker_calibration(ticker):
-    try:
-        from db import get_recommendations
-        recs = get_recommendations(ticker)
-        return jsonify({'ticker': ticker.upper(), 'count': len(recs), 'recommendations': recs})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/calibration/dashboard', methods=['GET'])
-def calibration_dashboard():
-    try:
-        from db import get_recommendations
-        all_recs = get_recommendations(limit=1000)
-
-        by_conviction = {'HIGH': [], 'MEDIUM': [], 'LOW': []}
-        for r in all_recs:
-            conv = r.get('conviction', 'LOW').upper()
-            if conv in by_conviction:
-                by_conviction[conv].append(r)
-
-        def _stats(recs):
-            outcomes = [r.get('outcome_3m_return_pct') for r in recs if r.get('outcome_3m_return_pct') is not None]
-            avg = sum(outcomes) / len(outcomes) if outcomes else None
-            hit_rate = sum(1 for o in outcomes if o > 0) / len(outcomes) if outcomes else None
-            return {
-                'count': len(recs),
-                'with_3m_outcome': len(outcomes),
-                'avg_3m_return_pct': avg,
-                'hit_rate_3m': hit_rate,
-            }
-
-        return jsonify({
-            'total_recommendations': len(all_recs),
-            'by_conviction': {k: _stats(v) for k, v in by_conviction.items()},
-            'recent': all_recs[:20],
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
 
 @app.route('/api/sectors/classify/<ticker>', methods=['GET'])
 def sector_classify(ticker):
@@ -2904,94 +2861,6 @@ def catalysts():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
-@app.route('/api/research/<ticker>/monitor', methods=['POST'])
-def toggle_monitor(ticker):
-    """Toggle daily-digest monitoring for a ticker."""
-    try:
-        from db import enable_monitoring, disable_monitoring, get_monitored_tickers
-        body = request.get_json() or {}
-        enabled = bool(body.get('enabled', True))
-        if enabled:
-            enable_monitoring(ticker)
-        else:
-            disable_monitoring(ticker)
-        return jsonify({
-            'ticker': ticker.upper(),
-            'enabled': enabled,
-            'all_monitored': get_monitored_tickers(),
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/monitoring/status', methods=['GET'])
-def monitoring_status():
-    try:
-        from db import get_monitored_tickers, get_recent_digests
-        return jsonify({
-            'monitored': get_monitored_tickers(),
-            'recent_digests': get_recent_digests(days=7),
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/advisor/run-digest', methods=['POST'])
-def advisor_run_digest():
-    """Trigger a one-off thesis-decay scan across monitored / held tickers.
-
-    Returns only the items that were persisted (decayed = true). Cheap LLM
-    per ticker, so callers should still treat this as ~5–15s for a normal
-    portfolio.
-    """
-    if not PORTFOLIO_ENABLED:
-        return _portfolio_unavailable()
-    try:
-        import monitoring_worker
-        items = monitoring_worker.run_digest_once()
-        return jsonify({
-            'ran_at': pd.Timestamp.now().isoformat(),
-            'items': items,
-            'count': len(items),
-        })
-    except Exception as e:
-        logging.getLogger(__name__).exception("advisor_run_digest failed")
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/advisor/calibration', methods=['GET'])
-def advisor_calibration():
-    """Aggregate stats over recommendation outcomes (win rates, avg return)."""
-    if not PORTFOLIO_ENABLED:
-        return _portfolio_unavailable()
-    try:
-        import outcome_worker
-        backfill = bool(request.args.get('backfill', '').lower() in ('1', 'true', 'yes'))
-        if backfill:
-            outcome_worker.run_backfill_once()
-        return jsonify(outcome_worker.calibration_summary())
-    except Exception as e:
-        logging.getLogger(__name__).exception("advisor_calibration failed")
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/advisor/digest', methods=['GET'])
-def advisor_digest():
-    """Return recent digest entries (default last 7 days)."""
-    if not PORTFOLIO_ENABLED:
-        return _portfolio_unavailable()
-    try:
-        from db import get_recent_digests
-        days = int(request.args.get('days', 7))
-        digests = get_recent_digests(days=days)
-        return jsonify({
-            'days': days,
-            'digests': digests,
-            'count': sum(len(d.get('items', [])) for d in digests),
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 
 # ============================================================================
@@ -3087,18 +2956,6 @@ def get_doc(slug):
 
 
 if __name__ == '__main__':
-    if PORTFOLIO_ENABLED:
-        try:
-            import monitoring_worker
-            monitoring_worker.start_background_worker()
-        except Exception as _e:
-            logging.getLogger(__name__).warning(f"monitoring_worker disabled: {_e}")
-        try:
-            import outcome_worker
-            outcome_worker.start_background_worker()
-        except Exception as _e:
-            logging.getLogger(__name__).warning(f"outcome_worker disabled: {_e}")
-
     print("\n" + "=" * 60)
     print("   Portfolio Intelligence Tool — API Server")
     print("   Running on http://localhost:5001")

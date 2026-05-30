@@ -2,12 +2,9 @@ import { useState } from 'react';
 import { useRipple } from '../hooks/useRipple';
 
 const NAV_ITEMS = [
-    { id: 'advisor',        label: 'Advisor',        section: 'main' },
     { id: 'portfolio',      label: 'Portfolio',      section: 'main' },
     { id: 'deep-research',  label: 'Deep Research',  section: 'main' },
     { id: 'history',        label: 'History',        section: 'main' },
-    { id: 'rebalance',      label: 'Rebalance',     section: 'main' },
-    { id: 'calibration',    label: 'Calibration',    section: 'main' },
     { id: 'market',         label: 'S&P 500',        section: 'tools' },
     { id: 'docs',           label: 'Docs',           section: 'tools' },
     { id: 'settings',       label: 'LLM Settings',  section: 'tools' },

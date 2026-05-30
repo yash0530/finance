@@ -6,11 +6,8 @@ import { getPortfolioStatus, getVersion } from './utils/api';
 
 // Lazy-load pages for fast initial load
 const PortfolioPage      = lazy(() => import('./pages/PortfolioPage'));
-const AdvisorPage        = lazy(() => import('./pages/AdvisorPage'));
 const DeepResearchPage   = lazy(() => import('./pages/DeepResearchPage'));
 const ResearchHistoryPage = lazy(() => import('./pages/ResearchHistoryPage'));
-const RebalancePage     = lazy(() => import('./pages/RebalancePage'));
-const CalibrationPage   = lazy(() => import('./pages/CalibrationPage'));
 const DocsPage          = lazy(() => import('./pages/DocsPage'));
 const LLMSettingsPage   = lazy(() => import('./pages/LLMSettingsPage'));
 
@@ -73,11 +70,8 @@ export default function App() {
     function renderPage() {
         switch (page) {
             case 'portfolio':       return <PortfolioPage onConnected={() => setPortfolioConnected(true)} />;
-            case 'advisor':        return <AdvisorPage />;
             case 'deep-research':   return <DeepResearchPage />;
             case 'history':        return <ResearchHistoryPage />;
-            case 'rebalance':      return <RebalancePage />;
-            case 'calibration':    return <CalibrationPage />;
             case 'docs':           return <DocsPage />;
             case 'market':         return <MarketPage />;
             case 'settings':       return <LLMSettingsPage />;

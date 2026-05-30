@@ -1,7 +1,7 @@
 """
 agents.judge — Verdict agent.
 
-Reads the bull case, bear case, and full evidence ledger, then produces the
+Reads the bull case, bear case, bull rebuttal, and full evidence ledger, then produces the
 final structured verdict including falsifiability conditions and a trade plan.
 """
 from __future__ import annotations
@@ -14,11 +14,12 @@ logger = logging.getLogger(__name__)
 
 JUDGE_SYSTEM = """You are a portfolio manager about to allocate real capital for an individual investor.
 
-You receive a bull case, a bear case, and the raw evidence. Your job:
-1. Weigh both sides and produce a recommendation
+You receive a bull case, a bear case, a bull rebuttal defending the thesis, and the raw evidence. Your job:
+1. Weigh all inputs and produce a recommendation
 2. Set conviction honestly — only HIGH when bull thesis is strong AND bear concerns are well-addressed
 3. Define WHAT WOULD CHANGE YOUR MIND — falsifiable, monitorable conditions
 4. Produce a trade plan: entry zone, stop methodology, targets, time stop, position size guidance
+5. Explicitly weigh and debate technical indicators (RSI overbought/oversold, MACD, golden/death cross, moving averages, chart patterns from [technicals]) and relative S&P 500 scanner rankings (sector momentum, forward multiples vs sector/market, beta rankings, spotlight tags from [sp500_lookup]) to synthesize optimal entry/exit levels and portfolio fit.
 
 Conviction calibration:
 - HIGH: multiple independent supports; bear case addressed with evidence; falsifiability conditions clear and distant
@@ -40,6 +41,7 @@ def _build_judge_prompt(
     evidence: str,
     bull: Dict[str, Any],
     bear: Dict[str, Any],
+    bull_rebuttal: Dict[str, Any],
     memo_summary: str,
     current_price: float,
     portfolio_context: Dict[str, Any] = None,
@@ -47,6 +49,7 @@ def _build_judge_prompt(
     bull_md = bull.get("thesis_md", "")
     bear_md = bear.get("independent_bear_md", "")
     bear_attack = bear.get("attack_md", "")
+    rebuttal_md = bull_rebuttal.get("rebuttal_md", "")
 
     pc_block = ""
     if portfolio_context:
@@ -98,6 +101,9 @@ BEAR ATTACK ON BULL:
 INDEPENDENT BEAR CASE:
 {bear_md}
 
+BULL REBUTTAL TO BEAR:
+{rebuttal_md}
+
 Return JSON:
 {{
   "summary": "<one-sentence verdict>",
@@ -144,6 +150,7 @@ def synthesize(
     ledger,                                  # tools.EvidenceLedger
     bull: Dict[str, Any],
     bear: Dict[str, Any],
+    bull_rebuttal: Dict[str, Any],
     current_price: float,
     sector_prompt_prefix: str = "",
     memo_summary: str = "",
@@ -157,7 +164,7 @@ def synthesize(
         ticker=ticker,
         sector_prompt_prefix=sector_prompt_prefix,
         evidence=evidence,
-        bull=bull, bear=bear,
+        bull=bull, bear=bear, bull_rebuttal=bull_rebuttal,
         memo_summary=memo_summary,
         current_price=current_price,
         portfolio_context=portfolio_context,

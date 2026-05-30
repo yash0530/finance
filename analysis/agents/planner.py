@@ -147,27 +147,21 @@ def _seed_macro_and_peers(
     available_names: List[str],
     iteration: int,
 ) -> Dict[str, Any]:
-    """Guarantee macro_context and peer_compare get called when relevant.
-
-    macro_context is global, free, and 1h-cached — every research run should
-    have it. peer_compare is free when the sector is known. We inject either
-    tool only if the planner LLM didn't already pick it AND it hasn't been
-    called this session.
-    """
+    """Guarantee macro_context and peer_compare get called when relevant, and auto-seed technicals and sp500_lookup."""
     already_called = {r.tool_name for r in ledger.results}
     already_planned = {c.get("tool") for c in plan_obj.get("next_calls", [])}
 
     if iteration > 1:
         return plan_obj  # only seed in the early rounds
 
-    additions: List[Dict[str, Any]] = []
+    original_additions: List[Dict[str, Any]] = []
 
     if (
         "macro_context" in available_names
         and "macro_context" not in already_called
         and "macro_context" not in already_planned
     ):
-        additions.append({
+        original_additions.append({
             "tool": "macro_context",
             "args": {"ticker": ticker},
             "reason": "Always include macro regime — global, free, and 1h-cached.",
@@ -180,19 +174,46 @@ def _seed_macro_and_peers(
         and "peer_compare" not in already_called
         and "peer_compare" not in already_planned
     ):
-        additions.append({
+        original_additions.append({
             "tool": "peer_compare",
             "args": {"ticker": ticker, "sector": sector_key},
             "reason": f"Sector cohort known ({sector_key}); contextualize valuation against peers.",
         })
 
-    if not additions:
-        return plan_obj
+    combined = original_additions + list(plan_obj.get("next_calls", []))
 
-    combined = additions + list(plan_obj.get("next_calls", []))
+    extra_additions: List[Dict[str, Any]] = []
+    if (
+        "technicals" in available_names
+        and "technicals" not in already_called
+        and "technicals" not in already_planned
+        and "technicals" not in {c["tool"] for c in combined}
+    ):
+        extra_additions.append({
+            "tool": "technicals",
+            "args": {"ticker": ticker},
+            "reason": "Ensure technical indicators are loaded.",
+        })
+
+    if (
+        "sp500_lookup" in available_names
+        and "sp500_lookup" not in already_called
+        and "sp500_lookup" not in already_planned
+        and "sp500_lookup" not in {c["tool"] for c in combined}
+    ):
+        extra_additions.append({
+            "tool": "sp500_lookup",
+            "args": {"ticker": ticker},
+            "reason": "Always include S&P 500 scanner metadata lookup.",
+        })
+
+    if extra_additions:
+        space_remaining = MAX_CALLS_PER_ROUND - len(combined)
+        if space_remaining > 0:
+            combined = combined + extra_additions[:space_remaining]
+
     combined = combined[:MAX_CALLS_PER_ROUND]
     plan_obj["next_calls"] = combined
-    # If we added anything, we shouldn't be 'done' just yet
     if combined:
         plan_obj["done"] = False
     return plan_obj
@@ -212,6 +233,13 @@ def plan(
     """Run the planner LLM and return a validated plan."""
     from tools import tools_schema_for_llm, tool_names
     from llm_service import _get_provider_and_model
+
+    # Ensure technicals and sp500_lookup are marked as required tools
+    required_tools = list(required_tools)
+    if "technicals" not in required_tools:
+        required_tools.append("technicals")
+    if "sp500_lookup" not in required_tools:
+        required_tools.append("sp500_lookup")
 
     available_schemas = tools_schema_for_llm()
     available_names = tool_names()

@@ -20,6 +20,7 @@ Your job: construct the most compelling buy thesis using ONLY the evidence provi
 - It is OK to acknowledge uncertainty, but lead with strength
 - Identify the 3-5 most powerful drivers (long-term + catalyst)
 - Propose a price target methodology, anchored to evidence
+- Explicitly ingest and debate technical indicators (RSI overbought/oversold, MACD momentum, golden/death cross, moving averages, chart patterns from [technicals]) and relative S&P 500 scanner rankings (sector momentum percentiles, forward multiple comparisons, beta rankings, spotlight tags from [sp500_lookup]) in your thesis to justify strong upside timing and context.
 
 Output STRICT JSON only. No prose outside the JSON."""
 

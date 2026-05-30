@@ -266,17 +266,28 @@ h4, h5, h6 { font-weight: 600; letter-spacing: var(--type-body-tracking); line-h
   width: 100%;
   position: relative;
   overflow: hidden;
-  transition: color 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
+  border-left: 2px solid transparent;
+  border-radius: var(--radius-md);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
 }
 
 .nav-item:hover {
+  background: rgba(255, 255, 255, 0.03);
   color: var(--text-primary);
+  border-left-color: rgba(255, 255, 255, 0.2);
+  padding-left: 1.25rem;
 }
 
 .nav-item.active {
-  color: var(--text-primary);
+  background: rgba(66, 133, 244, 0.08);
+  color: var(--accent-blue-bright);
   font-weight: 600;
+  border-left: 3px solid var(--accent-blue);
+  padding-left: 1.25rem;
+  box-shadow: inset 2px 0 8px rgba(66, 133, 244, 0.02);
 }
 
 .nav-item:focus-visible {
@@ -543,6 +554,48 @@ h4, h5, h6 { font-weight: 600; letter-spacing: var(--type-body-tracking); line-h
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--text-secondary);
+}
+
+/* Custom Checkbox Styling */
+.custom-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all var(--transition-fast);
+  outline: none;
+}
+
+.custom-checkbox:hover {
+  border-color: var(--accent-blue-bright);
+  box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.custom-checkbox:checked {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+}
+
+.custom-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  width: 5px;
+  height: 9px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  top: 1px;
+  left: 4px;
 }
 
 /* ════════════════════════════════════════════════════════

@@ -309,7 +309,7 @@ For any owned position, toggle "Monitor" to enable the daily digest. The monitor
 1. Reruns cheap tools each day (price action, new filings, insider, news)
 2. Compares against the last Living Memo
 3. Flags material changes in a daily digest
-4. Sends urgent alerts when a `what_would_change_mind` condition triggers
+4. Triggers notifications when a `what_would_change_mind` condition is breached
 
 ---
 

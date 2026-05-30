@@ -13,9 +13,9 @@ const PROVIDERS = [
     {
         id: 'gemini', label: 'Google Gemini',
         description: 'Fast + high quality. Free tier available.',
-        models: { fast: 'gemini-3.1-flash-lite', deep: 'gemini-3.1-flash-lite' },
-        fastOptions: ['gemini-3.1-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash'],
-        deepOptions: ['gemini-3.1-flash-lite', 'gemini-2.5-pro', 'gemini-1.5-pro'],
+        models: { fast: 'gemini-3.1-flash-lite', deep: 'gemini-3.5-flash' },
+        fastOptions: ['gemini-3.1-flash-lite', 'gemini-3.5-flash'],
+        deepOptions: ['gemini-3.1-flash-lite', 'gemini-3.5-flash'],
         apiKeyLabel: 'Gemini API Key', apiKeyPlaceholder: 'AIza...',
         signupUrl: 'https://aistudio.google.com/app/apikey',
     },

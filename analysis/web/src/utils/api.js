@@ -106,21 +106,10 @@ export const importPortfolioCSV = (csv) =>
 export const getPortfolioHoldings = () => apiFetch(`${API_BASE}/portfolio/holdings`);
 export const getPortfolioSummary = () => apiFetch(`${API_BASE}/portfolio/summary`);
 
-export const getRebalanceAnalysis = (profile = 'moderate') =>
-    apiFetch(`${API_BASE}/portfolio/rebalance?profile=${encodeURIComponent(profile)}`);
+
 
 // ──────────────────────────────────────────────────────────
-// Advisor (digest + calibration)
-// ──────────────────────────────────────────────────────────
 
-export const getAdvisorDigest = (days = 7) =>
-    apiFetch(`${API_BASE}/advisor/digest?days=${days}`);
-
-export const runAdvisorDigest = () =>
-    apiFetch(`${API_BASE}/advisor/run-digest`, { method: 'POST' });
-
-export const getCalibration = (backfill = false) =>
-    apiFetch(`${API_BASE}/advisor/calibration${backfill ? '?backfill=1' : ''}`);
 
 // ──────────────────────────────────────────────────────────
 // Docs (in-app guides)
@@ -226,12 +215,7 @@ export const getMemoVersion = (ticker, version) =>
 export const getToolLog = (ticker, reportId) =>
     apiFetch(`${API_BASE}/research/${encodeURIComponent(ticker)}/tool-log/${reportId}`);
 
-// Calibration
-export const getTickerCalibration = (ticker) =>
-    apiFetch(`${API_BASE}/research/${encodeURIComponent(ticker)}/calibration`);
 
-export const getCalibrationDashboard = () =>
-    apiFetch(`${API_BASE}/calibration/dashboard`);
 
 // Sector
 export const classifySector = (ticker) =>
@@ -251,21 +235,24 @@ export const getCatalysts = (tickers = [], daysAhead = 90) => {
     return apiFetch(`${API_BASE}/catalysts?${qs}`);
 };
 
-// Monitoring
-export const toggleMonitor = (ticker, enabled = true) =>
-    apiFetch(`${API_BASE}/research/${encodeURIComponent(ticker)}/monitor`, {
-        method: 'POST',
-        body: JSON.stringify({ enabled }),
-    });
 
-export const getMonitoringStatus = () =>
-    apiFetch(`${API_BASE}/monitoring/status`);
 
 export const getAllResearchHistory = (limit = 50) =>
     apiFetch(`${API_BASE}/research/reports?limit=${limit}`);
 
 export const getResearchReportById = (reportId) =>
     apiFetch(`${API_BASE}/research/report/${encodeURIComponent(reportId)}`);
+
+export const deleteResearchReport = (reportId) =>
+    apiFetch(`${API_BASE}/research/report/${encodeURIComponent(reportId)}`, {
+        method: 'DELETE',
+    });
+
+export const deleteResearchReportsBulk = (reportIds) =>
+    apiFetch(`${API_BASE}/research/reports/delete-bulk`, {
+        method: 'POST',
+        body: JSON.stringify({ report_ids: reportIds }),
+    });
 
 export const getResearchReportDrift = (reportId) =>
     apiFetch(`${API_BASE}/research/report/${encodeURIComponent(reportId)}/drift`);

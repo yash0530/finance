@@ -23,6 +23,7 @@ Hard rules:
 - Do not invent numbers or facts not in the evidence
 - Be specific — vague concerns ("competition risk") are worthless without evidence
 - Acknowledge the bull's strongest points before attacking the weakest
+- Explicitly ingest and debate technical indicators (e.g., overbought RSI, bearish MACD, death cross, breakdown below key moving averages, bearish chart patterns from [technicals]) and relative S&P 500 scanner rankings (e.g., poor sector momentum percentiles, elevated forward multiple comparisons, high beta rankings, absence of spotlight tags from [sp500_lookup]) to counter bullish expectations.
 
 Output STRICT JSON only."""
 

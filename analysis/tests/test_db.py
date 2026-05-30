@@ -322,3 +322,67 @@ def test_save_and_list_research_report_with_telemetry():
     full = db.get_research_report(report_id)
     assert full["report"]["verdict"]["recommendation"] == "BUY"
     assert full["total_llm_calls"] == 4
+
+
+def test_delete_research_report():
+    import uuid
+    report_id = str(uuid.uuid4())
+    report_data = {
+        "report_id": report_id,
+        "ticker": "NVDA",
+        "verdict": {
+            "recommendation": "BUY",
+        },
+    }
+    
+    db.save_research_report(
+        report_id=report_id,
+        ticker="NVDA",
+        report=report_data,
+        llm_conversations=[],
+        llm_provider="gemini",
+        llm_model="gemini-2.0-flash",
+    )
+    
+    db.save_recommendation(
+        report_id=report_id, ticker="NVDA",
+        recommendation="BUY", conviction="MEDIUM",
+        price_at_recommendation=875.42,
+    )
+    
+    db.log_tool_call(report_id=report_id, tool_name="sentiment", confidence="medium")
+    
+    db.save_living_memo(
+        ticker="NVDA",
+        content_md="# NVDA",
+        content_json={"identity": "GPU maker"},
+        delta_summary="Initial memo",
+        source_report_id=report_id,
+    )
+
+    assert db.delete_research_report(report_id) is True
+    assert db.get_research_report(report_id) is None
+    assert len(db.get_recommendations("NVDA")) == 0
+    assert len(db.get_tool_call_log(report_id)) == 0
+    
+    versions = db.get_memo_versions("NVDA")
+    assert len(versions) == 1
+    assert versions[0]["source_report_id"] is None
+
+
+def test_delete_research_reports_bulk():
+    import uuid
+    id1 = str(uuid.uuid4())
+    id2 = str(uuid.uuid4())
+    
+    db.save_research_report(id1, "AAPL", {"id": id1}, [])
+    db.save_research_report(id2, "GOOG", {"id": id2}, [])
+    
+    db.log_tool_call(report_id=id1, tool_name="sentiment")
+    db.log_tool_call(report_id=id2, tool_name="sentiment")
+    
+    assert db.delete_research_reports([id1, id2]) == 2
+    assert db.get_research_report(id1) is None
+    assert db.get_research_report(id2) is None
+    assert len(db.get_tool_call_log(id1)) == 0
+    assert len(db.get_tool_call_log(id2)) == 0

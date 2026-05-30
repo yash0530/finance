@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { getAllResearchHistory, getResearchReportById, getResearchReportDrift } from '../utils/api';
+import { getAllResearchHistory, getResearchReportById, getResearchReportDrift, deleteResearchReport, deleteResearchReportsBulk } from '../utils/api';
 import ReportView from '../components/ReportView';
 import RecommendationPill from '../components/RecommendationPill';
 
@@ -72,6 +72,59 @@ export default function ResearchHistoryPage() {
         setDrift(null);
     };
 
+    const handleDeleteReport = async (id, e) => {
+        if (e) e.stopPropagation();
+        if (!window.confirm("Are you sure you want to delete this research report? This will also delete all associated telemetry logs and recommendation calibration records.")) {
+            return;
+        }
+        try {
+            await deleteResearchReport(id);
+            setReports(prev => prev.filter(r => r.id !== id));
+            setSelectedIds(prev => prev.filter(item => item !== id));
+            if (selectedReportId === id) {
+                handleBack();
+            }
+        } catch (err) {
+            console.error("Failed to delete report", err);
+            alert("Failed to delete report: " + err.message);
+        }
+    };
+
+    const [selectedIds, setSelectedIds] = useState([]);
+
+    useEffect(() => {
+        setSelectedIds([]);
+    }, [filterRec, searchTicker]);
+
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            setSelectedIds(filteredReports.map(r => r.id));
+        } else {
+            setSelectedIds([]);
+        }
+    };
+
+    const handleToggleSelect = (id) => {
+        setSelectedIds(prev =>
+            prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+        );
+    };
+
+    const handleDeleteBulk = async () => {
+        if (selectedIds.length === 0) return;
+        if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} research report(s)? This will also delete all associated telemetry logs and recommendation calibration records.`)) {
+            return;
+        }
+        try {
+            await deleteResearchReportsBulk(selectedIds);
+            setReports(prev => prev.filter(r => !selectedIds.includes(r.id)));
+            setSelectedIds([]);
+        } catch (err) {
+            console.error("Failed to bulk delete reports", err);
+            alert("Failed to bulk delete reports: " + err.message);
+        }
+    };
+
     // Filtered + sorted reports
     const filteredReports = useMemo(() => {
         let list = [...reports];
@@ -118,9 +171,22 @@ export default function ResearchHistoryPage() {
     if (selectedReportId) {
         return (
             <div className="fade-in">
-                <button className="btn btn-secondary" onClick={handleBack} style={{ marginBottom: 'var(--spacing-lg)' }}>
-                    ← Back to History
-                </button>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)' }}>
+                    <button className="btn btn-secondary" onClick={handleBack}>
+                        ← Back to History
+                    </button>
+                    <button 
+                        className="btn btn-secondary" 
+                        style={{ 
+                            color: '#ef4444', 
+                            borderColor: 'rgba(239, 68, 68, 0.2)',
+                            background: 'rgba(239, 68, 68, 0.05)'
+                        }} 
+                        onClick={() => handleDeleteReport(selectedReportId)}
+                    >
+                        Delete Report
+                    </button>
+                </div>
 
                 {reportLoading ? (
                     <div className="loading-state"><div className="spinner" /> Loading report archive...</div>
@@ -194,6 +260,38 @@ export default function ResearchHistoryPage() {
                 />
             </div>
 
+            {selectedIds.length > 0 && (
+                <div className="fade-in" style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    background: 'rgba(239, 68, 68, 0.08)', 
+                    border: '1px solid rgba(239, 68, 68, 0.2)', 
+                    padding: '12px 16px', 
+                    borderRadius: 'var(--border-radius)', 
+                    marginBottom: 'var(--spacing-md)' 
+                }}>
+                    <span style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                        Selected <strong>{selectedIds.length}</strong> report(s)
+                    </span>
+                    <button 
+                        className="btn" 
+                        style={{ 
+                            background: '#ef4444', 
+                            color: 'white', 
+                            padding: '6px 16px', 
+                            fontSize: '0.78rem', 
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                        }}
+                        onClick={handleDeleteBulk}
+                    >
+                        Delete Selected
+                    </button>
+                </div>
+            )}
+
             {filteredReports.length === 0 ? (
                 <div className="glass-card">
                     <div className="empty-state">
@@ -207,6 +305,15 @@ export default function ResearchHistoryPage() {
                     <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
+                                <th style={{ ...thStyle, width: '40px', textAlign: 'center' }}>
+                                    <input 
+                                        type="checkbox" 
+                                        className="custom-checkbox"
+                                        onChange={handleSelectAll} 
+                                        checked={filteredReports.length > 0 && selectedIds.length === filteredReports.length}
+                                        style={{ cursor: 'pointer' }}
+                                    />
+                                </th>
                                 <th style={thStyle}>Ticker</th>
                                 <th style={thStyle}>Date</th>
                                 <th style={thStyle}>Rec</th>
@@ -221,6 +328,15 @@ export default function ResearchHistoryPage() {
                         <tbody>
                             {filteredReports.map(report => (
                                 <tr key={report.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                    <td style={{ ...tdStyle, textAlign: 'center' }}>
+                                        <input 
+                                            type="checkbox" 
+                                            className="custom-checkbox"
+                                            checked={selectedIds.includes(report.id)} 
+                                            onChange={() => handleToggleSelect(report.id)}
+                                            style={{ cursor: 'pointer' }}
+                                        />
+                                    </td>
                                     <td style={tdStyle}>
                                         <span className="ticker-badge">{report.ticker}</span>
                                     </td>
@@ -269,13 +385,28 @@ export default function ResearchHistoryPage() {
                                         ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                                     </td>
                                     <td style={tdStyle}>
-                                        <button
-                                            className="btn btn-secondary"
-                                            style={{ padding: '4px 12px', fontSize: '0.72rem' }}
-                                            onClick={() => handleSelectReport(report.id)}
-                                        >
-                                            View Report
-                                        </button>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button
+                                                className="btn btn-secondary"
+                                                style={{ padding: '4px 12px', fontSize: '0.72rem' }}
+                                                onClick={() => handleSelectReport(report.id)}
+                                            >
+                                                View
+                                            </button>
+                                            <button
+                                                className="btn btn-secondary"
+                                                style={{ 
+                                                    padding: '4px 8px', 
+                                                    fontSize: '0.72rem', 
+                                                    color: '#ef4444', 
+                                                    borderColor: 'rgba(239, 68, 68, 0.2)',
+                                                    background: 'rgba(239, 68, 68, 0.05)'
+                                                }}
+                                                onClick={(e) => handleDeleteReport(report.id, e)}
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
