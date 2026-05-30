@@ -71,7 +71,7 @@ export default function TerminalPage({ onSelectTicker }) {
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--spacing-md)', alignItems: 'start' }}>
+            <div className="terminal-grid">
                 {order.map(id => (
                     <div
                         key={id}

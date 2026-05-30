@@ -321,6 +321,23 @@ h4, h5, h6 { font-weight: 600; letter-spacing: var(--type-body-tracking); line-h
   width: 100%;
 }
 
+.terminal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--spacing-md);
+  align-items: start;
+}
+
+.market-header-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  width: min(100%, 520px);
+  margin-left: auto;
+}
+
 /* ════════════════════════════════════════════════════════
    PAGE HEADER
    ════════════════════════════════════════════════════════ */
@@ -342,6 +359,99 @@ h4, h5, h6 { font-weight: 600; letter-spacing: var(--type-body-tracking); line-h
   font-size: 0.825rem;
   color: var(--text-muted);
   margin-top: 2px;
+}
+
+@media (max-width: 720px) {
+  #root {
+    display: block;
+  }
+
+  .app-shell {
+    display: block;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    bottom: auto;
+    width: 100%;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .sidebar-logo {
+    padding: 0.75rem 1rem;
+    min-height: 0;
+  }
+
+  .sidebar-logo-sub,
+  .sidebar-section-label {
+    display: none;
+  }
+
+  .sidebar-nav {
+    flex: none;
+    flex-direction: row;
+    gap: 0.25rem;
+    padding: 0.5rem 0.75rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .sidebar-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-item {
+    width: auto;
+    flex: 0 0 auto;
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    border-radius: var(--radius-md);
+    padding: 0.55rem 0.75rem;
+  }
+
+  .nav-item:hover,
+  .nav-item.active {
+    border-left: none;
+    border-bottom-color: var(--accent-blue);
+    padding-left: 0.75rem;
+  }
+
+  .sidebar-bottom {
+    padding: 0 0.75rem 0.5rem;
+    border-top: none;
+  }
+
+  .main-content {
+    margin-left: 0;
+    width: 100%;
+    min-height: auto;
+  }
+
+  .page-content {
+    padding: var(--spacing-md);
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .page-title {
+    font-size: 1.35rem;
+  }
+
+  .terminal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .market-header-actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
 }
 
 /* ════════════════════════════════════════════════════════

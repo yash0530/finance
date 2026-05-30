@@ -101,7 +101,7 @@ export default function MarketPage({ onSelectTicker, onOpenScreenerPreset }) {
                         {stats?.total_companies || 0} companies tracked · {formatSnapshot(stats?.snapshot?.timestamp)}
                     </p>
                 </div>
-                <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end', flex: '1 1 320px' }}>
+                <div className="market-header-actions">
                     <SearchBar onResults={r => { setSearchResults({ ...r, label: 'Search results' }); setSelectedSector(null); setShowAll(false); }} />
                     <button id="btn-refresh-market" className="btn btn-secondary" onClick={handleRefresh} disabled={refreshing}>
                         {refreshing ? <><span className="spinner spinner-sm" /> Refreshing...</> : 'Refresh'}
