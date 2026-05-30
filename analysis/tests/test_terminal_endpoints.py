@@ -131,3 +131,92 @@ def test_chart_endpoint(client, monkeypatch):
     body = res.get_json()
     assert body["data"]["ticker"] == "NVDA"
     assert len(body["data"]["bars"]) == 10
+
+
+# ============================================================================
+# Phase 2 endpoints: theme-heat, catalysts, flow, hypothesis, themes CRUD
+# ============================================================================
+
+@pytest.fixture
+def _seed_theme():
+    db.upsert_theme("ai", "AI Infra")
+    db.add_theme_ticker("ai", "NVDA")
+    db.add_theme_ticker("ai", "AMD")
+    yield
+    db.delete_theme("ai")
+
+
+def test_theme_heat_endpoint(client, monkeypatch, _seed_theme):
+    quotes = {"NVDA": _FastInfo(110, 100), "AMD": _FastInfo(95, 100)}
+    monkeypatch.setitem(sys.modules, "yfinance", _fake_yf(quotes))
+    res = client.get("/api/terminal/theme-heat")
+    assert res.status_code == 200
+    body = res.get_json()
+    by_slug = {t["slug"]: t for t in body["data"]["themes"]}
+    assert "ai" in by_slug
+    assert by_slug["ai"]["leader"]["ticker"] == "NVDA"
+
+
+def test_flow_endpoint_degrades_without_uw_key(client, monkeypatch):
+    monkeypatch.delenv("UNUSUAL_WHALES_API_KEY", raising=False)
+    res = client.get("/api/terminal/flow?ticker=NVDA")
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["degraded"] is True
+    assert "reason" in body
+
+
+def test_hypothesis_endpoint_requires_ticker(client):
+    res = client.post("/api/terminal/hypothesis", json={})
+    assert res.status_code == 400
+
+
+def test_hypothesis_endpoint_caches(client, monkeypatch):
+    conn = db.get_connection()
+    try:
+        conn.execute("DELETE FROM hypotheses_cache")
+        conn.commit()
+    finally:
+        conn.close()
+
+    calls = {"n": 0}
+
+    def fake_run(ticker):
+        calls["n"] += 1
+        return {
+            "ticker": ticker, "why_md": "because reasons [news_tape]",
+            "stance": "bullish", "evidence_refs": ["news_tape"], "cost_usd": 0.05,
+        }
+
+    import agent_loop
+    monkeypatch.setattr(agent_loop, "run_quick_take", fake_run)
+
+    r1 = client.post("/api/terminal/hypothesis", json={"ticker": "NVDA"}).get_json()
+    assert r1["cached"] is False
+    assert r1["why_md"]
+    r2 = client.post("/api/terminal/hypothesis", json={"ticker": "NVDA"}).get_json()
+    assert r2["cached"] is True
+    assert calls["n"] == 1  # second call served from cache
+
+
+def test_themes_crud_endpoints(client):
+    # Create
+    assert client.post("/api/themes", json={"slug": "tst", "name": "Test", "tickers": ["NVDA"]}).status_code == 200
+    # List
+    body = client.get("/api/themes").get_json()
+    assert any(t["slug"] == "tst" for t in body["themes"])
+    # Add ticker
+    assert client.post("/api/themes/tst/tickers", json={"ticker": "AMD"}).status_code == 200
+    detail = client.get("/api/themes/tst/tickers").get_json()
+    assert {t["ticker"] for t in detail["tickers"]} == {"NVDA", "AMD"}
+    # by-ticker reverse lookup
+    rev = client.get("/api/themes/by-ticker/NVDA").get_json()
+    assert any(t["slug"] == "tst" for t in rev["themes"])
+    # Remove ticker
+    assert client.delete("/api/themes/tst/tickers/NVDA").status_code == 200
+    detail = client.get("/api/themes/tst/tickers").get_json()
+    assert {t["ticker"] for t in detail["tickers"]} == {"AMD"}
+    # Delete theme
+    assert client.delete("/api/themes/tst").status_code == 200
+    body = client.get("/api/themes").get_json()
+    assert not any(t["slug"] == "tst" for t in body["themes"])

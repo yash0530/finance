@@ -287,6 +287,52 @@ export const getChart = (ticker, range = '1y', interval = '') => {
     return apiFetch(`${API_BASE}/chart/${encodeURIComponent(ticker)}?${qs}`);
 };
 
+export const getThemeHeat = () => apiFetch(`${API_BASE}/terminal/theme-heat`);
+
+export const getTerminalCatalysts = (days = 7) =>
+    apiFetch(`${API_BASE}/terminal/catalysts?days=${days}`);
+
+export const getFlow = (ticker = '') =>
+    apiFetch(`${API_BASE}/terminal/flow${ticker ? `?ticker=${encodeURIComponent(ticker)}` : ''}`);
+
+export const generateHypothesis = (ticker, refresh = false) =>
+    apiFetch(`${API_BASE}/terminal/hypothesis`, {
+        method: 'POST',
+        body: JSON.stringify({ ticker, refresh }),
+    });
+
+// ──────────────────────────────────────────────────────────
+// Themes
+// ──────────────────────────────────────────────────────────
+
+export const getThemes = () => apiFetch(`${API_BASE}/themes`);
+
+export const createTheme = (slug, name, description = '', tickers = []) =>
+    apiFetch(`${API_BASE}/themes`, {
+        method: 'POST',
+        body: JSON.stringify({ slug, name, description, tickers }),
+    });
+
+export const deleteTheme = (slug) =>
+    apiFetch(`${API_BASE}/themes/${encodeURIComponent(slug)}`, { method: 'DELETE' });
+
+export const getThemeTickers = (slug) =>
+    apiFetch(`${API_BASE}/themes/${encodeURIComponent(slug)}/tickers`);
+
+export const addThemeTicker = (slug, ticker, weightHint = 1.0) =>
+    apiFetch(`${API_BASE}/themes/${encodeURIComponent(slug)}/tickers`, {
+        method: 'POST',
+        body: JSON.stringify({ ticker, weight_hint: weightHint }),
+    });
+
+export const removeThemeTicker = (slug, ticker) =>
+    apiFetch(`${API_BASE}/themes/${encodeURIComponent(slug)}/tickers/${encodeURIComponent(ticker)}`, {
+        method: 'DELETE',
+    });
+
+export const getThemesByTicker = (ticker) =>
+    apiFetch(`${API_BASE}/themes/by-ticker/${encodeURIComponent(ticker)}`);
+
 // ──────────────────────────────────────────────────────────
 // LLM Settings
 // ──────────────────────────────────────────────────────────

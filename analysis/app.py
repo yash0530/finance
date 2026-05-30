@@ -3054,6 +3054,149 @@ def chart(ticker):
     return jsonify(result.to_dict())
 
 
+@app.route('/api/terminal/theme-heat', methods=['GET'])
+def terminal_theme_heat():
+    """Per-theme median move + leader/laggard."""
+    from tools import get_tool
+    result = get_tool('theme_heat').execute()
+    return jsonify(result.to_dict())
+
+
+@app.route('/api/terminal/catalysts', methods=['GET'])
+def terminal_catalysts():
+    """Upcoming catalysts for watchlist + theme constituents within `days`."""
+    days = int(request.args.get('days', 7))
+    import themes_service
+    tickers = themes_service.scan_universe(extra=_watchlist_tickers())
+    # Refresh catalysts for the universe so the table isn't stale (cached per-tool).
+    from tools import get_tool
+    tool = get_tool('catalyst_lookup')
+    for t in tickers:
+        try:
+            tool.execute(ticker=t)
+        except Exception:
+            continue
+    events = db.get_catalysts(tickers=tickers, days_ahead=days)
+    return jsonify({"items": events, "count": len(events), "days": days})
+
+
+@app.route('/api/terminal/flow', methods=['GET'])
+def terminal_flow():
+    """Options flow snapshot. Degrades to a sparse payload without an UW key."""
+    import os
+    from tools import get_tool
+    ticker = (request.args.get('ticker') or '').upper().strip()
+    if not os.environ.get('UNUSUAL_WHALES_API_KEY', '').strip():
+        return jsonify({
+            "degraded": True,
+            "reason": "No UNUSUAL_WHALES_API_KEY — real unusual blocks, dark pool, and gamma are gated.",
+            "ticker": ticker or None,
+            "free_tier": "yfinance options metrics available per-ticker via Stock View.",
+        })
+    if not ticker:
+        return jsonify({"degraded": False, "items": [], "note": "Provide ?ticker=<T> for a flow snapshot."})
+    result = get_tool('options_flow').execute(ticker=ticker)
+    payload = result.to_dict()
+    payload["degraded"] = False
+    return jsonify(payload)
+
+
+@app.route('/api/terminal/hypothesis', methods=['POST'])
+def terminal_hypothesis():
+    """Generate (or return cached) a 3-sentence quick take for a ticker.
+
+    Cache TTL 4h. AI on demand only — each uncached call is ~$0.05.
+    """
+    body = request.get_json(silent=True) or {}
+    ticker = (body.get('ticker') or '').upper().strip()
+    if not ticker:
+        return jsonify({'error': 'ticker required'}), 400
+
+    cached = db.get_hypothesis(ticker, max_age_seconds=4 * 3600)
+    if cached and not body.get('refresh'):
+        return jsonify({
+            "ticker": ticker,
+            "why_md": cached["content_md"],
+            "evidence_refs": cached.get("evidence_refs", []),
+            "cost_usd": cached.get("cost_usd"),
+            "cached": True,
+            "generated_at": cached["generated_at"],
+        })
+
+    try:
+        from agent_loop import run_quick_take
+    except ImportError as e:
+        return jsonify({'error': f'Agent loop unavailable: {e}'}), 500
+
+    take = run_quick_take(ticker)
+    db.save_hypothesis(
+        ticker=ticker,
+        content_md=take.get("why_md", ""),
+        cost_usd=take.get("cost_usd", 0.0),
+        evidence_refs=take.get("evidence_refs", []),
+    )
+    return jsonify({**take, "cached": False})
+
+
+@app.route('/api/themes', methods=['GET'])
+def themes_list():
+    import themes_service
+    return jsonify({"themes": themes_service.list_themes()})
+
+
+@app.route('/api/themes', methods=['POST'])
+def themes_create():
+    body = request.get_json(silent=True) or {}
+    slug = (body.get('slug') or '').strip().lower()
+    name = (body.get('name') or '').strip()
+    if not slug or not name:
+        return jsonify({'error': 'slug and name required'}), 400
+    db.upsert_theme(slug, name, body.get('description', ''))
+    for t in body.get('tickers', []) or []:
+        db.add_theme_ticker(slug, t)
+    return jsonify({'ok': True, 'slug': slug})
+
+
+@app.route('/api/themes/<slug>', methods=['DELETE'])
+def themes_delete(slug):
+    db.delete_theme(slug)
+    return jsonify({'ok': True, 'slug': slug})
+
+
+@app.route('/api/themes/<slug>/tickers', methods=['GET'])
+def themes_tickers(slug):
+    import themes_service
+    detail = themes_service.get_theme_detail(slug)
+    if not detail:
+        return jsonify({'error': f'Unknown theme {slug}'}), 404
+    return jsonify(detail)
+
+
+@app.route('/api/themes/<slug>/tickers', methods=['POST'])
+def themes_add_ticker(slug):
+    body = request.get_json(silent=True) or {}
+    ticker = (body.get('ticker') or '').upper().strip()
+    if not ticker:
+        return jsonify({'error': 'ticker required'}), 400
+    db.add_theme_ticker(slug, ticker, float(body.get('weight_hint', 1.0)))
+    return jsonify({'ok': True, 'slug': slug, 'ticker': ticker})
+
+
+@app.route('/api/themes/<slug>/tickers/<ticker>', methods=['DELETE'])
+def themes_remove_ticker(slug, ticker):
+    db.remove_theme_ticker(slug, ticker)
+    return jsonify({'ok': True, 'slug': slug, 'ticker': ticker.upper().strip()})
+
+
+@app.route('/api/themes/by-ticker/<ticker>', methods=['GET'])
+def themes_by_ticker(ticker):
+    import themes_service
+    return jsonify({
+        "ticker": ticker.upper().strip(),
+        "themes": themes_service.themes_for_ticker(ticker),
+    })
+
+
 if __name__ == '__main__':
     print("\n" + "=" * 60)
     print("   Portfolio Intelligence Tool — API Server")

@@ -813,3 +813,43 @@ renders Movers + Watchlist + News Tape (remaining panels land in Phase 2).
 uses `recharts` (already a dependency); `lightweight-charts` arrives in Phase 3.
 
 Dashboard mounts with manual refresh per panel and $0 LLM spend.
+
+## 28. Phase 2 — Themes + remaining Terminal panels (shipped)
+
+**DB (additive):** three new tables in `init_db()` — `themes`, `theme_tickers`,
+`hypotheses_cache` — plus CRUD helpers in `db.py`. `seed_themes.py` runs once on
+boot from `init_db()` with the AI/semis default pack (6 themes, ~52 tickers).
+Seeding is idempotent and matched by slug, so user edits survive every boot.
+
+**Services/tools (new):**
+
+| Module | Role |
+|---|---|
+| `themes_service.py` | Theme membership queries, `scan_universe(extra=)` (theme tickers ∪ watchlist) |
+| `tools/theme_heat.py` | Per-theme median % move + leader/laggard, batched via `movers.fetch_quotes`. Cached 15m. |
+| `agents/quick_take.py` | Single-LLM-call `/why`: 3 cited sentences from a small ledger (news + trends + technicals + sentiment) |
+| `agent_loop.run_quick_take` | Budget-enforced orchestration of the quick take inside an `LLMCallSession` (charges the `quick` budget) |
+
+**Endpoints (new):**
+
+- `GET /api/terminal/theme-heat` → `theme_heat` tool.
+- `GET /api/terminal/catalysts?days=7` → refreshes `catalyst_lookup` over the
+  scan universe, returns `db.get_catalysts`.
+- `GET /api/terminal/flow?ticker=` → `{degraded:true}` without
+  `UNUSUAL_WHALES_API_KEY`; `options_flow` payload with a ticker when keyed.
+- `POST /api/terminal/hypothesis` `{ticker, refresh?}` → cached quick take
+  (TTL 4h, ~$0.05/uncached call) via `run_quick_take` + `hypotheses_cache`.
+- `GET/POST /api/themes`, `DELETE /api/themes/<slug>`,
+  `GET/POST /api/themes/<slug>/tickers`, `DELETE /api/themes/<slug>/tickers/<T>`,
+  `GET /api/themes/by-ticker/<T>`.
+
+**Frontend:** `TerminalPage` now renders the full 7-panel grid
+(Movers, Theme Heat, Watchlist, Hypotheses, Catalysts, News Tape, Flow) per the
+PRD `grid-template-areas`. New panels: `ThemeHeatPanel`, `HypothesesPanel`
+(per-ticker on-demand Generate), `CatalystsPanel`, `FlowPanel` (renders the
+degraded state on the free tier). The only LLM spend on the Terminal is an
+explicit Hypotheses Generate click.
+
+**Budget guardrail:** the quick take is the first new LLM call in v3. It flows
+through `run_quick_take`, which wraps the agent call in an `LLMCallSession` and
+charges the `quick` Budget profile — no standalone `provider.complete(...)`.

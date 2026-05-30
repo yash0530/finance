@@ -302,6 +302,35 @@ def init_db() -> None:
                 ticker      TEXT PRIMARY KEY,
                 enabled_at  TEXT NOT NULL
             );
+
+            -- ============================================================
+            -- Edge terminal tables (v3, additive)
+            -- ============================================================
+
+            CREATE TABLE IF NOT EXISTS themes (
+                slug        TEXT PRIMARY KEY,
+                name        TEXT NOT NULL,
+                description TEXT,
+                created_at  TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS theme_tickers (
+                theme_slug  TEXT NOT NULL,
+                ticker      TEXT NOT NULL,
+                weight_hint REAL DEFAULT 1.0,
+                added_at    TEXT NOT NULL,
+                PRIMARY KEY (theme_slug, ticker)
+            );
+            CREATE INDEX IF NOT EXISTS idx_theme_tickers_ticker
+                ON theme_tickers(ticker);
+
+            CREATE TABLE IF NOT EXISTS hypotheses_cache (
+                ticker             TEXT PRIMARY KEY,
+                generated_at       TEXT NOT NULL,
+                content_md         TEXT NOT NULL,
+                cost_usd           REAL,
+                evidence_refs_json TEXT
+            );
         """)
         conn.commit()
 
@@ -322,6 +351,14 @@ def init_db() -> None:
         conn.commit()
     finally:
         conn.close()
+
+    # Seed default theme packs (idempotent — leaves user edits untouched).
+    try:
+        from seed_themes import seed_default_themes
+        seed_default_themes()
+    except Exception as _e:
+        import logging
+        logging.getLogger(__name__).warning(f"Theme seeding skipped: {_e}")
 
 
 # ============================================================================
@@ -988,6 +1025,176 @@ def remove_watchlist(ticker: str) -> None:
     conn = get_connection()
     try:
         conn.execute("DELETE FROM watchlist WHERE ticker = ?", (ticker.upper().strip(),))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# ============================================================================
+# Themes
+# ============================================================================
+
+def get_themes() -> List[Dict]:
+    """Return all themes with their ticker counts."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            """SELECT t.slug, t.name, t.description, t.created_at,
+                      COUNT(tt.ticker) AS ticker_count
+               FROM themes t
+               LEFT JOIN theme_tickers tt ON tt.theme_slug = t.slug
+               GROUP BY t.slug
+               ORDER BY t.name""",
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_theme(slug: str) -> Optional[Dict]:
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT * FROM themes WHERE slug = ?", (slug,)).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def upsert_theme(slug: str, name: str, description: str = "") -> None:
+    conn = get_connection()
+    try:
+        conn.execute(
+            """INSERT INTO themes (slug, name, description, created_at)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(slug) DO UPDATE SET
+                 name = excluded.name,
+                 description = excluded.description""",
+            (slug, name, description, datetime.now().isoformat()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def delete_theme(slug: str) -> None:
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM theme_tickers WHERE theme_slug = ?", (slug,))
+        conn.execute("DELETE FROM themes WHERE slug = ?", (slug,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_theme_tickers(slug: str) -> List[Dict]:
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            """SELECT ticker, weight_hint, added_at FROM theme_tickers
+               WHERE theme_slug = ? ORDER BY ticker""",
+            (slug,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def add_theme_ticker(slug: str, ticker: str, weight_hint: float = 1.0) -> None:
+    conn = get_connection()
+    try:
+        conn.execute(
+            """INSERT INTO theme_tickers (theme_slug, ticker, weight_hint, added_at)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(theme_slug, ticker) DO UPDATE SET
+                 weight_hint = excluded.weight_hint""",
+            (slug, ticker.upper().strip(), weight_hint, datetime.now().isoformat()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def remove_theme_ticker(slug: str, ticker: str) -> None:
+    conn = get_connection()
+    try:
+        conn.execute(
+            "DELETE FROM theme_tickers WHERE theme_slug = ? AND ticker = ?",
+            (slug, ticker.upper().strip()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_themes_for_ticker(ticker: str) -> List[Dict]:
+    """Return themes that contain a given ticker."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            """SELECT t.slug, t.name, t.description
+               FROM theme_tickers tt
+               JOIN themes t ON t.slug = tt.theme_slug
+               WHERE tt.ticker = ?
+               ORDER BY t.name""",
+            (ticker.upper().strip(),),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def all_theme_tickers() -> List[str]:
+    """Return the de-duplicated union of every ticker across all themes."""
+    conn = get_connection()
+    try:
+        rows = conn.execute("SELECT DISTINCT ticker FROM theme_tickers ORDER BY ticker").fetchall()
+        return [r["ticker"] for r in rows]
+    finally:
+        conn.close()
+
+
+# ============================================================================
+# Hypotheses cache (Terminal Hypotheses panel + /why command)
+# ============================================================================
+
+def get_hypothesis(ticker: str, max_age_seconds: int) -> Optional[Dict]:
+    """Return a cached hypothesis if not expired."""
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM hypotheses_cache WHERE ticker = ?", (ticker.upper().strip(),)
+        ).fetchone()
+        if not row:
+            return None
+        from datetime import timedelta
+        generated = datetime.fromisoformat(row["generated_at"])
+        if datetime.now() - generated > timedelta(seconds=max_age_seconds):
+            return None
+        d = dict(row)
+        d["evidence_refs"] = json.loads(d.get("evidence_refs_json") or "[]")
+        return d
+    finally:
+        conn.close()
+
+
+def save_hypothesis(
+    ticker: str, content_md: str, cost_usd: float = 0.0,
+    evidence_refs: Optional[List] = None,
+) -> None:
+    conn = get_connection()
+    try:
+        conn.execute(
+            """INSERT INTO hypotheses_cache
+               (ticker, generated_at, content_md, cost_usd, evidence_refs_json)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(ticker) DO UPDATE SET
+                 generated_at = excluded.generated_at,
+                 content_md = excluded.content_md,
+                 cost_usd = excluded.cost_usd,
+                 evidence_refs_json = excluded.evidence_refs_json""",
+            (ticker.upper().strip(), datetime.now().isoformat(), content_md,
+             cost_usd, json.dumps(evidence_refs or [], default=str)),
+        )
         conn.commit()
     finally:
         conn.close()

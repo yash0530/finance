@@ -69,6 +69,58 @@ def make_budget(profile: str = "normal") -> Budget:
 
 
 # ============================================================================
+# Quick take (/why) — single-LLM-call cheap path
+# ============================================================================
+
+QUICK_TAKE_TOOLS = ["news_tape", "financial_trends", "technicals", "sentiment"]
+_QUICK_TAKE_LLM_COST = 0.05  # ~one analysis-model call on cheap evidence
+
+
+def run_quick_take(ticker: str) -> Dict[str, Any]:
+    """Cheap /why path: gather a small evidence ledger, one LLM call, cite sources.
+
+    Runs inside an LLMCallSession so the call is tracked, and charges the
+    quick budget. Result is suitable for caching in hypotheses_cache.
+    """
+    from llm_service import LLMCallSession
+    from agents import quick_take
+
+    ticker = ticker.upper().strip()
+    budget = make_budget("quick")
+    ledger = EvidenceLedger(ticker=ticker)
+
+    calls = [
+        {"tool": "news_tape", "args": {"ticker": ticker, "limit": 10}},
+        {"tool": "financial_trends", "args": {"ticker": ticker}},
+        {"tool": "technicals", "args": {"ticker": ticker}},
+        {"tool": "sentiment", "args": {"ticker": ticker}},
+    ]
+    for _call, result in _execute_calls_parallel(calls):
+        budget.charge(result.cost_usd)
+        ledger.add(result)
+
+    session = LLMCallSession(report_id=f"quicktake-{ticker}")
+    session.__enter__()
+    try:
+        take = quick_take.generate(ticker=ticker, ledger=ledger)
+    finally:
+        session.__exit__(None, None, None)
+
+    llm_cost = session.total_cost_usd or _QUICK_TAKE_LLM_COST
+    budget.charge(llm_cost)
+
+    evidence_refs = sorted({r.tool_name for r in ledger.results if r.is_ok()})
+    return {
+        "ticker": ticker,
+        "why_md": take.get("why_md", ""),
+        "stance": take.get("stance", "neutral"),
+        "evidence_refs": evidence_refs,
+        "cost_usd": round(budget.spent_usd, 4),
+        "error": take.get("error"),
+    }
+
+
+# ============================================================================
 # SSE helpers
 # ============================================================================
 

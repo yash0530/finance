@@ -24,7 +24,7 @@ Six pages, in the sidebar:
 
 | Page | What it's for |
 |---|---|
-| **Terminal** | Daily scan. Phase 1: Movers (top gainers/losers across your watchlist ∪ the default theme universe), Watchlist (with day change), and a News Tape. More panels (Theme Heat, Hypotheses, Catalysts, Flow) arrive in later phases. |
+| **Terminal** | Daily scan. Movers (top gainers/losers across your watchlist ∪ the theme universe), Theme Heat (per-theme median move with leader/laggard), Watchlist (with day change), Hypotheses (on-demand AI "why" per ticker), Fresh Catalysts (next 7 days), a News Tape, and a Flow snapshot (degrades cleanly without an Unusual Whales key). |
 | **Stock View** | Single-ticker cockpit. Click any ticker — in Movers, Watchlist, or the News Tape — to open it. Phase 1: price header, interactive chart with range toggles, and a CTA bar that deep-links into the Console. |
 | **Console** | The on-demand brain. Type a slash command to kick off analysis. Phase 1: `/thesis <T>` (full report) and `/dossier <T>` (deep dive), streamed live. |
 | **Library** | Your saved reports and Living Memos. |
@@ -44,6 +44,23 @@ completes, the Bull and Bear arguments, and the Judge's verdict — the same v2
 deep-research engine described below, now driven from a command bar. `/dossier`
 is the same with a deeper budget. The remaining commands (`/why`, `/theme`,
 `/compare`) light up in later phases.
+
+### Theme packs
+
+The Terminal scans a universe defined by **theme packs** — named cohorts of
+tickers (e.g. `ai-infra`, `hbm-memory`, `dc-power`). A default AI/semis-pilled
+pack seeds on first boot; edit it in Settings. Theme Heat ranks each pack by its
+constituents' median move and surfaces the day's leader and laggard, so you can
+see which corner of the market is in play before you drill in.
+
+### Hypotheses — cheap reads, on demand
+
+The Hypotheses panel never spends on mount. Click **Generate** next to a
+watchlist ticker and the `/why` path runs: it pulls news, financial trends,
+technicals, and sentiment, makes a single LLM call, and returns three cited
+sentences explaining the move plus what to watch next. Each generation is
+~$0.05 and cached for 4 hours, so re-opening is free. This is the fast triage
+step before committing to a full `/thesis`.
 
 ---
 

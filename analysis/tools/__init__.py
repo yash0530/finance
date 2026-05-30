@@ -320,6 +320,7 @@ _AUTOLOAD = [
     "movers",
     "news_tape",
     "price_history",
+    "theme_heat",
 ]
 
 

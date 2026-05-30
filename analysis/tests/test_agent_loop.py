@@ -43,6 +43,8 @@ class FakeProvider:
             return self._critique_response()
         if "memo" in system.lower() and "synth" in system.lower():
             return self._memo_synth_response()
+        if "fast read on why" in system.lower():
+            return self._quick_take_response()
         # Default fallthrough — generic critique-shaped output
         return {"summary": "fake response", "_unmatched_system": system[:120]}
 
@@ -135,6 +137,14 @@ class FakeProvider:
                 "moat": {"content_md": "CUDA ecosystem", "confidence": "high"},
             },
             "delta_summary": "Initial memo from first research",
+        }
+
+    @staticmethod
+    def _quick_take_response():
+        return {
+            "why_md": "Rallying on AI demand [news_tape]. Margins expanding [financial_trends]. Watch next earnings guide [technicals].",
+            "stance": "bullish",
+            "evidence_refs": ["news_tape", "financial_trends"],
         }
 
 
@@ -472,3 +482,29 @@ def test_pipeline_persists_with_real_telemetry(fake_llm, mock_yfinance, mock_sen
     # Cost may be 0 in tests (fake provider doesn't charge budget) but column should exist
     assert "total_cost_usd" in persisted
     assert "wall_clock_sec" in persisted
+
+
+# ============================================================================
+# Quick take (/why) — cheap single-LLM-call path
+# ============================================================================
+
+def test_run_quick_take_produces_cited_why(fake_llm, mock_yfinance, mock_sentiment):
+    """run_quick_take gathers evidence, makes one LLM call, and returns a cited why."""
+    from agent_loop import run_quick_take
+
+    take = run_quick_take("NVDA")
+    assert take["ticker"] == "NVDA"
+    assert take["why_md"]
+    assert take["stance"] in ("bullish", "bearish", "neutral")
+    assert isinstance(take["evidence_refs"], list)
+    # Evidence refs are derived from tools that actually succeeded.
+    assert all(isinstance(r, str) for r in take["evidence_refs"])
+    assert take.get("error") is None
+
+
+def test_run_quick_take_charges_budget(fake_llm, mock_yfinance, mock_sentiment):
+    """The quick take should report a non-negative cost tracked via the session."""
+    from agent_loop import run_quick_take
+    take = run_quick_take("NVDA")
+    assert "cost_usd" in take
+    assert take["cost_usd"] >= 0
