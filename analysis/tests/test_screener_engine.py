@@ -120,7 +120,7 @@ def test_resolve_universe_watchlist(monkeypatch):
 def test_available_fields_includes_core():
     fields = se.available_fields()
     for need in ("rsi", "forward_pe", "yoy_revenue_growth", "ma_50_above_ma_200", "pattern",
-                 "pct_from_52w_high", "year_change_pct"):
+                 "pct_from_52w_high", "year_change_pct", "volume_ratio"):
         assert need in fields
 
 
@@ -129,9 +129,11 @@ def test_available_fields_includes_core():
 # pct_from_high and year_change are fractions in the real snapshot (-0.01 = -1%).
 _SNAPSHOT = {
     "AAA": {"ticker": "AAA", "current_price": 100, "market_cap": 5e10, "forward_pe": 18,
-            "revenue_growth": 0.2, "pct_from_high": -0.01, "year_change": 0.60, "day_change_percent": 1.2},
+            "revenue_growth": 0.2, "pct_from_high": -0.01, "year_change": 0.60, "day_change_percent": 1.2,
+            "volume": 200, "average_volume": 100, "volume_ratio": 2.0},
     "BBB": {"ticker": "BBB", "current_price": 50, "market_cap": 2e9, "forward_pe": 9,
-            "revenue_growth": 0.05, "pct_from_high": -0.40, "year_change": -0.15, "day_change_percent": -2.0},
+            "revenue_growth": 0.05, "pct_from_high": -0.40, "year_change": -0.15, "day_change_percent": -2.0,
+            "volume": 80, "average_volume": 100, "volume_ratio": 0.8},
 }
 
 
@@ -148,6 +150,20 @@ def test_sp500_snapshot_fast_path(monkeypatch):
             "rules": [{"field": "pct_from_52w_high", "op": ">=", "value": -2}]}
     out = se.run_screen(spec)
     assert {m["ticker"] for m in out["matches"]} == {"AAA"}  # only AAA is near its high
+
+
+def test_sp500_snapshot_volume_ratio_fast_path(monkeypatch):
+    def gather(ticker, snapshot_row=None, fetch_technical=True):
+        return {"fundamentals": se._snapshot_to_fundamentals(snapshot_row) if snapshot_row else {},
+                "technicals": {}, "trends": {}}
+    monkeypatch.setattr(se, "_gather_ticker_data", gather)
+    monkeypatch.setattr(se, "resolve_universe", lambda spec: ["AAA", "BBB"])
+    monkeypatch.setattr("tools.sp500_lookup.sp500_snapshot", lambda: _SNAPSHOT)
+
+    spec = {"universe": "sp500", "combine": "AND",
+            "rules": [{"field": "volume_ratio", "op": ">=", "value": 1.5}]}
+    out = se.run_screen(spec)
+    assert {m["ticker"] for m in out["matches"]} == {"AAA"}
 
 
 def test_sp500_technical_rule_needs_scan(monkeypatch):
@@ -170,6 +186,55 @@ def test_sp500_technical_rule_runs_with_scan(monkeypatch):
             "rules": [{"field": "rsi", "op": "<", "value": 30}]}
     out = se.run_screen(spec)
     assert {m["ticker"] for m in out["matches"]} == {"AAA"}
+
+
+def test_sp500_live_scan_can_be_capped(monkeypatch):
+    tickers = [f"T{i}" for i in range(10)]
+
+    def gather(ticker, snapshot_row=None, fetch_technical=True):
+        return {"fundamentals": {}, "technicals": {"rsi": 20.0}, "trends": {}}
+
+    monkeypatch.setattr(se, "_gather_ticker_data", gather)
+    monkeypatch.setattr(se, "resolve_universe", lambda spec: tickers)
+    monkeypatch.setattr("tools.sp500_lookup.sp500_snapshot", lambda: {t: {"ticker": t} for t in tickers})
+    spec = {
+        "universe": "sp500", "combine": "AND", "scan": True, "max_scan": 3,
+        "rules": [{"field": "rsi", "op": "<", "value": 30}],
+    }
+    out = se.run_screen(spec)
+    assert out["scan_limited"] is True
+    assert out["requested_universe_count"] == 10
+    assert out["evaluated"] == 3
+    assert out["matched"] == 3
+
+
+def test_detect_patterns_uses_cache(monkeypatch):
+    conn = db.get_connection()
+    try:
+        conn.execute("DELETE FROM tool_result_cache WHERE tool_name = 'screener_patterns'")
+        conn.commit()
+    finally:
+        conn.close()
+
+    bars = [{"close": float(i), "time": f"2026-01-{i:02d}"} for i in range(1, 35)]
+
+    class PriceHistoryTool:
+        calls = 0
+
+        def execute(self, **kwargs):
+            PriceHistoryTool.calls += 1
+            return ToolResult(tool_name="price_history", data={"bars": bars}, confidence="high")
+
+    import pattern_detectors
+    monkeypatch.setattr("tools.get_tool", lambda name: PriceHistoryTool())
+    monkeypatch.setattr(pattern_detectors, "PATTERN_DETECTORS", {
+        "cached_pattern": lambda prices, dates: {"detected": True}
+    })
+
+    assert se._detect_patterns("CACHE") == {"cached_pattern"}
+    monkeypatch.setattr("tools.get_tool", lambda name: (_ for _ in ()).throw(RuntimeError("should use cache")))
+    assert se._detect_patterns("CACHE") == {"cached_pattern"}
+    assert PriceHistoryTool.calls == 1
 
 
 def test_pattern_rule_matches(monkeypatch):

@@ -17,13 +17,13 @@ Each agent is a focused LLM call: specialized system prompt + structured-JSON ou
 
 **Bull and Bear MUST cite evidence by tool name in `evidence_refs` for every claim.** The judge prompt requires the same. If you weaken these constraints, the whole "no naked numbers" guarantee breaks. Don't.
 
-The validators in each agent currently accept the model's output if the JSON shape is right — extending this with strict reference checking (every `evidence_refs` entry must be in `ledger.results`) is on the roadmap and a high-leverage upgrade.
+`agents.evidence_validation.validate_claim_refs()` enforces this after each LLM call. Every structured claim ref must resolve to a real `ledger.results` tool name. Invalid refs are dropped from the claim; claims with no valid refs are removed and recorded in `dropped_uncited_claims`.
 
 ## Falsifiability
 
 The Judge must always emit at least 3 `what_would_change_mind` conditions. An empty list is a *bug*, not a recommendation. The default judge prompt enforces "at least 3 specific conditions, each monitorable (a number, a date, an event)" — preserve this language.
 
-This list feeds the monitoring daemon (`monitoring_worker.py`) which alerts when any condition triggers on a held position.
+This list is for manual review and future pull-triggered checks. Do not wire it to background alerts.
 
 ## System prompts live with agent files
 

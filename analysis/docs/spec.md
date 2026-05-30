@@ -98,74 +98,45 @@ npm run dev
 
 | Endpoint | Method | Description |
 |----------|--------|---------|
-| `/api/companies` | GET | All S&P 500 companies (sortable) |
-| `/api/sectors` | GET | Sector list with stats |
-| `/api/companies/<sector>` | GET | Companies filtered by sector |
-| `/api/company/<ticker>` | GET | Single company by ticker symbol |
-| `/api/company/<ticker>/history` | GET | 5 years of historical stock prices (cached 4h, `?refresh=true` to bypass cache) |
-| `/api/company/<ticker>/financials` | GET | Quarterly/annual revenue/earnings (cached 24h, `?refresh=true` to bypass cache) |
-| `/api/spotlight` | GET | Spotlight companies by fundamental analysis heuristics (top 5 per category) |
-| `/api/spotlight/<category>` | GET | All companies matching a spotlight category's criteria |
-| `/api/patterns/all` | GET | All detected chart patterns across S&P 500 stocks (cached 4h) |
-| `/api/patterns/<pattern_type>` | GET | Stocks with specific pattern type (see list below) |
-| `/api/patterns/<pattern_type>/<ticker>` | GET | Pattern analysis for a specific stock |
-| `/api/patterns/head-shoulders` | GET | Stocks with detected Head & Shoulders reversal patterns (cached 4h) |
-| `/api/patterns/head-shoulders/<ticker>` | GET | Pattern analysis for a specific stock |
-| `/api/stats` | GET | Summary statistics |
-| `/api/search?q=<query>` | GET | Search by ticker/name |
-| `/api/refresh` | POST | Trigger fresh data fetch |
+| `/api/market/sp500/companies` | GET | Snapshot-backed S&P 500 companies (sortable) |
+| `/api/market/sp500/sectors` | GET | Sector list with stats |
+| `/api/market/sp500/companies/<sector>` | GET | Companies filtered by sector |
+| `/api/market/sp500/company/<ticker>` | GET | Single company snapshot row by ticker |
+| `/api/market/sp500/stats` | GET | Summary statistics and top lists |
+| `/api/market/sp500/search?q=<query>` | GET | Search by ticker/name |
+| `/api/market/sp500/spotlight` | GET | Spotlight companies by fundamental-analysis heuristics |
+| `/api/market/sp500/spotlight/<category>` | GET | All companies matching a spotlight category |
+| `/api/market/refresh-sp500` | POST | Pull-triggered S&P 500 snapshot refresh |
+| `/api/chart/<ticker>` | GET | OHLCV chart bars via the `price_history` tool |
+| `/api/stock/<ticker>/*` | GET | Stock View header/fundamentals/technicals/ownership/filings sections |
+| `/api/console/run` | POST | Slash-command SSE stream |
 | `/api/health` | GET | Health check |
 
 ### Frontend Features
 
-- **Spotlight Companies** - Potential buy candidates based on fundamental analysis (click card header to see all):
-  - 🚀 Growth Stocks: High revenue growth (>15%) with positive 52-week momentum
-  - 🔥 Hot Stocks: Strongest 52-week performance (>20% gains)
-  - 💰 Value Plays: Low forward P/E (<15) with expected earnings growth (sorted low→high)
-  - 📈 Momentum Leaders: P/E ratio >1.2x indicating earnings acceleration
-  - 🏆 Quality Gems: High profit margins (>15%) with solid revenue growth (>5%)
-  - 💵 Dividend Champions: High dividend yield (>3%) for income investors
-  - 📉 Low Volatility: Stable stocks with beta <0.8 for conservative investors
-  - 🏛️ Mega Caps: Largest companies with market cap >$200B
-  - 🔄 Turnaround Plays: Down >10% YTD but still profitable (contrarian picks)
-  - ⚡ High Beta Movers: High volatility stocks (beta >1.5) for aggressive traders
-- **Technical Patterns Dashboard** - Consolidated chart pattern detection:
-  - Scans all S&P 500 stocks for 11 pattern types:
-    - **Reversal (Bearish)**: Head & Shoulders, Double Top, Triple Top, Descending Triangle
-    - **Reversal (Bullish)**: Inverse Head & Shoulders, Double Bottom, Triple Bottom, Falling Wedge
-    - **Continuation (Bullish)**: Ascending Triangle, Cup and Handle, Bullish Flag
-  - Each pattern shows: confidence score, key price levels, target price
-  - Filter by pattern type or signal (bullish/bearish)
-  - Click "📊 Technical Patterns" button on main dashboard to access
-  - Valid pattern types: `head_shoulders`, `inverse_head_shoulders`, `double_top`, `double_bottom`, `triple_top`, `triple_bottom`, `ascending_triangle`, `descending_triangle`, `cup_and_handle`, `bullish_flag`, `falling_wedge`
+- **Market** - Restored S&P 500 cockpit over the pull-triggered snapshot:
+  - Spotlight categories: Growth Stocks, Hot Stocks, Value Plays, Momentum Leaders, Quality Gems, Dividend Champions, Low Volatility, Mega Caps, Turnaround Plays, High Beta Movers
+  - Market stats, top-by-market-cap, lowest forward P/E, highest growth
+  - Sector cards and charts
+  - Search and sortable/filterable all-company table
+  - Company clicks open the newer Stock View cockpit
+- **Daily Scan** - Movers, Theme Heat, Watchlist, Hypotheses, Catalysts, News Tape, Flow
+- **Research** - Form-driven Deep Research stream using the preserved agent loop
+- **Console** - Slash-command stream for `/thesis`, `/dossier`, `/why`, `/theme`, `/compare`
 - **Dashboard** - Sector overview with market cap and P/E metrics
 - **All Companies View** - Browse all 500 companies with full filtering capabilities
-- **Comprehensive Smart Filters** - Available across all dashboards (All Companies, Spotlight, Technical Patterns, Head & Shoulders):
+- **Comprehensive Smart Filters** - Available across the all-companies and spotlight table views:
   - Advanced Min/Max range inputs for all numeric data (Market Cap, P/E Ratios, Profit Margin, Revenue Growth, Beta, EPS, Div Yield, 52W High/Low, Day Change %, 52W Change %)
-  - Dropdown selectors for categorical data (Sector, Pattern Type, Signal)
+  - Dropdown selectors for categorical data (Sector)
   - Dark-themed, dynamic filter panel with "Clear All" functionality
   - All dashboard tables include columns for these comprehensive data points where applicable
-- **Company Detail Page** - Click any company to view comprehensive data:
-  - Stock price history chart with period selector (1M, 3M, 6M, 1Y, 5Y) - data filtered client-side from single API call
-  - **Pattern Visualization** - Full chart visualization for all detected patterns:
-    - Supports all 11 pattern types with pattern-specific markers and reference lines
-    - Alert banner with pattern name, confidence score, and key price levels (neckline/support/resistance/target)
-    - Visual markers on chart: dots for peaks/troughs, lines for support/resistance/target
-    - Pattern selector to switch between multiple detected patterns
-    - Bullish patterns show green accents; bearish patterns show red/amber accents
-    - Dynamic legend explaining pattern elements
-  - 52-week high/low range indicator
-  - Quarterly financials (revenue, net income by quarter)
-  - Annual financials (revenue, net income trends)
-  - Clear time period labels: Revenue (TTM), Revenue Growth (YoY)
-  - **Refresh Data button** to force fresh data fetch (bypasses cache)
 - **Company Table** - Sortable table with financial metrics including:
   - Core metrics: Price, Market Cap, Forward P/E, Trailing P/E, P/E Ratio
   - Profitability: Profit Margin, Revenue Growth
   - **Stock Movement**: Day Change %, 52-Week Change %, % From 52-Week High
-  - Ticker symbols link to Yahoo Finance; company names link to detail page
+  - Ticker symbols link to Yahoo Finance; company names open Stock View
   - Additional data available via API: 52-Week High/Low, 50-Day & 200-Day Moving Averages
-- **Filter Panel** - Smart filters available on All Companies, Spotlight, and Pattern dashboards:
+- **Filter Panel** - Smart filters available on All Companies and Spotlight views:
   - Sector (dropdown)
   - P/E, Forward P/E, Trailing P/E (min/max range)
   - Market Cap in billions (min/max range)
@@ -173,20 +144,17 @@ npm run dev
   - Revenue Growth % (min/max range)
   - EPS, Beta, Div Yield % (min/max range)
   - 52-Week High/Low, 52-Week Price Change %, Day Change % (min/max range)
-  - Pattern-specific filters: Confidence Score, Signal, Target Potential %
 - **Charts** - Pie chart (market cap), bar chart (P/E by sector)
 - **Search** - Autocomplete search by ticker or company name
 - **Metrics Panel** - Top companies by market cap, lowest P/E, highest growth (all clickable)
-- **Force Refresh** - Button to manually trigger fresh data fetch from Yahoo Finance
+- **Force Refresh** - Button to manually rebuild the S&P 500 snapshot from Yahoo Finance
 
 ### Project Structure
 
 ```
 finance/analysis/
 ├── app.py              # Flask backend
-├── companies.py        # CLI script
 ├── requirements.txt    # Python dependencies
-├── sp500_analysis.csv  # CSV export
 ├── .cache/             # Data cache
 │   └── sp500_data.json
 ├── web/                # React frontend
@@ -197,14 +165,15 @@ finance/analysis/
 │       ├── components/
 │       │   ├── Dashboard.jsx
 │       │   ├── CompanyTable.jsx
-│       │   ├── CompanyDetail.jsx
 │       │   ├── SectorChart.jsx
 │       │   ├── MetricsPanel.jsx
 │       │   ├── SpotlightPanel.jsx      # Spotlight categories overview
-│       │   ├── SpotlightDashboard.jsx  # Full category company list
-│       │   ├── HeadShouldersDashboard.jsx  # Legacy H&S pattern view
-│       │   ├── TechnicalPatternsDashboard.jsx  # Consolidated patterns dashboard
 │       │   └── SearchBar.jsx
+│       ├── pages/
+│       │   ├── MarketPage.jsx
+│       │   ├── StockViewPage.jsx
+│       │   ├── DeepResearchPage.jsx
+│       │   └── TerminalPage.jsx
 │       └── utils/
 │           └── api.js
 └── docs/

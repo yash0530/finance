@@ -2,17 +2,17 @@
 """
 Edge — Personal Markets Terminal · Flask backend API.
 
-Routes: terminal panels, stock view, chart, console (slash commands), themes,
-screener, library, deep-research SSE + memo/report CRUD, settings, docs.
-The legacy S&P 500 scanner, portfolio, spotlight, and pattern HTTP routes were
-removed in v3 (pull-based terminal); the deep-research brain is unchanged.
+Routes: market snapshot, terminal panels, stock view, chart, console (slash
+commands), themes, screener, library, deep-research SSE + memo/report CRUD,
+settings, docs. The legacy portfolio and background scanner routes remain
+removed; the revived S&P 500 market surface is pull-based over the snapshot.
 """
 
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 import json
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 import pandas as pd
 import numpy as np
 
@@ -486,6 +486,28 @@ def memo_version(ticker, version):
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/research/<ticker>/memo/staged/accept', methods=['POST'])
+def accept_staged_memo(ticker):
+    try:
+        import living_memo
+        version = living_memo.accept_staged(ticker)
+        return jsonify({'success': True, 'ticker': ticker.upper(), 'new_version': version})
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/research/<ticker>/memo/staged/discard', methods=['POST'])
+def discard_staged_memo(ticker):
+    try:
+        import living_memo
+        living_memo.discard_staged(ticker)
+        return jsonify({'success': True, 'ticker': ticker.upper()})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/research/<ticker>/tool-log/<report_id>', methods=['GET'])
 def tool_log(ticker, report_id):
     try:
@@ -816,6 +838,311 @@ def terminal_hypothesis():
     return jsonify({**take, "cached": False, "generated_at": datetime.now().isoformat()})
 
 
+# ============================================================================
+# Market — revived S&P 500 cockpit over the pull-triggered snapshot
+# ============================================================================
+
+_SP500_NUMERIC_FIELDS = [
+    "current_price", "market_cap", "forward_pe", "trailing_pe", "pe_ratio",
+    "peg_ratio", "price_to_sales", "price_to_book", "ev_to_revenue",
+    "ev_to_ebitda", "total_revenue", "net_income", "profit_margin",
+    "operating_margin", "gross_margin", "dividend_yield", "beta", "eps",
+    "revenue_growth", "year_change", "fifty_two_week_high",
+    "fifty_two_week_low", "day_change_percent", "volume", "average_volume",
+    "volume_ratio", "fifty_day_average", "two_hundred_day_average",
+    "pct_from_high",
+]
+
+
+def _sp500_rows() -> List[Dict[str, Any]]:
+    from tools.sp500_lookup import sp500_snapshot
+    return sorted(sp500_snapshot().values(), key=lambda r: r.get("ticker") or "")
+
+
+def _sp500_status() -> Dict[str, Any]:
+    from tools.sp500_refresh import snapshot_status
+    return snapshot_status()
+
+
+def _sp500_df() -> pd.DataFrame:
+    df = pd.DataFrame(_sp500_rows())
+    if df.empty:
+        return df
+    for col in ["ticker", "company_name", "sector", "industry"]:
+        if col not in df.columns:
+            df[col] = ""
+    for col in _SP500_NUMERIC_FIELDS:
+        if col not in df.columns:
+            df[col] = None
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    return df
+
+
+def _empty_sp500():
+    return jsonify({
+        "error": "No S&P 500 snapshot available. Use Settings -> Data tiers -> Refresh S&P 500 snapshot.",
+        "data": [],
+        "count": 0,
+    }), 404
+
+
+def _sort_df(df: pd.DataFrame, sort_by: str, order: str) -> pd.DataFrame:
+    if sort_by not in df.columns:
+        return df
+    out = df.copy()
+    sort_col = f"{sort_by}_sort"
+    out[sort_col] = pd.to_numeric(out[sort_by], errors="coerce")
+    out = out.sort_values(sort_col, ascending=order.lower() != "desc", na_position="last")
+    return out.drop(columns=[sort_col])
+
+
+def _rows(df: pd.DataFrame, cols: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    if cols:
+        present = [c for c in cols if c in df.columns]
+        df = df[present]
+    return convert_numpy_types(df.to_dict(orient="records"))
+
+
+def _format_total_market_cap(value: float) -> str:
+    if not value:
+        return "N/A"
+    return f"${value / 1e12:.2f}T"
+
+
+@app.route('/api/market/sp500/companies', methods=['GET'])
+def market_sp500_companies():
+    df = _sp500_df()
+    if df.empty:
+        return _empty_sp500()
+    sort_by = request.args.get("sort_by", "forward_pe")
+    order = request.args.get("order", "asc")
+    df = _sort_df(df, sort_by, order)
+    return jsonify({"count": len(df), "data": _rows(df), "snapshot": _sp500_status()})
+
+
+@app.route('/api/market/sp500/sectors', methods=['GET'])
+def market_sp500_sectors():
+    df = _sp500_df()
+    if df.empty:
+        return _empty_sp500()
+
+    sectors = []
+    for sector in sorted(df["sector"].fillna("Unknown").unique()):
+        sector_df = df[df["sector"].fillna("Unknown") == sector]
+        pe_values = pd.to_numeric(sector_df["forward_pe"], errors="coerce")
+        market_cap = pd.to_numeric(sector_df["market_cap"], errors="coerce")
+        total_market_cap = float(market_cap.sum()) if market_cap.notna().any() else 0.0
+        sectors.append({
+            "name": sector,
+            "count": int(len(sector_df)),
+            "avg_forward_pe": float(round(pe_values.mean(), 2)) if pe_values.notna().any() else None,
+            "median_forward_pe": float(round(pe_values.median(), 2)) if pe_values.notna().any() else None,
+            "total_market_cap": total_market_cap,
+            "total_market_cap_fmt": _format_total_market_cap(total_market_cap),
+        })
+
+    return jsonify({"count": len(sectors), "data": convert_numpy_types(sectors), "snapshot": _sp500_status()})
+
+
+@app.route('/api/market/sp500/companies/<path:sector>', methods=['GET'])
+def market_sp500_companies_by_sector(sector: str):
+    df = _sp500_df()
+    if df.empty:
+        return _empty_sp500()
+    sector_df = df[df["sector"].str.lower() == sector.lower()].copy()
+    if sector_df.empty:
+        return jsonify({"error": f'Sector "{sector}" not found', "data": [], "count": 0}), 404
+    sector_df = _sort_df(sector_df, "forward_pe", "asc")
+    return jsonify({"sector": sector, "count": len(sector_df), "data": _rows(sector_df)})
+
+
+@app.route('/api/market/sp500/stats', methods=['GET'])
+def market_sp500_stats():
+    df = _sp500_df()
+    if df.empty:
+        return _empty_sp500()
+
+    pe_values = pd.to_numeric(df["forward_pe"], errors="coerce")
+    trailing_pe = pd.to_numeric(df["trailing_pe"], errors="coerce")
+    profit_margin = pd.to_numeric(df["profit_margin"], errors="coerce")
+    revenue_growth = pd.to_numeric(df["revenue_growth"], errors="coerce")
+    market_cap = pd.to_numeric(df["market_cap"], errors="coerce")
+    total_market_cap = float(market_cap.sum()) if market_cap.notna().any() else 0.0
+
+    top_by_market_cap = df.nlargest(10, "market_cap")[
+        ["ticker", "company_name", "sector", "market_cap_fmt", "forward_pe", "current_price_fmt"]
+    ]
+    valid_pe = df[pd.to_numeric(df["forward_pe"], errors="coerce") > 0].copy()
+    lowest_pe = valid_pe.nsmallest(10, "forward_pe")[
+        ["ticker", "company_name", "sector", "forward_pe", "trailing_pe", "current_price_fmt"]
+    ] if not valid_pe.empty else pd.DataFrame()
+    valid_growth = df[pd.to_numeric(df["revenue_growth"], errors="coerce").notna()].copy()
+    highest_growth = valid_growth.nlargest(10, "revenue_growth")[
+        ["ticker", "company_name", "sector", "revenue_growth_fmt", "current_price_fmt"]
+    ] if not valid_growth.empty else pd.DataFrame()
+
+    return jsonify(convert_numpy_types({
+        "total_companies": int(len(df)),
+        "total_market_cap": total_market_cap,
+        "total_market_cap_fmt": _format_total_market_cap(total_market_cap),
+        "avg_forward_pe": float(round(pe_values.mean(), 2)) if pe_values.notna().any() else None,
+        "median_forward_pe": float(round(pe_values.median(), 2)) if pe_values.notna().any() else None,
+        "avg_trailing_pe": float(round(trailing_pe.mean(), 2)) if trailing_pe.notna().any() else None,
+        "avg_profit_margin": float(round(profit_margin.mean() * 100, 2)) if profit_margin.notna().any() else None,
+        "avg_revenue_growth": float(round(revenue_growth.mean() * 100, 2)) if revenue_growth.notna().any() else None,
+        "sector_count": int(df["sector"].nunique()),
+        "top_by_market_cap": _rows(top_by_market_cap),
+        "lowest_forward_pe": _rows(lowest_pe) if not lowest_pe.empty else [],
+        "highest_growth": _rows(highest_growth) if not highest_growth.empty else [],
+        "snapshot": _sp500_status(),
+    }))
+
+
+@app.route('/api/market/sp500/company/<ticker>', methods=['GET'])
+def market_sp500_company(ticker: str):
+    df = _sp500_df()
+    if df.empty:
+        return _empty_sp500()
+    company_df = df[df["ticker"].str.upper() == ticker.upper()]
+    if company_df.empty:
+        return jsonify({"error": f'Company with ticker "{ticker}" not found'}), 404
+    return jsonify(_rows(company_df)[0])
+
+
+@app.route('/api/market/sp500/search', methods=['GET'])
+def market_sp500_search():
+    query = request.args.get("q", "").strip().lower()
+    if not query:
+        return jsonify({"error": 'Query parameter "q" is required'}), 400
+    df = _sp500_df()
+    if df.empty:
+        return _empty_sp500()
+    mask = (
+        df["ticker"].str.lower().str.contains(query, na=False) |
+        df["company_name"].str.lower().str.contains(query, na=False)
+    )
+    results = df[mask].head(20)
+    return jsonify({"query": query, "count": len(results), "data": _rows(results)})
+
+
+def _spotlight_sections(limit: Optional[int] = 5) -> Dict[str, Dict[str, Any]]:
+    df = _sp500_df()
+    if df.empty:
+        return {}
+
+    def select(mask, sort_field, ascending, cols):
+        subset = df[mask].copy()
+        if sort_field in subset.columns:
+            subset = subset.sort_values(sort_field, ascending=ascending, na_position="last")
+        if limit:
+            subset = subset.head(limit)
+        return _rows(subset, cols)
+
+    base_cols = ["ticker", "company_name", "sector", "forward_pe", "current_price_fmt"]
+    return {
+        "growth_stocks": {
+            "title": "Growth Stocks",
+            "description": "High revenue growth with positive 52-week momentum",
+            "companies": select(
+                (df["revenue_growth"] > 0.15) & (df["year_change"] > 0),
+                "revenue_growth", False,
+                base_cols + ["revenue_growth", "year_change"],
+            ),
+        },
+        "hot_stocks": {
+            "title": "Hot Stocks",
+            "description": "Strongest 52-week performance",
+            "companies": select(
+                df["year_change"] > 0.20, "year_change", False,
+                base_cols + ["year_change"],
+            ),
+        },
+        "value_plays": {
+            "title": "Value Plays",
+            "description": "Low forward P/E with expected earnings growth",
+            "companies": select(
+                (df["forward_pe"] > 0) & (df["forward_pe"] < 15) & (df["pe_ratio"] > 1),
+                "forward_pe", True,
+                base_cols + ["trailing_pe", "pe_ratio"],
+            ),
+        },
+        "momentum_leaders": {
+            "title": "Momentum Leaders",
+            "description": "P/E ratio expansion that can flag earnings acceleration",
+            "companies": select(
+                df["pe_ratio"] > 1.2, "pe_ratio", False,
+                base_cols + ["trailing_pe", "pe_ratio"],
+            ),
+        },
+        "quality_gems": {
+            "title": "Quality Gems",
+            "description": "High margins with solid revenue growth",
+            "companies": select(
+                (df["profit_margin"] > 0.15) & (df["revenue_growth"] > 0.05),
+                "profit_margin", False,
+                base_cols + ["profit_margin", "revenue_growth"],
+            ),
+        },
+        "dividend_champions": {
+            "title": "Dividend Champions",
+            "description": "Higher dividend yield names for income screens",
+            "companies": select(
+                df["dividend_yield"] > 0.03, "dividend_yield", False,
+                base_cols + ["dividend_yield"],
+            ),
+        },
+        "low_volatility": {
+            "title": "Low Volatility",
+            "description": "Lower-beta stocks for conservative screens",
+            "companies": select(
+                (df["beta"] > 0) & (df["beta"] < 0.8), "beta", True,
+                base_cols + ["beta"],
+            ),
+        },
+        "mega_caps": {
+            "title": "Mega Caps",
+            "description": "Largest companies by market capitalization",
+            "companies": select(
+                df["market_cap"] > 200e9, "market_cap", False,
+                base_cols + ["market_cap", "market_cap_fmt"],
+            ),
+        },
+        "turnaround_plays": {
+            "title": "Turnaround Plays",
+            "description": "Down stocks that still show positive forward earnings",
+            "companies": select(
+                (df["year_change"] < -0.10) & (df["forward_pe"] > 0),
+                "year_change", True,
+                base_cols + ["year_change"],
+            ),
+        },
+        "high_beta_movers": {
+            "title": "High Beta Movers",
+            "description": "Higher-volatility stocks for aggressive screens",
+            "companies": select(
+                df["beta"] > 1.5, "beta", False,
+                base_cols + ["beta"],
+            ),
+        },
+    }
+
+
+@app.route('/api/market/sp500/spotlight', methods=['GET'])
+def market_sp500_spotlight():
+    sections = _spotlight_sections(limit=5)
+    if not sections:
+        return _empty_sp500()
+    return jsonify(sections)
+
+
+@app.route('/api/market/sp500/spotlight/<category>', methods=['GET'])
+def market_sp500_spotlight_category(category: str):
+    item = _spotlight_sections(limit=None).get(category)
+    if not item:
+        return jsonify({"error": f'Spotlight category "{category}" not found'}), 404
+    return jsonify({**item, "category": category, "count": len(item.get("companies", []))})
+
+
 @app.route('/api/themes', methods=['GET'])
 def themes_list():
     import themes_service
@@ -1018,6 +1345,7 @@ def screener_saved_delete(screener_id):
 def settings_data_tier():
     """Report which data tiers are live based on env keys (no secrets returned)."""
     import os
+    from tools.sp500_refresh import snapshot_status
     def present(key):
         return bool(os.environ.get(key, '').strip())
     tiers = [
@@ -1035,7 +1363,22 @@ def settings_data_tier():
         "FINNHUB_API_KEY": present("FINNHUB_API_KEY"),
         "ANTHROPIC_API_KEY": present("ANTHROPIC_API_KEY"),
     }
-    return jsonify({"tiers": tiers, "optional_keys": optional})
+    return jsonify({"tiers": tiers, "optional_keys": optional, "sp500_snapshot": snapshot_status()})
+
+
+@app.route('/api/market/refresh-sp500', methods=['POST'])
+def market_refresh_sp500():
+    """Pull-triggered S&P 500 snapshot refresh; never runs in the background."""
+    from tools import get_tool
+    body = request.get_json(silent=True) or {}
+    args = {}
+    if body.get("tickers"):
+        args["tickers"] = body.get("tickers")
+    if body.get("max_workers"):
+        args["max_workers"] = body.get("max_workers")
+    result = get_tool("sp500_refresh").execute(**args)
+    status = 200 if result.error is None else 502
+    return jsonify({"ok": result.error is None, "result": result.to_dict()}), status
 
 
 @app.route('/api/dashboard/layout', methods=['GET'])

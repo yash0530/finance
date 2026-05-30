@@ -111,3 +111,35 @@ def test_accept_staged_raises_on_missing():
     with pytest.raises(ValueError) as excinfo:
         living_memo.accept_staged("AMZN")
     assert "No staged memo found for ticker AMZN" in str(excinfo.value)
+
+
+def test_staged_memo_accept_and_discard_endpoints():
+    import app as _app
+
+    _app.app.config["TESTING"] = True
+    content = living_memo.empty_memo()
+    content["identity"]["content_md"] = "Endpoint-tested memo"
+    living_memo.save_staged("NFLX", content, delta_summary="endpoint accept")
+
+    with _app.app.test_client() as client:
+        res = client.post("/api/research/NFLX/memo/staged/accept")
+        assert res.status_code == 200
+        body = res.get_json()
+        assert body["success"] is True
+        assert body["new_version"] == 1
+        assert living_memo.load("NFLX") is not None
+
+        living_memo.save_staged("NFLX", content, delta_summary="endpoint discard")
+        res = client.post("/api/research/NFLX/memo/staged/discard")
+        assert res.status_code == 200
+        assert res.get_json()["success"] is True
+        assert living_memo.get_staged("NFLX") is None
+
+
+def test_staged_memo_accept_endpoint_404_when_missing():
+    import app as _app
+
+    _app.app.config["TESTING"] = True
+    with _app.app.test_client() as client:
+        res = client.post("/api/research/META/memo/staged/accept")
+        assert res.status_code == 404

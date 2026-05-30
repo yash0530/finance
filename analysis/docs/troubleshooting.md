@@ -10,109 +10,128 @@ Common failure modes and what to do about them.
 
 ---
 
-## Backend won't start
+## Backend will not start
 
-**Symptom**: `analysis/start.sh` errors out, or the frontend shows "API offline."
+**Symptom**: `analysis/start.sh` errors, or the frontend shows the API as offline.
 
 Check:
+
 1. Python version: `python3 --version` should be 3.9+.
 2. Dependencies: `cd analysis && pip install -r requirements.txt`.
-3. Port 5001 free: `lsof -i :5001`. Kill any conflicting process.
-4. SQLite directory writable: `ls -ld ~/.portfolio_intelligence`. Should exist and be writable.
+3. Port 5001: `lsof -i :5001`.
+4. SQLite directory: `ls -ld ~/.portfolio_intelligence`.
+
+The backend runs from `analysis/app.py` on port 5001.
 
 ---
 
-## LLM call times out / errors
+## Frontend will not start
 
-**Symptom**: Research run hangs at a planner/judge step; SSE stream goes silent.
+**Symptom**: Vite fails, or the app shell does not load.
+
+Check:
+
+1. `cd analysis/web && npm install` if dependencies are missing.
+2. `npm run build` to catch compile errors.
+3. Make sure `VITE_API_BASE` is unset or points at `http://localhost:5001/api`.
+
+All frontend API calls should flow through `src/utils/api.js`.
+
+---
+
+## LLM call times out or errors
+
+**Symptom**: Console stalls at a planner, debate, judge, or memo step.
 
 Possible causes:
-- **API key missing or wrong**. Open LLM Settings and verify the key.
-- **Rate limit**. Wait 60 seconds and re-run. If persistent, switch to a different provider.
-- **Network**. The tool retries on transient failures, but if your connection is down, nothing helps.
-- **Provider outage**. Anthropic / Google / OpenRouter dashboards will tell you.
 
-The agent loop's Budget has a wall-clock cap (default 300s). If a session exceeds that, it short-circuits and returns whatever it has so far. Look at the partial verdict — it may still be informative.
+- API key missing or wrong. Open **Settings → LLM** and verify the provider.
+- Provider rate limit. Wait and rerun, or switch provider.
+- Local model unavailable. If using Ollama, confirm the model is running.
+- Network failure.
 
----
-
-## Robinhood session expired
-
-**Symptom**: Portfolio page shows "Connection error" or "Holdings unavailable."
-
-Robinhood session tokens expire periodically. Fix:
-1. Delete `~/.portfolio_intelligence/.cache/rh_session.json`.
-2. Re-enter credentials on the Portfolio page.
-
-If you have 2FA enabled (you should), be ready to enter the code when prompted.
+The agent loop has a wall-clock budget. If it runs out, it should return a partial result instead of hanging indefinitely.
 
 ---
 
-## "No data" for a fundamentals call
+## Console stream looks incomplete
 
-**Symptom**: A tool returns empty data with `confidence='low'` and an error like "yfinance returned no data."
+**Symptom**: `/thesis` starts but the UI does not show expected progress.
 
-Causes:
-- The ticker is delisted or recently renamed.
-- yfinance throttled you. Wait 5–10 minutes; try again.
-- The ticker is foreign or non-equity (e.g. an ADR, a SPAC unit, an ETF). Some tools (DCF, QoE) explicitly skip non-equity instruments.
+Check:
 
-For ETFs: this is expected behavior. DCF and QoE return `{"skipped": true, "reason": "Not applicable for ETFs"}`. The verdict will still produce, just without those tools' input.
+1. Backend logs for exceptions from `console_orchestrator.py` or `agent_loop.py`.
+2. Browser console for SSE parsing errors.
+3. The event vocabulary in `next_gen_tool.md` if a new event is emitted but not rendered.
 
----
-
-## Monitor digest is empty
-
-**Symptom**: Open the Advisor page, click "Run digest now," nothing appears.
-
-Reasons:
-- **No `monitoring_enabled` tickers**. The default is to monitor every holding, but if you have no holdings, there's nothing to monitor.
-- **Throttle cooldown**. Tickers that returned `thesis_intact=True` in the last 30 minutes are skipped. Wait or trigger manually.
-- **LLM provider unavailable**. The monitor uses the fast/cheap model (`monitor` task type). If that provider is down, no signals get generated.
-
-Check the backend logs: `tail -f ~/.portfolio_intelligence/logs/server.log` (path may vary by your config).
+The endpoint is `/api/research/<ticker>/v2/stream`.
 
 ---
 
-## Calibration page shows "n too small"
+## No data from a tool
 
-**Symptom**: The Calibration page says you don't have enough data.
-
-This is by design. You need at least 20 closed recommendations with at least the 1-month outcome populated before the tool will display a calibration number. Earlier than that, the sample is dominated by variance and would mislead you.
-
-To accelerate:
-- Run more Deep Research sessions (each produces a recommendation).
-- Wait — the outcome worker backfills returns daily.
-- Manually trigger: `POST /api/advisor/calibration?backfill=1`.
-
----
-
-## Stale research / old data
-
-**Symptom**: A research report references prices from days ago.
-
-Reports are cached. The cache TTL is per-tool (most are 4–24 hours). To force a fresh run:
-- Add `?force_refresh=true` to the research URL.
-- Or delete the row from `research_reports` for that ticker.
-
----
-
-## Tests are failing locally
-
-**Symptom**: `python3 -m pytest tests/` shows failures.
+**Symptom**: A card or report section shows low confidence, an empty payload, or a yfinance/SEC error.
 
 Common causes:
-- **`HOME` not redirected**. Tests use `conftest.py` to send the DB to a tempdir. If you ran pytest from outside the `analysis/` directory, conftest may not load. Always run from `analysis/`.
-- **Stale `.pyc`**. `find analysis -name "*.pyc" -delete && find analysis -name "__pycache__" -type d -exec rm -rf {} +`.
-- **New dependency**. `pip install -r analysis/requirements.txt`.
 
-The `e2e_real` marker is opt-in and excluded by default. If you want to run it:
-```
-cd analysis && python3 -m pytest tests/test_e2e_real_ticker.py -m e2e_real -v -s
+- The ticker is delisted, renamed, foreign, or a non-equity instrument.
+- yfinance throttled or returned an empty response.
+- An optional provider key is not configured.
+- The source does not publish that field.
+
+Tools should degrade gracefully with `confidence="low"` and a clear `error`. A missing input should not crash the whole research run.
+
+---
+
+## S&P 500 Screener data looks stale
+
+**Symptom**: S&P 500 rules, market caps, 52-week-high distance, or sector constituents look old.
+
+Open **Settings → Data Tiers** and use the **S&P 500 snapshot** refresh button. This calls `POST /api/market/refresh-sp500`, which rebuilds `.cache/sp500_data.json` through the `sp500_refresh` Tool.
+
+Theme heat for S&P sectors uses live quotes for daily moves, but fast Screener rules use the cached snapshot for fundamentals.
+
+---
+
+## Screener is slow
+
+**Symptom**: A screen over the S&P 500 takes much longer than expected.
+
+Check whether the screen has pattern rules or `scan: true`. Fast fields use cached data. Pattern scans fetch price history and run detectors per ticker, so they are intentionally slower.
+
+Use a smaller theme or watchlist universe when testing a new screen.
+
+---
+
+## Stale research
+
+**Symptom**: A report references old data.
+
+Reports and tools are cached. For a fresh research run, use the Console option or endpoint parameter that forces refresh for that session. For S&P 500 fast-screen data, refresh the snapshot from Settings.
+
+---
+
+## Tests fail locally
+
+**Symptom**: `python3 -m pytest tests/` fails.
+
+Common causes:
+
+- Running from the wrong directory. Use `cd analysis && python3 -m pytest tests/`.
+- Stale Python cache. Remove `__pycache__` directories if needed.
+- Missing dependency after a requirements change.
+- A test accidentally hit live network instead of a mock.
+
+Frontend checks:
+
+```text
+cd analysis/web
+npm run build
+npx playwright test
 ```
 
 ---
 
 ## When in doubt
 
-Read the backend logs. Most non-trivial bugs leave a clear stack trace there. The tool is intentionally small enough that you (or Claude) can trace any failure end-to-end in under an hour.
+Read the backend logs and trace from the route to the service or Tool. The app is intentionally small enough that most failures can be followed end to end.

@@ -25,6 +25,7 @@ def test_seed_creates_all_presets():
     assert len(saved) == len(seed_screeners.DEFAULT_SCREENERS)
     names = {s["name"] for s in saved}
     assert "Oversold S&P Large Caps" in names
+    assert "Volume Breakouts (S&P)" in names
     assert "Pattern: Head & Shoulders (S&P)" in names
 
 
@@ -59,3 +60,7 @@ def test_stored_spec_is_runnable_shape():
 
     fast = by_name["52-Week Highs (S&P)"]
     assert "scan" not in fast["rules"]  # fast snapshot preset, no live scan
+
+    volume = by_name["Volume Breakouts (S&P)"]
+    assert "scan" not in volume["rules"]
+    assert volume["rules"]["rules"][0]["field"] == "volume_ratio"

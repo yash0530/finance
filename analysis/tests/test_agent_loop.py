@@ -464,6 +464,90 @@ def test_agent_loop_handles_unknown_tool_in_plan(fake_llm, mock_yfinance, mock_s
     assert report["verdict"]["recommendation"] in ("BUY", "HOLD", "TRIM", "AVOID")
 
 
+def _ledger_with_tools(*names):
+    from tools import EvidenceLedger, ToolResult
+    ledger = EvidenceLedger(ticker="NVDA")
+    for name in names:
+        ledger.add(ToolResult(tool_name=name, data={"ok": True}, confidence="high"))
+    return ledger
+
+
+def test_bull_agent_drops_claims_with_invalid_evidence_refs(monkeypatch):
+    class Provider:
+        def complete_json(self, system, user, model):
+            return {
+                "thesis_md": "mixed refs",
+                "key_drivers": [
+                    {"claim": "Real claim", "evidence_refs": ["fundamentals:revenue", "made_up"], "confidence": "high"},
+                    {"claim": "Unsupported claim", "evidence_refs": ["not_in_ledger"], "confidence": "high"},
+                    {"claim": "No refs", "evidence_refs": [], "confidence": "low"},
+                ],
+                "price_target_methodology": "",
+                "estimated_upside_pct": None,
+                "catalysts": [],
+            }
+
+    import llm_service
+    from agents import bull
+    monkeypatch.setattr(llm_service, "_get_provider_and_model", lambda *a, **k: (Provider(), "fake"))
+
+    out = bull.argue("NVDA", _ledger_with_tools("fundamentals"))
+
+    assert out["key_drivers"] == [
+        {"claim": "Real claim", "evidence_refs": ["fundamentals"], "confidence": "high"}
+    ]
+    assert len(out["invalid_evidence_refs"]) == 2
+    assert {c["claim"] for c in out["dropped_uncited_claims"]} == {"Unsupported claim", "No refs"}
+
+
+def test_bear_and_judge_validate_evidence_refs(monkeypatch):
+    class Provider:
+        def complete_json(self, system, user, model):
+            if "skeptical short-seller" in system.lower():
+                return {
+                    "attack_md": "",
+                    "independent_bear_md": "",
+                    "key_risks": [
+                        {"risk": "Valid risk", "evidence_refs": ["sentiment"], "severity": "medium", "confidence": "high"},
+                        {"risk": "Invalid risk", "evidence_refs": ["ghost"], "severity": "high", "confidence": "high"},
+                    ],
+                    "estimated_downside_pct": None,
+                    "thesis_falsifiers_for_bull": [],
+                }
+            return {
+                "summary": "test",
+                "recommendation": "HOLD",
+                "conviction": "LOW",
+                "bull_case": [
+                    {"claim": "Valid bull", "evidence_refs": ["fundamentals"], "confidence": "high"},
+                    {"claim": "Invalid bull", "evidence_refs": ["ghost"], "confidence": "high"},
+                ],
+                "bear_case": [
+                    {"claim": "Valid bear", "evidence_refs": ["sentiment.score"], "confidence": "medium"},
+                    {"claim": "No bear refs", "evidence_refs": [], "confidence": "low"},
+                ],
+                "what_would_change_mind": ["Revenue below plan", "Margins below plan", "Guide down"],
+                "key_catalysts": [],
+                "target_price_range": {"low": 1, "high": 2, "timeframe": "12m"},
+                "trade_plan": {"position_size_pct": 20},
+            }
+
+    import llm_service
+    from agents import bear, judge
+    monkeypatch.setattr(llm_service, "_get_provider_and_model", lambda *a, **k: (Provider(), "fake"))
+    ledger = _ledger_with_tools("fundamentals", "sentiment")
+
+    bear_out = bear.argue("NVDA", ledger, bull_thesis={})
+    assert [r["risk"] for r in bear_out["key_risks"]] == ["Valid risk"]
+    assert bear_out["dropped_uncited_claims"][0]["claim"] == "Invalid risk"
+
+    verdict = judge.synthesize("NVDA", ledger, {}, {}, {}, current_price=100)
+    assert [c["claim"] for c in verdict["bull_case"]] == ["Valid bull"]
+    assert [c["claim"] for c in verdict["bear_case"]] == ["Valid bear"]
+    assert verdict["bear_case"][0]["evidence_refs"] == ["sentiment"]
+    assert verdict["trade_plan"]["position_size_pct"] == 15.0
+
+
 def test_pipeline_persists_with_real_telemetry(fake_llm, mock_yfinance, mock_sentiment):
     """After a full run, the persisted report should have nonzero total_llm_calls
     and tool_call_count (proving the LLMCallSession instrumentation works)."""

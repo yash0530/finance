@@ -8,10 +8,10 @@
 
 ## v3 Terminal Shift & Architecture
 
-Edge v3 moves the platform from a vector search RAG pipeline or Robinhood-based portfolio synchronizer into a Bloomberg-style, pull-based personal trading terminal. 
+Edge v3 moves the platform from a vector search RAG pipeline or broker-synced portfolio tool into a Bloomberg-style, pull-based personal trading terminal.
 
 Key v3 paradigms:
-1. **6 Navigation Pages**: `Terminal` (movers, watchlists, catalysts, news, hypotheses) · `Stock View` (candlestick chart with MA20/MA50/BB/VWAP/RSI/MACD overlays, StockTechnicals metrics card, fundamentals, ownership, filings) · `Console` (command runner with `/thesis`, `/dossier`, `/why`, `/theme`, `/compare`) · `Library` (memos, saved reports, telemetry) · `Screener` (partial-variable rule matching) · `Settings` (Ollama/Claude/Gemini provider selection, data-tier badges, themes).
+1. **Reconciled Navigation**: `Market` (default S&P 500 snapshot cockpit) · `Stock View` (candlestick chart with MA20/MA50/BB/VWAP/RSI/MACD overlays, StockTechnicals metrics card, fundamentals, ownership, filings) · `Research` (form-driven Deep Research) · `Daily Scan` (movers, watchlists, catalysts, news, hypotheses) · `Console` (command runner with `/thesis`, `/dossier`, `/why`, `/theme`, `/compare`) · `Library` (memos, saved reports, telemetry) · `Screener` (partial-variable rule matching) · `Settings` (Ollama/Claude/Gemini provider selection, data-tier badges, themes).
 2. **On-Demand Command Engine**: The command runner parses and streams on-demand debates and quick research ticks under tight session budgets.
 3. **Additive sqlite Schema**: Keeps a full audit trail of Living Memos and telemetry across deep research runs.
 
@@ -22,17 +22,15 @@ Key v3 paradigms:
 
 ## 1. Vision
 
-The original tool was a passive S&P 500 viewer. v1 bridged that gap: it connects to a real portfolio (Robinhood or manual), runs multi-layer AI research on any US ticker, and produces a structured investment thesis with concrete actions. Think Bloomberg Terminal × ChatGPT, single-investor scale.
+The original tool was a passive S&P 500 viewer. v1 explored broker/manual portfolio context, multi-layer AI research on any US ticker, and structured investment theses with concrete actions. Edge v3 keeps the research brain and drops broker sync.
 
 ## 2. Shipped capabilities
 
-### 2.1 Portfolio ingestion
-- **Robinhood**: OAuth + OTP via `robin_stocks` (unofficial). Session cached 24h in `.cache/rh_session.json` (no password stored).
-- **Manual CSV**: `ticker,shares,avg_cost` parsing.
-- **Live enrichment**: `yfinance` for current prices, P&L, weights.
+### 2.1 Legacy portfolio ingestion
+This v1 area was removed in Edge v3. The current app focuses on research, watchlists, themes, and pull-triggered screens.
 
 ### 2.2 Deep Research pipeline (v1)
-8 fixed stages, streamed via SSE:
+Fixed stages, streamed via SSE:
 
 | Stage | Source | Output |
 |---|---|---|
@@ -45,8 +43,8 @@ The original tool was a passive S&P 500 viewer. v1 bridged that gap: it connects
 | EDGAR | SEC | 10-K/10-Q sections, LLM-summarized |
 | Thesis | LLM | 3-pass bull → bear → synthesis JSON |
 
-### 2.3 Portfolio rebalancing
-Risk-profile-driven allocation analysis (Conservative / Moderate / Aggressive) → prioritized trim/add actions.
+### 2.3 Legacy allocation analysis
+This v1 area was removed in Edge v3. Current sizing guidance is emitted by the Judge inside Deep Research.
 
 ### 2.4 Watchlist
 Watchlist: notes + one-click research.
@@ -64,13 +62,11 @@ Sector tables, market stats, technical pattern hunting, spotlight categories.
 ┌────────────────────────▼──────────────────────────────┐
 │           Flask backend (app.py, 43 routes)           │
 │                                                       │
-│  research_stream.py  ── 8-stage SSE pipeline          │
+│  research_stream.py  ── legacy SSE pipeline           │
 │  research_engine.py  ── stage implementations         │
-│  portfolio_service   ── Robinhood / CSV / P&L         │
 │  sentiment_service   ── Finnhub + Reddit + yf         │
 │  edgar_service       ── SEC 10-K/10-Q                 │
 │  llm_service         ── Claude / Gemini / Ollama      │
-│  rebalancing_engine  ── allocation analysis           │
 │  db.py               ── SQLite (WAL)                  │
 └───────────────────────────────────────────────────────┘
 ```
@@ -79,7 +75,6 @@ Sector tables, market stats, technical pattern hunting, spotlight categories.
 
 | Source | Data | Cost |
 |---|---|---|
-| `robin_stocks` | holdings | free |
 | `yfinance` | prices, fundamentals, quarterly | free |
 | Finnhub | news, analyst ratings | free tier |
 | `praw` (Reddit) | WSB + r/investing | free tier |
@@ -404,45 +399,25 @@ Extends v1's Half-Kelly with:
 - Per-sector cap (e.g., 35% max)
 - Tax-lot awareness (if existing position underwater → wash sale window)
 
-### 16.3 Calibration log
+### 16.3 Recommendation log
 
-> **v3 status (partially removed):** Recommendations are still logged to the `recommendations` table by the agent loop, but the **nightly outcome cron and Calibration Dashboard described below were removed** — they violate the pull-based rule (no background workers/cron). Outcome backfill, if ever revived, must be pull-triggered. The historical design is retained here for context only.
+Recommendations are still logged when the agent loop emits a verdict, but Edge v3 does not automate outcome backfill. Any future outcome review must be user-triggered and preserve the pull-based rule.
 
-Every recommendation is logged to `recommendations` table with:
+Every saved verdict records:
 - Recommendation + conviction
 - Price at recommendation
 - Stop + targets
 - Thesis summary
+- Falsifiability criteria
 
-A nightly cron updates outcomes: `outcome_{1m, 3m, 6m, 1y}_return_pct` and a `thesis_falsified` boolean (did it hit stop or did the thesis-required conditions break).
+## 17. Catalysts on demand
 
-The Calibration Dashboard shows:
-- Hit rate by conviction (HIGH calls vs MEDIUM vs LOW)
-- Hit rate by sector
-- Avg return vs benchmark
-- Brier score per conviction bucket
-- Per-ticker history
+Upcoming catalysts are surfaced through the `catalyst_lookup` Tool and the Terminal's Catalysts panel (`GET /api/terminal/catalysts`). The panel refreshes only when the user opens or refreshes it.
 
-**This is the trust loop.** Over months you see whether the tool's HIGH conviction actually deserves it. Calibration is what separates a tool from a vibes machine.
-
-## 17. Catalyst calendar + active monitoring
-
-> **v3 status (removed):** The `monitoring_worker.py` daily background job and digest below were **cut** under the pull-based rule (no background workers, cron, or notifications). Upcoming catalysts are surfaced on demand via the `catalyst_lookup` tool and the Terminal's Catalysts panel (`GET /api/terminal/catalysts`), refreshed when the user opens/refreshes the panel — never by a daemon. The design below is historical.
-
-`analysis/catalyst_calendar.py` aggregates:
-- Earnings dates (yfinance)
-- FDA PDUFA (RSS scraping)
-- FOMC meeting dates (Fed schedule)
-- CPI / NFP releases (BLS calendar)
-- OPEC meetings
-- Index rebalance dates
-- Lockup expiries (S-1 parsing)
-
-A daily background job (`monitoring_worker.py`) for each *owned position*:
-1. Re-runs cheap tools (price action, new filings, insider, news)
-2. Compares to last memo
-3. If material change → flag in a daily digest
-4. If `what_would_change_mind` condition triggered → decay notification
+`catalyst_lookup` covers:
+- Earnings and dividend dates from yfinance
+- FOMC, CPI, and jobs-report dates from static market calendars
+- Company-specific events where the source resolves cleanly
 
 ## 18. Conversational follow-up
 
@@ -638,9 +613,9 @@ budget_deep:   $2.00  (full + transcript deep-dives + extra debate rounds)
 | 2 | 1 wk | `agent_loop.py` + planner; formal `bull.py`/`bear.py`/`judge.py`/`self_critique.py`; v2 SSE endpoint |
 | 3 | 1.5 wks | Living Memo: schema, synthesizer, diff, viewer UI, edit/accept flow |
 | 4 | 1 wk | Sector router + 5-7 sector analyzers + sector peer cohorts |
-| 5 | 1 wk | Portfolio-aware tools, personal sizing, calibration log + nightly outcome backfill |
-| 6 | 1 wk | Catalyst calendar, monitoring daemon, daily digest, chat endpoint + UI |
-| 7 | 1 wk | Polish: research log UI, source viewer modal, calibration dashboard, confidence visualization |
+| 5 | 1 wk | Personal sizing, recommendation log, and pull-triggered review hooks |
+| 6 | 1 wk | Catalyst lookup, terminal panels, chat endpoint + UI |
+| 7 | 1 wk | Polish: research log UI, source viewer modal, confidence visualization |
 
 Each phase is independently shippable behind a UI toggle. v2 becomes default once Phase 3 is stable.
 
@@ -656,7 +631,7 @@ Each phase is independently shippable behind a UI toggle. v2 becomes default onc
 
 ## 24. Out of scope for v2
 
-- Auto-execution of trades (still requires manual Robinhood action)
+- Auto-execution of trades
 - Voice interface
 - Mobile native apps
 - Multi-user/permissions (single-user tool)
@@ -672,9 +647,7 @@ analysis/
 ├── agent_loop.py                # NEW: planner/executor/observer
 ├── living_memo.py               # NEW: read/write/diff/version
 ├── sector_router.py             # NEW: ticker → sector profile
-├── calibration.py               # NEW: outcome tracking
 ├── catalyst_calendar.py         # NEW: event aggregation
-├── monitoring_worker.py         # NEW: daily digest daemon
 │
 ├── agents/
 │   ├── bull.py                  # NEW
@@ -707,7 +680,7 @@ analysis/
 │   ├── correlation_analysis.py  # NEW
 │   ├── stress_test.py           # NEW
 │   ├── memo_read.py             # NEW
-│   └── calibration_lookup.py    # NEW
+│   └── memo_read.py             # NEW
 │
 ├── analyzers/                   # NEW: sector specialists
 │   ├── saas.py
@@ -721,12 +694,10 @@ analysis/
 │
 ├── research_stream.py           # v1 — preserved
 ├── research_engine.py           # v1 — preserved, gradually deprecated
-├── portfolio_service.py
 ├── db.py
 ├── llm_service.py
 ├── sentiment_service.py
 ├── edgar_service.py
-├── rebalancing_engine.py
 └── companies.py
 ```
 
@@ -756,15 +727,16 @@ loop, all 18 tools, all 7 agents, the Living Memo, the sector analyzers. v3
 changes the *frontend pages, navigation, panel set*, and adds a command-bar
 **Console** in front of the existing deep-research engine.
 
-Out of scope (removed in v3): portfolio management (Robinhood, holdings,
-rebalancing, calibration tracking), the monitoring worker, the S&P 500 scanner,
-and technical-pattern dashboards.
+Out of scope in v3: broker sync, holdings management, allocation dashboards,
+automated outcome tracking, daemon-style monitors, and any background scanner.
+The S&P 500 UI is retained as a pull-based snapshot cockpit over the existing
+`sp500_lookup`/`sp500_refresh` snapshot data.
 
 ### Non-negotiables (all phases)
 
 1. **Citation contract unchanged.** Every Tool returns `ToolResult` with `data`,
    `sources`, `confidence`, `cost_usd`.
-2. **Pull-based only.** No background workers, cron, queues, alerts, or push.
+2. **Pull-based only.** No background workers, scheduled jobs, queues, alerts, or push.
    Every panel refreshes manually.
 3. **Additive-only DB.** Never alter/drop existing tables. New columns → new
    sibling table. Always `CREATE TABLE IF NOT EXISTS`.
@@ -772,12 +744,14 @@ and technical-pattern dashboards.
 5. **Graceful degradation.** Paid-API tools gate on `os.environ.get(KEY)` inside
    `_execute`; the free tier always works.
 
-## 26. Navigation (6 pages)
+## 26. Navigation (reconciled pages)
 
 | Page | Route | Purpose |
 |---|---|---|
-| Terminal | `#terminal` (default) | Daily scan: movers, theme heat, hypotheses, watchlist, catalysts, flow, news |
+| Market | `#market` (default) | S&P 500 cockpit: spotlight categories, market stats, sector cards, sector charts, searchable/sortable company table |
 | Stock View | `#stock?t=NVDA` | Single-ticker cockpit: chart, fundamentals, ownership, filings/news, memo + report CTAs |
+| Research | `#research?t=NVDA` | Form-driven Deep Research stream using the preserved agent loop |
+| Daily Scan | `#terminal` | Movers, theme heat, hypotheses, watchlist, catalysts, flow, news |
 | Console | `#console` | Slash-command bar + SSE stream + run-history rail |
 | Library | `#library` | Saved reports + Living Memos browser |
 | Screener | `#screener` | Rule-based technical/fundamental screener with saved configs |
@@ -785,7 +759,8 @@ and technical-pattern dashboards.
 
 Docs moved to a footer link in the sidebar. Routing is hash-based
 (`src/hooks/useHashRoute.js`) — no router dependency. `#stock?t=<T>` carries the
-ticker; Stock View CTAs deep-link to `#console` with a command pre-filled.
+ticker; the primary Stock View thesis CTA opens `#research?t=<T>`, while quick
+why/dossier actions can still deep-link to `#console` with a command pre-filled.
 
 ## 27. Phase 1 — Sparse Terminal + nav reshape (shipped)
 
@@ -811,7 +786,7 @@ ticker; Stock View CTAs deep-link to `#console` with a command pre-filled.
 `add_watchlist`, `remove_watchlist`) over the existing `watchlist` table. No
 schema changes in Phase 1.
 
-**Frontend:** new 6-page `Sidebar.jsx` + hash router in `App.jsx`. `TerminalPage`
+**Frontend:** initial 6-page `Sidebar.jsx` + hash router in `App.jsx`. `TerminalPage`
 renders Movers + Watchlist + News Tape (remaining panels land in Phase 2).
 `StockViewPage` ships header + chart + CTA bar (full sections in Phase 3).
 `ConsolePage` parses `/thesis` and `/dossier` and dispatches to the existing
@@ -951,12 +926,15 @@ Saved screens persist the full spec and reload into the builder.
 
 ## 32. Phase 6 — Cleanup + data-tier toggles (shipped)
 
-**Deletions.** Removed the legacy S&P 500 scanner, portfolio, spotlight, and
+**Deletions.** Removed the legacy portfolio, background scanner, spotlight, and
 pattern HTTP routes from `app.py` (3337 → ~1100 lines) plus `companies.py`,
-`portfolio_service.py`, and the dead frontend pages/components
-(`PortfolioPage`, `MarketPage`, `DeepResearchPage`, and the
-Spotlight/HeadShoulders/TechnicalPatterns/CompanyTable/CompanyDetail/SectorChart/
-Dashboard/AllocationChart/SearchBar/PatternVisualization components).
+`portfolio_service.py`, and duplicate/dead frontend surfaces.
+
+**Recovery addendum.** The rich S&P 500 discovery UI and form-driven Deep
+Research page were restored because they remained core to the user's workflow.
+They now use pull-based snapshot routes (`/api/market/sp500/*`) over
+`analysis/.cache/sp500_data.json`; the old background refresh/scanner behavior
+was not restored.
 
 **Deviation from the plan (flagged):** the plan listed `research_engine.py` for
 deletion as "legacy v1 pipeline dead." It is NOT dead — five preserved tools
@@ -979,6 +957,7 @@ tickers) over the Phase 2 theme CRUD endpoints.
 `TerminalPage` panels are drag-to-reorder; the order persists and is
 forward-compatible (unknown saved panels dropped, new panels appended).
 
-After Phase 6 the app boots clean with no portfolio/monitoring/scanner code; the
+After the reconciliation pass the app boots clean with no portfolio, monitoring,
+or background scanner code; the pull-based Market page reads the snapshot. The
 deep-research brain (`agent_loop`, `agents/`, `tools/`, `living_memo`, analyzers)
 is byte-for-byte the same engine, now fronted by the Edge terminal.

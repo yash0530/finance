@@ -6,154 +6,140 @@ category: Reference
 
 # Architecture Overview
 
-The engineering view of Portfolio Intelligence — for when you want to know *why* a number is the way it is, or when something breaks and you need to trace it.
-
-For the full engineering spec, see `next_gen_tool.md` in the repo. This page is the abridged tour.
+The engineering view of Portfolio Intelligence. For the full source-of-truth spec, see `next_gen_tool.md`; this page is the abridged tour.
 
 ---
 
-## Deep Research Architecture
+## Research architecture
 
-The main research surface is **Deep Research**, which runs an advanced agentic loop to perform thorough analysis.
+The primary research path is **Deep Research**, launched from Console slash commands and backed by `/api/research/<ticker>/v2/stream`.
 
-- **Pipeline**: Dynamic agentic loop with planner, executor, bull/bear advocates, judge, self-critique, and memo synthesizer.
-- **Files**: `agent_loop.py`, `agents/`, `analyzers/`
-- **Output**: Structured Verdict + Living Memo + cited evidence ledger
-- **Endpoint**: `/api/research/<ticker>/v2/stream` (SSE EventSource)
+- **Orchestrator**: `agent_loop.py`
+- **Agents**: planner, bull, bear, judge, self_critique, memo_synth
+- **Tools**: `analysis/tools/`, each returning citation-aware `ToolResult` objects
+- **Specialization**: `sector_router.py` and `analysis/analyzers/`
+- **Memory**: `living_memo.py`, with append-only memo versions
 
-Deep Research distills fundamentals, sentiment, QoE forensics, options metrics, and SEC filings, storing the evolving knowledge inside an append-only Living Memo.
+One session runs:
+
+```text
+1. Sector router classifies the ticker
+2. Planner chooses tool batches
+3. Tool executor collects cited evidence
+4. Bull agent writes the long case
+5. Bear agent writes the short case
+6. Judge agent emits verdict, sizing, targets, and risks
+7. Self-critique audits the reasoning
+8. Memo synth proposes Living Memo updates
+```
+
+The loop is dynamic: planner and executor may iterate until the budget, wall-clock cap, or evidence requirements are satisfied.
 
 ---
 
 ## Backend stack
 
-- **Flask** on `:5001` (`analysis/app.py`) — routes only; business logic lives in service modules.
-- **SQLite** at `~/.portfolio_intelligence/finance.db` (WAL mode) — single source of truth for portfolio, research, recommendations, monitoring digests, calibration outcomes.
-- **LLM abstraction** in `analysis/llm_service.py` — Claude / Gemini / Ollama, with `_get_provider_and_model(task_type)` routing fast vs. deep tasks to different models.
-- **Robinhood sessions** stored in RAM only (`_RAM_SESSION` in `portfolio_service.py`). `store_session=False` ensures no tokens are written to disk. Session auto-expires after 24 hours.
-- **Background workers** (started on app boot):
-  - `monitoring_worker.py` — hourly thesis decay
-  - `outcome_worker.py` — daily recommendation outcome backfill
+- **Flask** on `:5001` (`analysis/app.py`) — routes only; logic belongs in service modules and tools.
+- **SQLite** at `~/.portfolio_intelligence/finance.db` (WAL mode) — schema in `db.py`.
+- **LLM abstraction** in `llm_service.py` — provider/model routing for fast and deep tasks.
+- **Tools** in `analysis/tools/` — all new data fetches must live here and register through `tools/__init__.py`.
+- **Pull-based execution** — data refreshes happen only when requested by the user or an endpoint call.
+
+Core DB tables such as `research_reports`, `living_memo*`, and `llm_settings` are treated as stable. New features should add sibling tables rather than altering or deleting core history.
 
 ---
 
 ## Frontend stack
 
-- **React 18 + Vite** in `analysis/web/`.
-- Pages are **lazy-loaded** from `src/pages/`.
-- All API calls go through `src/utils/api.js` — one place to add headers, handle errors, swap base URLs.
-- **Dark terminal aesthetic** — `src/index.css` defines the palette; new components inherit it.
+- **React + Vite** in `analysis/web/`.
+- Pages are lazy-loaded from `src/pages/`.
+- All API calls go through `src/utils/api.js`.
+- Current first-class pages: Terminal, Stock View, Console, Library, Screener, Settings.
+
+The UI is optimized for repeated research work: dense panels, clear controls, fast navigation, and direct access to the actual research surfaces.
 
 ---
 
-## The agent loop (Deep Research)
+## Console and SSE
 
-The orchestrator is `agent_loop.py`. One research session runs:
+Console commands are dispatched by `console_orchestrator.py`:
 
-```
-1. Sector router classify   → picks the analyzer (saas/banks/biotech/etc.)
-2. Planner agent             → picks the next batch of tools to call
-3. Tool executor             → calls the tools, collects ToolResults
-   (loop 2-3 up to MAX_PLANNER_ITERATIONS or until budget exhausted)
-4. Bull agent                → writes the long case from the ledger
-5. Bear agent                → writes the short case from the ledger
-6. Judge agent               → picks a verdict + sizing + targets
-7. Self-critique agent       → audits the judge's reasoning for holes
-8. Memo synth agent          → folds new findings into the Living Memo
-```
+- `/thesis <ticker>` — full Deep Research and Living Memo flow.
+- `/dossier <ticker>` — richer context pack for a ticker.
+- `/why <ticker>` — quick cited explanation.
+- `/theme <slug>` — theme-level research.
+- `/compare <tickers>` — relative analysis across names.
 
-Streamed as SSE events; each event is named in `next_gen_tool.md` §events.
-
-The **Budget** (`tools.Budget`) enforces per-session caps:
-- Dollar cap (`max_usd`) — short-circuits if exceeded.
-- Wall-clock cap (`max_wall_clock_sec`) — short-circuits if exceeded.
-
-Every LLM call goes through the agent loop so the Budget tracks spend. Standalone `provider.complete(...)` calls in new code are forbidden (see `CLAUDE.md`).
+The backend streams progress via SSE. The event vocabulary is documented in `next_gen_tool.md` so frontend handlers and agent output stay aligned.
 
 ---
 
-## Tools
+## Tools and citations
 
-Every data fetch is a `Tool` (`analysis/tools/<name>.py`). The contract:
+Every data fetch or derived computation is a `Tool`. The contract:
 
-- Subclasses `tools.Tool`.
-- Returns a `ToolResult` with `data`, `sources` (one Source per cited field), `confidence`, and `cost_usd`.
-- Auto-registered via the `_AUTOLOAD` list in `tools/__init__.py`.
+- Subclass `tools.Tool`.
+- Return a `ToolResult` with `data`, `sources`, `confidence`, `cost_usd`, and optional `error`.
+- Degrade gracefully when data is missing.
+- Cite source fields precisely enough for the agents and UI to verify claims.
 
-Current tool inventory: fundamentals, financial_trends, technicals, dcf_valuation, qoe_forensics, peer_compare, macro_context, sentiment, insider_activity, institutional_holdings, options_metrics, earnings_transcripts, sec_filings, news_catalysts, analyst_estimates, sector_kpis.
-
----
-
-## Sector analyzers
-
-Each sector has a dedicated analyzer in `analysis/analyzers/` (saas, banks, reits, biotech, energy, semis, consumer, generic). Each analyzer exposes:
-
-- `required_tools()` — tools the planner should prioritize for this sector.
-- `kpi_template()` — sector-specific KPIs (NRR for SaaS, NIM for banks, etc.).
-- `peer_cohort(ticker)` — peer list for benchmarking.
-- `prompt_prefix()` — sector context the bull/bear/judge agents prepend to their system prompts.
-
-The sector_router classifies tickers → analyzer key. Classification flow:
-1. Cache hit (DB).
-2. Rule-based on GICS sector + industry.
-3. **LLM fallback** when rules don't match — one cheap call, cached forever.
-4. Default fallback if LLM unavailable.
+Representative tools include fundamentals, financial trends, technicals, price history, movers, news tape, theme heat, S&P 500 lookup/refresh, DCF, QoE forensics, SEC filings, insider Form 4, 13F holders, options flow, transcripts, catalysts, peer compare, and macro context.
 
 ---
 
-## The Living Memo
+## Screener and S&P 500 snapshot
 
-Per-ticker evolving knowledge document in `living_memo.py`. Why distillation over RAG:
+`screener_engine.py` scans saved rules against themes, watchlist, or the cached S&P 500 snapshot. Fast S&P rules use `.cache/sp500_data.json`; live pattern scans are opt-in because they fetch per-ticker price history.
 
-- A new research session loads the prior memo, identifies what's stale or unresolved, investigates that, and writes a refined version.
-- Compounds expertise: your 50th NVDA session is genuinely deeper than your first.
-- Auditable: every version is persisted (`living_memo_versions`); history is the user's audit trail and must not be deleted.
-- Open questions populate the Advisor dashboard's "outstanding research questions" section.
+The snapshot is refreshed through the `sp500_refresh` Tool and `POST /api/market/refresh-sp500`. It preserves the existing cache shape so `sp500_lookup`, Screener, and theme heat can read the same file.
 
 ---
 
-## Calibration
+## Living Memo
 
-`recommendations` table stores every deep research verdict with entry price, conviction, thesis_summary, and what_would_change_mind. `outcome_worker.py` runs daily and backfills `outcome_1m_return_pct`, `outcome_3m_return_pct`, `outcome_6m_return_pct`, `outcome_1y_return_pct`.
+The Living Memo is the per-ticker memory layer. It is distillation, not retrieval:
 
-The Calibration page (`/api/advisor/calibration`) aggregates hit rate by recommendation type and conviction band. Local-LLM verdicts are **excluded** from calibration so the track record measures the underlying model, not a mix.
+- A new session reads the prior memo.
+- The agent investigates stale facts and open questions.
+- Memo synth proposes an updated version.
+- Every version is preserved in `living_memo_versions`.
+
+Never delete memo history; it is the audit trail.
 
 ---
 
 ## Caching
 
-Each tool sets its own `cache_ttl_seconds`. Cached results live in:
-- `tool_result_cache` (generic) — fundamentals, trends, technicals, sentiment, peer_compare, macro_context, etc.
-- Bespoke tables for heavier data: `transcripts_cache`, `insider_trades_cache`, `institutional_holdings_cache`, `options_metrics_cache`.
+Tool cache TTLs are set per tool. Generic cached tool output lives in `tool_result_cache`; heavier sources may use dedicated cache tables or files. `force_refresh=True` on a research run bypasses tool caches for that session.
 
-The agent loop's `force_refresh=True` flag bypasses all caches for a single session.
+The S&P 500 snapshot is file-backed because it is shared by fast screeners and sector heat. Refresh it from Settings when freshness matters.
 
 ---
 
 ## Where things live
 
-```
+```text
 analysis/
-├── app.py                  Flask routes (portfolio + deep research + advisor + docs + S&P 500)
-├── agent_loop.py           Deep research orchestrator + SSE streaming
-├── agents/                 bull, bear, judge, self_critique, planner, memo_synth
-├── analyzers/              per-sector specialization
-├── tools/                  data fetches + computations
-├── llm_service.py          multi-provider LLM abstraction
+├── app.py                  Flask routes
+├── agent_loop.py           Deep Research orchestration + SSE
+├── agents/                 planner, bull, bear, judge, critique, memo synth
+├── analyzers/              sector-specialized KPI templates and cohorts
+├── tools/                  data fetches and computations
+├── console_orchestrator.py Console slash-command dispatcher
+├── screener_engine.py      rule-based screener
 ├── living_memo.py          per-ticker evolving memo
-├── sector_router.py        ticker → sector classification
-├── portfolio_service.py    Robinhood RAM-session + CSV ingestion + P&L enrichment
-├── monitoring_worker.py    hourly thesis-decay daemon
-├── outcome_worker.py       daily recommendation outcome backfill
-├── rebalancing_engine.py   holdings-aware rebalance signals
-├── docs/                   in-app guides (this directory)
+├── sector_router.py        ticker to sector classification
+├── themes_service.py       theme pack CRUD
+├── db.py                   schema and CRUD
+├── docs/                   in-app guides
 └── tests/                  pytest suite
 ```
 
 ---
 
-## What NOT to touch
+## What not to touch lightly
 
-- Core DB tables: `portfolio_holdings`, `research_cache`, `research_reports`, `llm_settings`.
-- `living_memo_versions` rows — append-only, never delete.
-- Functions in `research_engine.py` — they are wrapped as Tools; the originals stay.
+- Core DB history tables.
+- `living_memo_versions` rows.
+- Citation validators and evidence-reference requirements.
+- The preserved `research_engine.py` helpers that Tools still wrap.

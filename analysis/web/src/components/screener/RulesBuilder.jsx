@@ -85,6 +85,15 @@ export default function RulesBuilder({ spec, onChange, onRun, running }) {
                         scan (slow)
                     </label>
                 )}
+                {spec.universe === 'sp500' && spec.scan && (
+                    <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}
+                        title="Caps live technical/pattern scans so a broad S&P run stays bounded.">
+                        Max live tickers
+                        <input className="input" type="number" min="1" max="503" value={spec.max_scan || 150}
+                            onChange={e => onChange({ ...spec, max_scan: Number(e.target.value) || 150 })}
+                            style={{ width: 78, height: 30, padding: '2px 8px' }} />
+                    </label>
+                )}
             </div>
 
             {spec.rules.map((r, i) => (

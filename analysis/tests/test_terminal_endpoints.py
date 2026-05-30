@@ -218,8 +218,101 @@ def test_themes_crud_endpoints(client):
     assert {t["ticker"] for t in detail["tickers"]} == {"AMD"}
     # Delete theme
     assert client.delete("/api/themes/tst").status_code == 200
+
+
+def test_data_tier_reports_sp500_snapshot(client, tmp_path, monkeypatch):
+    cache_path = tmp_path / "sp500_data.json"
+    cache_path.write_text('{"timestamp":"2026-05-20T00:00:00","data":[{"ticker":"AAPL"}]}')
+    import tools.sp500_refresh as refresh
+    monkeypatch.setattr(refresh, "_CACHE_PATH", cache_path)
+
+    body = client.get("/api/settings/data-tier").get_json()
+    assert body["sp500_snapshot"]["timestamp"] == "2026-05-20T00:00:00"
+    assert body["sp500_snapshot"]["row_count"] == 1
+
+
+def test_refresh_sp500_endpoint(client, monkeypatch):
+    class _Result:
+        error = None
+        def to_dict(self):
+            return {"tool_name": "sp500_refresh", "data": {"row_count": 1}}
+
+    class _Tool:
+        def execute(self, **args):
+            assert args == {}
+            return _Result()
+
+    import tools
+    monkeypatch.setattr(tools, "get_tool", lambda name: _Tool())
+
+    res = client.post("/api/market/refresh-sp500")
+    assert res.status_code == 200
+    assert res.get_json()["ok"] is True
     body = client.get("/api/themes").get_json()
     assert not any(t["slug"] == "tst" for t in body["themes"])
+
+
+def test_market_sp500_snapshot_endpoints(client, monkeypatch):
+    rows = [
+        {
+            "ticker": "AAA", "company_name": "Alpha AI", "sector": "Information Technology",
+            "current_price": 100, "current_price_fmt": "$100.00",
+            "market_cap": 500_000_000_000, "market_cap_fmt": "$500.00B",
+            "forward_pe": 20, "trailing_pe": 30, "pe_ratio": 1.5,
+            "profit_margin": 0.22, "revenue_growth": 0.25, "revenue_growth_fmt": "25.00%",
+            "year_change": 0.35, "year_change_fmt": "35.00%", "beta": 1.2,
+            "dividend_yield": 0.01,
+        },
+        {
+            "ticker": "BBB", "company_name": "Beta Bank", "sector": "Financials",
+            "current_price": 50, "current_price_fmt": "$50.00",
+            "market_cap": 50_000_000_000, "market_cap_fmt": "$50.00B",
+            "forward_pe": 10, "trailing_pe": 14, "pe_ratio": 1.4,
+            "profit_margin": 0.12, "revenue_growth": 0.04, "revenue_growth_fmt": "4.00%",
+            "year_change": -0.20, "year_change_fmt": "-20.00%", "beta": 0.7,
+            "dividend_yield": 0.04,
+        },
+    ]
+    monkeypatch.setattr(_app, "_sp500_rows", lambda: rows)
+    monkeypatch.setattr(_app, "_sp500_status", lambda: {"timestamp": "2026-05-20T00:00:00", "row_count": 2})
+
+    stats = client.get("/api/market/sp500/stats").get_json()
+    assert stats["total_companies"] == 2
+    assert stats["top_by_market_cap"][0]["ticker"] == "AAA"
+
+    sectors = client.get("/api/market/sp500/sectors").get_json()
+    assert {s["name"] for s in sectors["data"]} == {"Financials", "Information Technology"}
+
+    search = client.get("/api/market/sp500/search?q=bank").get_json()
+    assert search["count"] == 1
+    assert search["data"][0]["ticker"] == "BBB"
+
+
+def test_market_sp500_spotlight_category(client, monkeypatch):
+    rows = [
+        {
+            "ticker": "AAA", "company_name": "Alpha AI", "sector": "Information Technology",
+            "current_price_fmt": "$100.00", "market_cap": 500_000_000_000,
+            "market_cap_fmt": "$500.00B", "forward_pe": 20, "trailing_pe": 30,
+            "pe_ratio": 1.5, "profit_margin": 0.22, "revenue_growth": 0.25,
+            "year_change": 0.35, "beta": 1.2, "dividend_yield": 0.01,
+        },
+        {
+            "ticker": "BBB", "company_name": "Beta Bank", "sector": "Financials",
+            "current_price_fmt": "$50.00", "market_cap": 50_000_000_000,
+            "market_cap_fmt": "$50.00B", "forward_pe": 10, "trailing_pe": 14,
+            "pe_ratio": 1.4, "profit_margin": 0.12, "revenue_growth": 0.04,
+            "year_change": -0.20, "beta": 0.7, "dividend_yield": 0.04,
+        },
+    ]
+    monkeypatch.setattr(_app, "_sp500_rows", lambda: rows)
+
+    spotlight = client.get("/api/market/sp500/spotlight").get_json()
+    assert spotlight["growth_stocks"]["companies"][0]["ticker"] == "AAA"
+
+    category = client.get("/api/market/sp500/spotlight/low_volatility").get_json()
+    assert category["count"] == 1
+    assert category["companies"][0]["ticker"] == "BBB"
 
 
 def test_library_memos_endpoint(client):

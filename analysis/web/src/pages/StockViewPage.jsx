@@ -13,7 +13,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
  * fails independently. No LLM spend on mount; the CTA bar deep-links to the
  * Console for on-demand reports.
  */
-export default function StockViewPage({ ticker, onRunCommand }) {
+export default function StockViewPage({ ticker, onRunCommand, onRunResearch }) {
     if (!ticker) {
         return (
             <div className="fade-in">
@@ -34,7 +34,7 @@ export default function StockViewPage({ ticker, onRunCommand }) {
                     <StockHeader ticker={ticker} />
                 </ErrorBoundary>
                 <ErrorBoundary>
-                    <StockCTABar ticker={ticker} onRunCommand={onRunCommand} />
+                    <StockCTABar ticker={ticker} onRunCommand={onRunCommand} onRunResearch={onRunResearch} />
                 </ErrorBoundary>
             </div>
 
@@ -63,4 +63,3 @@ export default function StockViewPage({ ticker, onRunCommand }) {
         </div>
     );
 }
-

@@ -52,7 +52,7 @@ export default function ScreenerPage({ onSelectTicker, presetName }) {
 
     useEffect(() => { loadSaved(); }, [loadSaved]);
 
-    // Deep-link from the sidebar Market shortcut: load + auto-run a named preset.
+    // Deep-link from Market action buttons: load + auto-run a named preset.
     useEffect(() => {
         if (!presetName) return;
         let cancelled = false;

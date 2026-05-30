@@ -6,78 +6,95 @@ category: Start here
 
 # Getting Started
 
-A 5-minute walkthrough from "I just opened the app" to "I have an opinion on a stock I can act on."
+A 5-minute walkthrough from "I just opened the app" to "I have a research view I can act on."
 
 ---
 
 ## What you're looking at
 
-Portfolio Intelligence is a single-investor research tool. It does three things:
+Portfolio Intelligence is a single-investor research and decision-support tool. It has one primary job: help you turn cited market data and Deep Research output into conservative, auditable decisions.
 
-1. **Looks at your holdings** and tells you what to do with each one (trim, add, exit, hold) based on the underlying research.
-2. **Researches any ticker** end-to-end — fundamentals, financials, technicals, sentiment, sector context, macro regime — and produces a structured verdict you can act on.
-3. **Tracks its own calibration** so you can see whether the tool actually deserves your trust over time.
+The current Edge v3 navigation is:
 
-It is not a backtest engine, a screener, or a paper-trading simulator. The output is meant to be acted on with real money — modestly, with full awareness of the tool's limits.
+- **Terminal** — market command center: watchlist, theme heat, movers, news, catalysts, flow, and quick hypotheses.
+- **Stock View** — ticker-level chart, fundamentals, technicals, sentiment, filings, and theme context.
+- **Console** — slash-command research surface for `/thesis`, `/dossier`, `/why`, `/theme`, and `/compare`.
+- **Library** — saved research reports and Living Memos.
+- **Screener** — rule-based scans over themes, watchlist, or the S&P 500 snapshot.
+- **Settings** — LLM provider, data-tier status, S&P 500 snapshot refresh, and theme packs.
+
+The Docs link in the footer opens this guide set.
 
 ---
 
 ## First-time setup
 
-### 1. Connect a portfolio
+### 1. Configure an LLM provider
 
-Open the **Portfolio** page in the left nav. You have three options:
+Open **Settings → LLM**. Pick a provider and save the models you want the app to use:
 
-- **Robinhood**: enter your credentials in the modal. The session token is cached locally (`~/.portfolio_intelligence/.cache/rh_session.json`) and never leaves your machine.
-- **CSV upload**: drop a CSV with columns `ticker, shares, cost_basis`. Headers are case-insensitive.
-- **Manual entry**: click "Add holding" and fill in the form.
+- **Claude** — strongest default for serious research.
+- **Gemini** — useful lower-cost cloud option.
+- **Ollama** — local exploration when you want zero API spend.
 
-Whichever you pick, the holdings show up with live prices, P&L, and weight %.
+Deep Research should be treated as decision support, not a trading signal generator. Read the cited rationale before acting.
 
-### 2. Configure an LLM provider
+### 2. Check data tiers
 
-Open **LLM Settings** (gear icon at the bottom of the sidebar). You need at least one:
+Open **Settings → Data Tiers**. The app shows which optional environment keys are present without exposing secrets. The free tier still works through yfinance, Finnhub when configured, and SEC sources.
 
-- **Claude** (Anthropic) — recommended for production use; best calibration.
-- **Gemini** (Google) — good cheap fallback; default for monitoring.
-- **Ollama** (local) — free, but verdicts from Ollama are NOT persisted to the track record (see [Understanding the Outputs](understanding-outputs)).
+Use the **S&P 500 snapshot** refresh button when the Screener or S&P sector heatmap needs fresh constituents and fundamentals. Refreshes are pull-triggered only; nothing runs in the background.
 
-Paste the API key, pick `model_fast` (cheap, for monitoring) and `model_deep` (smart, for the actual analysis), save.
+### 3. Set up themes and watchlist
 
-### 3. Run your first research
-
-Open **Deep Research** in the left nav. It runs the agentic loop, which is thorough and produces a Living Memo. **This is the one you should use for anything you plan to trade.**
-
-Type a ticker, hit Run, and watch the SSE stream. Each event shows what the tool is doing — which tool is being called, what each agent is concluding, how the budget is being spent.
+Use **Settings → Themes** to maintain theme packs such as AI infrastructure, energy, or cloud software. Use **Terminal** to maintain a watchlist. Themes and watchlist entries feed the Terminal, Screener, and Stock View context panels.
 
 ---
 
-## What you should look at first
+## Run your first research
 
-When the run finishes, scroll to the bottom:
+Open **Console** and run:
 
-- **Verdict block**: `BUY / SELL / TRIM / HOLD / AVOID` + conviction (LOW / MEDIUM / HIGH) + suggested position size + targets + stop loss + thesis summary.
-- **What would change my mind**: explicit falsifiability conditions. If any of these trigger later, the monitor flags it.
-- **Living Memo**: the evolving per-ticker knowledge document. Open it and read it. Every session refines it.
+```text
+/thesis NVDA
+```
 
-**Do not act on a verdict you haven't read the rationale for.** The tool reasons; you decide.
+The Console streams the agent loop as it plans, calls tools, debates bull and bear cases, judges the setup, critiques itself, and proposes Living Memo updates. For a faster answer, use:
+
+```text
+/why NVDA
+```
+
+Use `/thesis` for anything you might size with real money. Use `/why` for a quick, cited read on what matters today.
 
 ---
 
-## The 10-minute morning routine
+## What to read first
 
-Once you have positions, this is what to do each trading day:
+After a research run, open the report and memo from **Library**:
 
-1. Open **Advisor**. Read the digest — any decay signals from overnight?
-2. Open **Rebalance**. Scan for TRIM / EXIT actions. If something has triggered a "what would change my mind" condition, you'll see it here with a link to the research.
-3. Open **Calibration** weekly. Check the hit rate by conviction. If HIGH-conviction calls are missing more than 40% of the time, lower your sizing.
+- **Verdict** — recommendation, conviction, sizing cap, targets, stop, and one-paragraph thesis.
+- **Bull/Bear/Judge reasoning** — the debate that produced the verdict.
+- **Evidence references** — every material claim should cite a tool result.
+- **Living Memo** — the evolving per-ticker knowledge document and open questions.
 
-That's it. Everything else is opt-in.
+If a claim has no evidence reference, treat it as untrusted.
+
+---
+
+## A simple routine
+
+1. Start in **Terminal** for watchlist moves, theme heat, and news.
+2. Open **Stock View** for any ticker that looks interesting.
+3. Use **Console `/why`** for a fast cited explanation.
+4. Use **Console `/thesis`** before committing capital.
+5. Revisit **Library** to compare the new report with the prior Living Memo.
+6. Use **Screener** for pull-based idea generation, then research the survivors.
 
 ---
 
 ## What to read next
 
-- [How to Invest with This Tool](how-to-invest) — the opinionated workflow for actually deploying capital.
-- [Understanding the Outputs](understanding-outputs) — how to read the verdict, calibration math, when to override.
+- [How to Invest with This Tool](how-to-invest) — the conservative workflow for deploying capital.
+- [Understanding the Outputs](understanding-outputs) — how to read verdicts, citations, confidence, and memo updates.
 - [Troubleshooting](troubleshooting) — what to do when something breaks.

@@ -29,9 +29,10 @@ test.describe('Stock View — single-ticker cockpit', () => {
         await expect(page.locator('#stock-chart')).toBeVisible();
     });
 
-    test('Run thesis CTA deep-links to Console with command pre-filled', async ({ page }) => {
+    test('Run thesis CTA opens Research with ticker pre-filled', async ({ page }) => {
         await page.goto('/#stock?t=NVDA');
         await page.locator('#cta-run-thesis').click();
-        await expect(page.locator('#console-command-input')).toHaveValue(/\/thesis NVDA/, { timeout: 10_000 });
+        await expect(page).toHaveURL(/#research\?t=NVDA/);
+        await expect(page.locator('#deep-research-input')).toHaveValue('NVDA', { timeout: 10_000 });
     });
 });

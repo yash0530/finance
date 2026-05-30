@@ -6,98 +6,135 @@ category: Start here
 
 # How to Invest with This Tool
 
-An opinionated workflow for putting real money to work — written for someone deploying a modest book ($10K–$100K) against deep research, not for HFTs or fund managers.
+An opinionated workflow for putting a modest personal book to work against cited Deep Research output.
 
-This is the playbook the tool was built to support. Adapt it to your own risk tolerance and time horizon, but understand the *reasoning* before you change pieces of it.
+This is not a promise that the model is right. It is a way to slow down, force evidence into the room, and keep sizing conservative until the tool earns trust.
 
 ---
 
 ## The premise
 
-The edge is not stock-picking. The edge is:
+The edge is process quality:
 
-1. **Asymmetric thesis structuring** — only entering positions where you can clearly state what would falsify the thesis, and exiting promptly when it does.
-2. **Honest position sizing** — small bets when conviction is genuinely high; tiny bets when it isn't; no bets when the thesis is "vibes."
-3. **Calibration accountability** — every recommendation is logged, every outcome is back-checked. You stop trusting your own gut and start trusting the parts of the process that actually work.
+1. **Clear thesis structure** — know what must be true and what would falsify it.
+2. **Evidence discipline** — every important claim must point back to a tool result or source.
+3. **Conservative sizing** — treat model conviction as an input, not permission to get aggressive.
+4. **Memo continuity** — let the Living Memo accumulate what each session learned.
 
-The tool exists to enforce all three.
-
----
-
-## The daily routine
-
-### Morning (10 minutes)
-
-1. **Advisor** — read the overnight digest. Any DECAY signal severity ≥ medium on a position you hold? Read the signal summary; if it touches a "what would change my mind" criterion, the position is now actionable.
-2. **Rebalance** — sort by `action` ≠ HOLD. For each non-HOLD row, click through to the source research and decide: act today, watch this week, ignore.
-3. **Calibration** — once a week, check the hit rate by conviction band. If MEDIUM/HIGH calls are running below 50%, your sizing should drop until that recovers.
-
-### Researching a new ticker (30–60 minutes)
-
-1. **Deep Research** — let it run. Watch the SSE stream so you absorb the reasoning, not just the verdict.
-2. **Read the Living Memo** end-to-end. Pay attention to open questions — those are gaps the tool itself flagged.
-3. **Read the bull and bear cases**. If you can't articulate the bear case in your own words, you don't understand the position well enough to size it.
-4. **Read the verdict + what would change my mind**. Is the falsifiability concrete? "Margins compress below 30%" is concrete. "Sentiment turns" is not.
-5. **Decide your size** (see below).
-6. **Enter the trade** with a stop at the verdict's recommended stop level. Don't widen it because you "feel" the position will work.
-
-### Reviewing a held position (15 minutes, monthly per position)
-
-1. **Re-run Deep Research** on the ticker. The Living Memo carries forward; the new run reads it and refines.
-2. Compare the new verdict to your original entry thesis. Has anything material changed?
-3. If conviction has dropped from HIGH to MEDIUM, consider trimming. If it's dropped to LOW, exit unless you have a non-tool reason to hold.
-4. If "what would change my mind" has triggered, exit. No negotiation. (The whole point of falsifiability is to bind your future self.)
+The goal is not more trades. The goal is fewer, better-argued decisions.
 
 ---
 
-## Position sizing — the conservative rule
+## Daily workflow
 
-Until you've earned calibration data (see [Understanding the Outputs](understanding-outputs)), use this hard rule:
+### Market scan
+
+Start in **Terminal**:
+
+- Check watchlist movers.
+- Scan theme heat for leadership and laggards.
+- Read the news tape and catalysts for names you care about.
+- Use the quick hypothesis action when a move needs explanation.
+
+If a ticker deserves more attention, open **Stock View**.
+
+### Ticker review
+
+In **Stock View**:
+
+- Confirm the chart and technical context.
+- Check fundamentals and sentiment.
+- Look at theme membership and recent filings.
+- Decide whether the question is worth a full Console run.
+
+### Research decision
+
+In **Console**:
+
+- Use `/why TICKER` for a fast cited read.
+- Use `/thesis TICKER` before opening, adding to, trimming, or exiting a meaningful position.
+- Use `/compare A B C` when the real decision is relative allocation.
+- Use `/theme SLUG` when the setup is thematic rather than single-name.
+
+After a `/thesis`, read the Library report and the Living Memo before acting.
+
+---
+
+## Position sizing
+
+Until your own judgment around the tool is calibrated, use these caps:
 
 | Conviction | Max position size |
 |---|---|
 | HIGH | 8% of book |
 | MEDIUM | 4% of book |
 | LOW | 2% of book or skip |
-| AVOID / SELL | 0% (and exit existing) |
+| AVOID / SELL | 0% for new capital |
 
-These are caps, not targets. **A 4% MEDIUM position is normal; a 4% LOW position is aggressive.**
+These are caps, not targets. A MEDIUM idea does not need a 4% position; it merely should not exceed one without a very specific reason.
 
-Once you have 20+ closed recommendations with outcomes, the **Calibration** page will start showing a real hit rate by conviction. You can scale these caps up by the ratio of (actual hit rate / 0.50) — i.e., if MEDIUM calls hit 65% over a real sample, you've earned the right to add 30% to MEDIUM sizing.
+For a $10K book, that means:
 
-Do not scale up before you have the sample. A 10-call streak is not a calibration; it's variance.
+| Conviction | Dollar cap |
+|---|---|
+| HIGH | $800 |
+| MEDIUM | $400 |
+| LOW | $200 |
+
+If the report has unresolved data gaps, stale inputs, or weak citations, size below the cap or skip.
+
+---
+
+## Before placing a trade
+
+Write down four things in your own words:
+
+1. The bull case.
+2. The bear case.
+3. The evidence that matters most.
+4. What would make you change your mind.
+
+If you cannot write the bear case clearly, you do not understand the trade well enough to size it.
+
+---
+
+## When to rerun research
+
+Rerun `/thesis` when:
+
+- Earnings or guidance changes the thesis.
+- Price moves enough that risk/reward may have changed.
+- A major competitor or macro input shifts.
+- The Living Memo has open questions you can now answer.
+- You are considering adding after a drawdown.
+
+Use `/why` for a quick check; use `/thesis` for a decision.
 
 ---
 
 ## What to never do
 
-- **Don't act on a single tool call.** The Verdict is the synthesis of bull + bear + judge + self-critique + macro + sector cohort. Cherry-picking one tool's output ignores the entire reason for the multi-agent design.
-- **Don't override stops emotionally.** If you set a stop at $X and the position falls to $X, the position closes. Re-evaluate from neutral after the close, not from the position.
-- **Don't add to losers without a re-run.** "Averaging down" is fine when the thesis is intact and the price is just noise; it's a wealth destroyer when the thesis is broken. A fresh Deep Research run on a -15% position is mandatory before adding.
-- **Don't run on Ollama for positions you'll size up.** Local model verdicts are intentionally excluded from calibration. They're for exploration, not commitment.
-- **Don't ignore the "what would change my mind" conditions.** If you do, you're using the tool as a vibes oracle instead of a research engine. Sell the tool back to yourself at that point.
+- **Do not act on one panel.** A single metric is not a thesis.
+- **Do not ignore missing citations.** Uncited claims should be treated as untrusted.
+- **Do not size up because a report sounds confident.** The evidence matters more than the tone.
+- **Do not add to losers without a fresh thesis.** First determine whether the thesis is intact.
+- **Do not confuse a theme with a company.** Theme heat can find pressure or momentum; it does not replace single-name research.
 
 ---
 
 ## When to override the tool
 
-You should override the tool when:
+Override only when you can name a concrete reason the tool did not capture:
 
-- You have **specific non-public knowledge** (you work in the industry, you know the team) that materially changes the thesis. Note it in the Living Memo so future-you can audit the decision.
-- The **macro regime** has shifted in a way the tool's snapshot didn't capture (rate decision in the last hour, geopolitical event).
-- **Tax or cash management** dictates the trade (year-end harvesting, liquidity need).
+- You have domain knowledge that changes the interpretation.
+- A market event happened after the data snapshot.
+- Tax, liquidity, or personal constraints matter more than the model's suggested action.
 
-You should NOT override the tool when:
-
-- The verdict feels wrong but you can't say *why* in one sentence.
-- The position has gone up and you "want to take more risk."
-- Friends/Twitter/Reddit are talking about the ticker.
-
-A useful test: **write the override reason into the Living Memo before you trade.** If it's hard to write, it's probably hard to defend.
+Put the override reason into your own notes or the memo context before trading. If it is hard to write, it is probably hard to defend.
 
 ---
 
 ## What to read next
 
-- [Understanding the Outputs](understanding-outputs) — calibration math, conviction calibration, why local-LLM runs aren't tracked.
-- [Troubleshooting](troubleshooting) — for when something breaks.
+- [Understanding the Outputs](understanding-outputs) — verdicts, citations, confidence, and memo deltas.
+- [Troubleshooting](troubleshooting) — for data, LLM, and local setup issues.

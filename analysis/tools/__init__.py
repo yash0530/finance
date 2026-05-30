@@ -302,6 +302,7 @@ _AUTOLOAD = [
     "financial_trends",
     "technicals",
     "sp500_lookup",
+    "sp500_refresh",
     "dcf_valuation",
     "sentiment",
     "edgar_filings",

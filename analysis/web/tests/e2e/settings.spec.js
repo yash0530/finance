@@ -17,6 +17,8 @@ test.describe('Settings', () => {
         await page.locator('#settings-tab-tiers').click();
         await expect(page.getByRole('heading', { name: 'Data tiers' })).toBeVisible({ timeout: 10_000 });
         await expect(page.getByText(/Free \(yfinance/)).toBeVisible();
+        await expect(page.getByText('S&P 500 snapshot')).toBeVisible();
+        await expect(page.locator('#btn-refresh-sp500')).toBeVisible();
     });
 
     test('themes tab lists seeded theme packs', async ({ page }) => {

@@ -1,8 +1,10 @@
 import { useRipple } from '../hooks/useRipple';
 
 const NAV_ITEMS = [
-    { id: 'terminal',  label: 'Terminal' },
+    { id: 'market',    label: 'Market' },
     { id: 'stock',     label: 'Stock View' },
+    { id: 'research',  label: 'Research' },
+    { id: 'terminal',  label: 'Daily Scan' },
     { id: 'console',   label: 'Console' },
     { id: 'library',   label: 'Library' },
     { id: 'screener',  label: 'Screener' },
@@ -37,15 +39,6 @@ export default function Sidebar({ currentPage, onNavigate }) {
             </nav>
 
             <div className="sidebar-bottom">
-                <button
-                    id="nav-market"
-                    className="nav-item"
-                    onClick={(e) => { createRipple(e); onNavigate('screener', { preset: 'Momentum Leaders (S&P)' }); }}
-                    title="Broad S&P 500 discovery (opens Screener with a preset)"
-                    style={{ width: '100%' }}
-                >
-                    <span>↗ Market (S&P 500)</span>
-                </button>
                 <button
                     id="nav-docs"
                     className={`nav-item ${currentPage === 'docs' ? 'active' : ''}`}

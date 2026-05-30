@@ -105,4 +105,6 @@ def argue(
     result.setdefault("independent_bear_md", "")
     result.setdefault("key_risks", [])
     result.setdefault("thesis_falsifiers_for_bull", [])
+    from agents.evidence_validation import validate_claim_refs
+    result = validate_claim_refs(result, ledger, [("key_risks", "risk")])
     return result

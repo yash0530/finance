@@ -2,9 +2,8 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * S&P 500 revival — theme-heat sector toggle, seeded presets, Market shortcut,
- * and the pattern/scan screener affordances. Depends on the backend (port 5001)
- * and the .cache/sp500_data.json snapshot.
+ * S&P 500 revival — restored Market cockpit, theme-heat sector toggle,
+ * seeded presets, and the pattern/scan screener affordances.
  */
 test.describe('S&P 500 revival', () => {
     test('Theme Heat panel toggles to S&P sectors', async ({ page }) => {
@@ -23,11 +22,13 @@ test.describe('S&P 500 revival', () => {
         await expect(page.getByRole('button', { name: 'Oversold S&P Large Caps' })).toBeVisible();
     });
 
-    test('Market sidebar shortcut deep-links to Screener and auto-runs', async ({ page }) => {
-        await page.goto('/#terminal');
+    test('Market page exposes the rich S&P cockpit and company table', async ({ page }) => {
+        await page.goto('/#market');
+        await expect(page.getByRole('heading', { name: 'S&P 500 Intelligence' })).toBeVisible({ timeout: 10_000 });
+        await expect(page.getByRole('heading', { name: 'Spotlight Companies' })).toBeVisible({ timeout: 30_000 });
         await page.locator('#nav-market').click();
-        await expect(page).toHaveURL(/#screener\?preset=/);
-        await expect(page.locator('#screener-results')).toBeVisible({ timeout: 30_000 });
+        await page.locator('#btn-all-companies').click();
+        await expect(page.locator('.company-table')).toBeVisible({ timeout: 30_000 });
     });
 
     test('pattern field exposes a pattern dropdown', async ({ page }) => {

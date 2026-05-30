@@ -1,11 +1,9 @@
 /**
- * CTA bar — deep-links into the Console with a slash command pre-filled.
- * onRunCommand(command) is handled by App, which navigates to #console and
- * seeds the command bar.
+ * CTA bar for ticker actions.
  */
-export default function StockCTABar({ ticker, onRunCommand }) {
+export default function StockCTABar({ ticker, onRunCommand, onRunResearch }) {
     const actions = [
-        { cmd: `/thesis ${ticker}`, label: 'Run thesis', primary: true },
+        { label: 'Run thesis', primary: true, onClick: () => onRunResearch?.(ticker) },
         { cmd: `/why ${ticker}`, label: 'Quick why' },
         { cmd: `/dossier ${ticker}`, label: 'Deep dossier' },
     ];
@@ -17,7 +15,7 @@ export default function StockCTABar({ ticker, onRunCommand }) {
                     id={`cta-${a.label.toLowerCase().replace(/\s+/g, '-')}`}
                     className={`btn ${a.primary ? 'btn-primary' : 'btn-secondary'}`}
                     style={{ fontSize: '0.78rem' }}
-                    onClick={() => onRunCommand(a.cmd)}
+                    onClick={() => a.onClick ? a.onClick() : onRunCommand(a.cmd)}
                 >{a.label}</button>
             ))}
         </div>

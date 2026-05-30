@@ -1,0 +1,59 @@
+.charts-section {
+    margin-top: var(--spacing-xl);
+}
+
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-lg);
+}
+
+.chart-card {
+    padding: var(--spacing-lg);
+    background: var(--bg-card);
+    border-radius: 12px;
+    box-shadow: var(--elevation-1);
+    transition: box-shadow 200ms ease, background 200ms ease, border-color 200ms ease;
+}
+
+.chart-card:hover {
+    cursor: pointer;
+    background: var(--bg-card);
+    box-shadow: var(--elevation-2);
+}
+
+.chart-card h3 {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-md);
+}
+
+.chart-tooltip {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    box-shadow: var(--elevation-3);
+}
+
+.tooltip-label {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.tooltip-value {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+/* Legend customization */
+.recharts-legend-item-text {
+    color: var(--text-secondary) !important;
+}
+
+@media (max-width: 1024px) {
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+}

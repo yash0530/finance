@@ -33,6 +33,35 @@ export const getVersion = () => apiFetch(`${API_BASE}/version`);
 
 
 // ──────────────────────────────────────────────────────────
+// S&P 500 Market cockpit (snapshot-backed, pull-refreshed)
+// ──────────────────────────────────────────────────────────
+
+export const fetchCompanies = (sortBy = 'forward_pe', order = 'asc') =>
+    apiFetch(`${API_BASE}/market/sp500/companies?sort_by=${sortBy}&order=${order}`);
+
+export const fetchSectors = () => apiFetch(`${API_BASE}/market/sp500/sectors`);
+
+export const fetchCompaniesBySector = (sector) =>
+    apiFetch(`${API_BASE}/market/sp500/companies/${encodeURIComponent(sector)}`);
+
+export const fetchStats = () => apiFetch(`${API_BASE}/market/sp500/stats`);
+
+export const searchCompanies = (query) =>
+    apiFetch(`${API_BASE}/market/sp500/search?q=${encodeURIComponent(query)}`);
+
+export const fetchCompanyByTicker = (ticker) =>
+    apiFetch(`${API_BASE}/market/sp500/company/${encodeURIComponent(ticker)}`);
+
+export const fetchSpotlight = () => apiFetch(`${API_BASE}/market/sp500/spotlight`);
+
+export const fetchSpotlightCategory = (category) =>
+    apiFetch(`${API_BASE}/market/sp500/spotlight/${encodeURIComponent(category)}`);
+
+export const refreshData = () =>
+    apiFetch(`${API_BASE}/market/refresh-sp500`, { method: 'POST' });
+
+
+// ──────────────────────────────────────────────────────────
 // Docs (in-app guides)
 // ──────────────────────────────────────────────────────────
 
@@ -124,6 +153,12 @@ export const getMemoHistory = (ticker, limit = 20) =>
 
 export const getMemoVersion = (ticker, version) =>
     apiFetch(`${API_BASE}/research/${encodeURIComponent(ticker)}/memo/version/${version}`);
+
+export const acceptStagedMemo = (ticker) =>
+    apiFetch(`${API_BASE}/research/${encodeURIComponent(ticker)}/memo/staged/accept`, { method: 'POST' });
+
+export const discardStagedMemo = (ticker) =>
+    apiFetch(`${API_BASE}/research/${encodeURIComponent(ticker)}/memo/staged/discard`, { method: 'POST' });
 
 // Tool-call audit log
 export const getToolLog = (ticker, reportId) =>
@@ -346,6 +381,8 @@ export const deleteSavedScreener = (id) =>
 // ──────────────────────────────────────────────────────────
 
 export const getDataTier = () => apiFetch(`${API_BASE}/settings/data-tier`);
+
+export const refreshSp500Snapshot = () => refreshData();
 
 export const getDashboardLayout = () => apiFetch(`${API_BASE}/dashboard/layout`);
 

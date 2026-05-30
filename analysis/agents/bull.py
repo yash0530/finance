@@ -88,4 +88,6 @@ def argue(
     result.setdefault("thesis_md", "")
     result.setdefault("key_drivers", [])
     result.setdefault("catalysts", [])
+    from agents.evidence_validation import validate_claim_refs
+    result = validate_claim_refs(result, ledger, [("key_drivers", "claim")])
     return result

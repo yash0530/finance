@@ -146,7 +146,7 @@ export default function ReportView({ report, mode = 'live', drift, telemetry }) 
             )}
 
             {/* ── LIVING MEMO DELTA ── */}
-            <MemoDeltaPanel delta={memoDelta} />
+            <MemoDeltaPanel delta={memoDelta} ticker={report.ticker} />
 
             {/* ── FOOTER ── */}
             <div style={{ textAlign: 'center', padding: 'var(--spacing-sm)', fontSize: '0.7rem', color: 'var(--text-muted)' }}>

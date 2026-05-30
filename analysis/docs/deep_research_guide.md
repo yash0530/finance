@@ -13,42 +13,43 @@ It is built on one premise: **a tool that helps you put real money to work has t
 
 ---
 
-## The terminal — navigation map
+## Navigation map
 
-Edge is a pull-based terminal. Open it and you land on the **Terminal** — a daily
-scan dashboard. Nothing fetches automatically beyond first paint, and nothing
-runs the LLM on mount. Each panel has its own Refresh button; you pull when you
-want fresh data.
+Edge is pull-based. Open it and you land on **Market** — the revived S&P 500
+cockpit backed by the current snapshot cache. The newer Daily Scan and Console
+surfaces are still available, but the default workflow is visual discovery first,
+then single-ticker inspection, then research.
 
-Six pages, in the sidebar:
+Pages in the sidebar:
 
 | Page | What it's for |
 |---|---|
-| **Terminal** | Daily scan. Movers (top gainers/losers across your watchlist ∪ the theme universe), Theme Heat (per-theme median move with leader/laggard), Watchlist (with day change), Hypotheses (on-demand AI "why" per ticker), Fresh Catalysts (next 7 days), a News Tape, and a Flow snapshot (degrades cleanly without an Unusual Whales key). |
-| **Stock View** | Single-ticker cockpit. Click any ticker — in Movers, Watchlist, the News Tape, Theme Heat, or Catalysts — to open it. Price header, candlestick chart with MA/Bollinger/VWAP overlay toggles and multiple ranges, key fundamentals, ownership & insider activity, a merged filings/news timeline, theme-pack context, and a CTA bar that deep-links into the Console. |
-| **Console** | The on-demand brain. Type a slash command to kick off analysis: `/thesis <T>` (full report), `/dossier <T>` (deep dive), `/why <T>` (cheap 3-sentence read), `/theme <slug>` (theme-level verdict), `/compare <A> <B> <C>` (ranking + head-to-head). Everything streams live. |
+| **Market** | Rich S&P 500 discovery: spotlight categories, market stats, sector cards, sector charts, search, and a sortable/filterable company table. Refresh is manual through the S&P snapshot refresh. |
+| **Stock View** | Single-ticker cockpit. Click any ticker from Market, Daily Scan, Screener, or Library to open it. Price header, candlestick chart with MA/Bollinger/VWAP overlay toggles and multiple ranges, key fundamentals, ownership & insider activity, a merged filings/news timeline, theme-pack context, and thesis/quick-take CTAs. |
+| **Research** | The friendly Deep Research form. Enter a ticker, choose a budget, and watch the preserved agent loop stream through planner, tools, bull/bear/judge, self-critique, memo delta, and report. |
+| **Daily Scan** | Pull-based scan panels. Movers, Theme Heat, Watchlist, Hypotheses (on-demand AI "why" per ticker), Fresh Catalysts, News Tape, and Flow snapshot. No LLM spend on mount. |
+| **Console** | Power-user command runner: `/thesis <T>`, `/dossier <T>`, `/why <T>`, `/theme <slug>`, `/compare <A> <B> <C>`. Everything streams live. |
 | **Library** | Your saved reports and Living Memos. |
 | **Screener** | Rule-based screening over cached tool data. Build rules like "RSI < 30 AND yoy_revenue_growth > 0.20" over a theme/watchlist universe; matched tickers link straight to Stock View. Save configs for reuse. |
 | **Settings** | LLM provider and keys; data-tier badges (which paid feeds are live, detected from env); and the themes editor (create/delete theme packs, add/remove tickers). |
 
-The flow is: **scan on the Terminal → click into a Stock View → run a command in
-the Console.** The Console's "Run thesis" button on a Stock View pre-fills the
-command so you go from "this looks interesting" to a streaming report in two
-clicks.
+The flow is: **scan on Market or Daily Scan → click into Stock View → run
+Research.** The primary "Run thesis" CTA opens the Research page with the ticker
+pre-filled. Console remains available for faster slash-command workflows.
 
 ### Running a command
 
-On the Console, type `/thesis NVDA` and press Run (or click "Run thesis" from any
-Stock View). The stream shows the sector classification, each tool call as it
-completes, the Bull and Bear arguments, and the Judge's verdict — the same v2
-deep-research engine described below, now driven from a command bar. `/dossier`
-is the same with a deeper budget. `/theme ai-infra` runs the debate over a whole
-theme pack and returns a theme-level verdict. `/compare NVDA AMD AVGO` runs a
-quick pass on each name in parallel, then ranks them head-to-head.
+On Research, enter `NVDA` and press Research. On Console, type `/thesis NVDA`
+and press Run for the command version of the same engine. The stream shows the
+sector classification, each tool call as it completes, the Bull and Bear
+arguments, and the Judge's verdict. `/dossier` is the same with a deeper budget.
+`/theme ai-infra` runs the debate over a whole theme pack and returns a
+theme-level verdict. `/compare NVDA AMD AVGO` runs a quick pass on each name in
+parallel, then ranks them head-to-head.
 
 ### Theme packs
 
-The Terminal scans a universe defined by **theme packs** — named cohorts of
+Daily Scan uses a universe defined by **theme packs** — named cohorts of
 tickers (e.g. `ai-infra`, `hbm-memory`, `dc-power`). A default AI/semis-pilled
 pack seeds on first boot; edit it in Settings. Theme Heat ranks each pack by its
 constituents' median move and surfaces the day's leader and laggard, so you can
@@ -76,8 +77,8 @@ Most "AI research" tools dump raw documents at you or chunk-retrieve them on dem
 ### 3. Every claim cites its source.
 There are no naked numbers. Every figure in a report has a click-through to the tool that produced it, the timestamp, and a confidence rating. If a claim has no citation, it's an LLM hallucination — flag it.
 
-### 4. Calibration is the trust loop.
-Every recommendation the tool makes is logged with the price at the time, your stop, your targets, and the falsifiability conditions. A nightly job tracks what actually happened at 1m / 3m / 6m / 1y. Over months you see the tool's real hit rate by conviction level and by sector. **Don't trust the tool. Watch its calibration and let trust accumulate or evaporate based on outcomes.**
+### 4. Trust is earned manually.
+Every serious thesis should be revisited against what actually happened: price, stop, targets, and falsifiability conditions. Edge v3 is pull-based, so trust accumulates through your deliberate review of saved reports and Living Memo history rather than automated scoring.
 
 ### 5. More data ≠ better decisions.
 The hardest problems in investing are *sizing, taxes, and behavior*, not stock-picking. Deep Research can compress information access. It cannot fix sizing discipline or stop you from panic-selling. The tool is the easy part.
@@ -283,26 +284,18 @@ Computed via Half-Kelly with portfolio-level vol budget and per-position caps. S
 
 ---
 
-## Calibration — the trust loop
+## Trust review — the manual loop
 
-> **Not in v3.** The Calibration Dashboard and its nightly background job were removed — Edge is pull-based (no cron/workers). Recommendations are still logged when you run `/thesis` or `/dossier`, but outcome tracking is not automated. Treat the section below as the original design intent, not current behavior.
+Edge v3 does not run automated outcome tracking. Recommendations from `/thesis` and `/dossier` are saved, and the Living Memo preserves how the thesis evolved, but you must review outcomes deliberately.
 
-The Calibration Dashboard answers one question: **"how often is this tool actually right?"**
+For each meaningful position, compare:
 
-Updated nightly by a background job that tracks every recommendation's outcome at 1m / 3m / 6m / 1y horizons.
+- What the memo said.
+- What happened to price and fundamentals.
+- Whether a `what_would_change_mind` condition triggered.
+- Whether conviction was justified by evidence quality.
 
-Metrics shown:
-- **Hit rate by conviction** — HIGH calls should have meaningfully higher hit rates than LOW. If they don't, conviction labels are meaningless.
-- **Hit rate by sector** — the tool may be great at semis, mediocre at biotech.
-- **Avg return vs benchmark (SPY)** — alpha, not just absolute returns.
-- **Brier score** — calibration quality. Lower is better. 0 = perfect.
-- **Worst losses + post-mortems** — what went wrong, why, what the memo should have caught.
-
-**How to use it**: don't trust HIGH conviction until the dashboard shows HIGH calls have meaningfully higher hit rates than MEDIUM over ≥30 calls. Until then, size conservatively.
-
-This dashboard is also the post-mortem engine. When a recommendation fails, the system surfaces:
-- What the memo said vs what happened
-- Which `what_would_change_mind` condition triggered (if any)
+Use that review to decide whether future HIGH/MEDIUM/LOW labels deserve more or less weight in your sizing.
 - What evidence was available at decision time that the agent missed
 
 That's how the tool — and you — get smarter.
@@ -397,7 +390,7 @@ This is the loop.
 
 ## Anti-patterns — don't do these
 
-**Trusting HIGH conviction without calibration history.** No tool earns trust by claiming it; only by track record. Until your Calibration Dashboard shows differentiated outcomes by conviction over ≥30 calls, ignore the conviction label and size everything at MEDIUM-equivalent.
+**Trusting HIGH conviction without a track record.** No tool earns trust by claiming it. Until saved reports show differentiated outcomes by conviction over a meaningful sample, ignore the conviction label and size everything at MEDIUM-equivalent.
 
 **Sizing off the recommended position size on day one.** Recommended size assumes the tool's calibration is real. Halve or quarter it until proven.
 
@@ -433,7 +426,7 @@ When skeptical, default to **read the debate transcript directly** rather than a
 | You want to | Do this |
 |---|---|
 | Research a new ticker | Console → `/thesis <T>` (normal budget) |
-| Quick "why is it moving" read | Console → `/why <T>` (or the Terminal Hypotheses panel) |
+| Quick "why is it moving" read | Console → `/why <T>` (or the Daily Scan Hypotheses panel) |
 | Post-earnings deep dive | Console → `/dossier <T>` (deep budget) |
 | Compare several names | Console → `/compare <A> <B> <C>` |
 | Map a theme | Console → `/theme <slug>` |

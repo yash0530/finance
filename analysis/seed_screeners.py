@@ -7,9 +7,9 @@ the theme seed, a default whose name is absent is re-created on the next boot â€
 deletions are not tracked (these are starter packs the user can edit freely).
 
 Each preset's stored payload is a full screener spec ({universe, combine, rules,
-scan?}) so it runs directly when loaded. Three presets read only the S&P 500
-snapshot cache and are fast; three set `scan: true` because they need live
-per-ticker technicals or chart-pattern detection across the index (slow, opt-in).
+scan?}) so it runs directly when loaded. Snapshot presets read only the S&P 500
+cache and are fast; RSI and chart-pattern presets set `scan: true` because they
+need live per-ticker technicals or pattern detection across the index.
 """
 
 from __future__ import annotations
@@ -44,6 +44,16 @@ DEFAULT_SCREENERS: List[Dict] = [
         "spec": {
             "universe": "sp500", "combine": "AND",
             "rules": [{"field": "year_change_pct", "op": ">=", "value": 50}],
+        },
+    },
+    {
+        "name": "Volume Breakouts (S&P)",
+        "spec": {
+            "universe": "sp500", "combine": "AND",
+            "rules": [
+                {"field": "volume_ratio", "op": ">=", "value": 1.5},
+                {"field": "market_cap", "op": ">=", "value": 10_000_000_000},
+            ],
         },
     },
     {

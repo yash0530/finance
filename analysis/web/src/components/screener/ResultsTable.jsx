@@ -16,6 +16,11 @@ export default function ResultsTable({ result, onSelectTicker }) {
 
     return (
         <div className="glass-card" id="screener-results" style={{ cursor: 'default' }}>
+            {result.scan_limited && (
+                <div className="alert alert-warning" style={{ fontSize: '0.74rem', marginBottom: 'var(--spacing-sm)' }}>
+                    {result.message}
+                </div>
+            )}
             <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginBottom: 'var(--spacing-sm)' }}>
                 {result.matched ?? matches.length} matched of {result.evaluated} evaluated
             </div>

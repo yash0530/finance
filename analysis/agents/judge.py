@@ -190,6 +190,11 @@ def synthesize(
     verdict.setdefault("key_catalysts", [])
     verdict.setdefault("target_price_range", {"low": current_price, "high": current_price, "timeframe": "12 months"})
     verdict.setdefault("trade_plan", {})
+    from agents.evidence_validation import validate_claim_refs
+    verdict = validate_claim_refs(verdict, ledger, [
+        ("bull_case", "claim"),
+        ("bear_case", "claim"),
+    ])
     # Clamp position size
     tp = verdict.get("trade_plan") or {}
     try:

@@ -6,135 +6,155 @@ category: Daily use
 
 # Understanding the Outputs
 
-How to read what the tool produces, what each piece *actually means*, and when to override it.
+How to read what the app produces, what each piece means, and when to distrust it.
 
 ---
 
-## The Verdict block
+## The verdict block
 
-Every Deep Research run ends with a structured verdict:
+A Deep Research run ends with a structured verdict:
 
-```
+```text
 RECOMMENDATION:  BUY | SELL | TRIM | HOLD | AVOID
 CONVICTION:      LOW | MEDIUM | HIGH
 SUGGESTED SIZE:  N% of book
-ENTRY:           $X.XX (or a range)
+ENTRY:           $X.XX or a range
 STOP:            $X.XX
-TARGET (12m):    $X.XX
+TARGET:          $X.XX
 THESIS:          one paragraph
-WHAT WOULD CHANGE MY MIND: bullet list of falsifiability criteria
+WHAT WOULD CHANGE MY MIND: concrete criteria
 ```
 
-### Recommendation
-
-- **BUY** — open a new position or add to an existing one. Conviction determines size.
-- **SELL** — exit fully. Used when the thesis is broken or the risk/reward has flipped.
-- **TRIM** — reduce position size (typically because the position has appreciated past the suggested weight, *not* because the thesis broke).
-- **HOLD** — keep the existing position; no action needed.
-- **AVOID** — don't open a new position. Distinct from SELL: avoid is for tickers you don't own.
-
-### Conviction
-
-The conviction band is the tool's confidence in its own thesis, *not* the strength of the buy signal.
-
-- **HIGH** — the tool can point to multiple independent, high-confidence pieces of evidence supporting the thesis; the bear case has been considered and found weaker; no major data gaps. Risk it.
-- **MEDIUM** — the thesis is well-supported but with material open questions, or the bull/bear debate is close. Size accordingly.
-- **LOW** — significant data gaps, a strong bear case, or low-confidence inputs. Treat as exploratory; either skip or take a token-sized position.
-
-### Suggested size
-
-The tool emits a suggested position size in % of book. **Treat it as a cap, not a target.** See [How to Invest](how-to-invest) for the conservative sizing rules.
-
-### What would change my mind
-
-This is the most important field in the entire output.
-
-These are explicit, falsifiable criteria that — if triggered — should make you exit the position regardless of price action. Examples:
-- "Gross margin compresses below 60% in the next two quarters."
-- "Inventory days exceed 90 with revenue growth below 10%."
-- "Insider selling exceeds $50M in any rolling 30-day window."
-
-The monitor watches these conditions hourly. If any trigger, you'll see it in the Advisor digest with a `severity` rating.
-
-If you can't write a credible "what would change my mind" for a position, you don't have a real thesis — you have hope. Exit.
+The verdict is not an order ticket. Treat it as a research conclusion with a sizing cap.
 
 ---
 
-## Calibration math
+## Recommendation
 
-The **Calibration** page tracks how the tool's recommendations actually performed over time, by conviction and by recommendation type. The math:
+- **BUY** — the setup can justify new capital, subject to sizing and evidence quality.
+- **SELL** — the thesis is broken or risk/reward is unattractive.
+- **TRIM** — reduce exposure, usually because sizing or upside/downside has changed.
+- **HOLD** — no action from the current evidence.
+- **AVOID** — do not open a new position.
 
-- For each recommendation, we record the price on the day it was issued.
-- A nightly job populates the return at 1 month, 3 months, 6 months, and 1 year after issuance.
-- Hit rate by conviction = % of recommendations that returned positively in the direction the verdict predicted (positive return for BUY, negative for SELL/AVOID, weight-band-respecting for TRIM).
-
-### What "calibrated" means
-
-A perfectly calibrated tool has:
-- HIGH-conviction calls hitting at ~70%+ over a meaningful sample (n ≥ 30 per bucket).
-- MEDIUM calls hitting at ~50–60%.
-- LOW calls hovering near 50% (this is fine — LOW conviction is supposed to be a coin flip).
-
-### What's NOT a calibration
-
-- Fewer than 20 closed recommendations. The Calibration page will show "n too small to trust" until you cross that threshold.
-- A 10-call winning streak. That's variance. Variance favors believing you're a genius right before you blow up.
-
-### Why local-LLM runs aren't tracked
-
-If you run Deep Research on Ollama (or any provider flagged `is_local=True` in `llm_settings`), the verdict is **not** persisted to the `recommendations` table. Reason: calibration measures the underlying model. Mixing local and frontier verdicts pollutes the signal and makes the track record meaningless.
-
-This is configurable (`llm_settings.allow_local_for_recommendations`) but the default is OFF and you should leave it that way.
+Context matters. A HOLD can be good news if you already own the stock; it is not a reason to open a position.
 
 ---
 
-## Citations and confidence
+## Conviction
 
-Every figure in a research report has a citation marker that points back to the tool that produced it. Click any number to see:
-- Which tool returned it
-- The tool's confidence rating for that field
-- The timestamp the data was fetched
-- The URL (if applicable — e.g. SEC filing, Yahoo Finance page)
+Conviction is the tool's confidence in its own thesis, not the expected return.
 
-Confidence ratings:
-- **high** — fetched from a primary source (SEC filing, exchange data) within minutes.
-- **medium** — derived from primary data, or fetched but with some processing.
-- **low** — LLM-extracted from unstructured text, degraded (missing data), or fallback path (e.g. keyword-scored sentiment when the LLM was unavailable).
+- **HIGH** — multiple independent, high-confidence evidence points; bear case considered; no major gaps.
+- **MEDIUM** — supported but with material uncertainties or a close bull/bear debate.
+- **LOW** — large gaps, fragile evidence, or a strong unresolved bear case.
 
-**If a claim in the report has no citation, treat it as a hallucination and ignore it.** That's a bug; please file it.
+Use conviction to cap size, then adjust downward for stale data, weak citations, or your own risk constraints.
 
 ---
 
-## When to override the tool
+## Suggested size
 
-See the matching section in [How to Invest](how-to-invest). Short version:
+Suggested size is a cap. For a small personal book, conservative caps matter more than squeezing every dollar into a thesis. See [How to Invest](how-to-invest) for the default sizing table.
 
-- **Override** when you have specific non-public knowledge, a macro event the tool didn't capture, or a tax/cash management reason.
-- **Don't override** because the verdict "feels wrong" or because you want to take more risk after a winner.
-
-When you do override, write the reason into the Living Memo's `manual_notes` section. Future-you will thank present-you for the audit trail.
+Never let confident wording substitute for cited evidence.
 
 ---
 
-## Where the numbers come from
+## Evidence references
 
-| Block in the report | Underlying data source |
+Every material claim from the agents should cite `evidence_refs`. A reference should map to a real tool result in the evidence ledger.
+
+Use citations to answer:
+
+- Which tool produced the evidence?
+- When was it fetched?
+- Was it direct data, derived computation, or a degraded fallback?
+- Did the same claim appear in multiple sources?
+
+If a claim has no evidence reference, treat it as untrusted.
+
+---
+
+## Confidence ratings
+
+Tool confidence is separate from verdict conviction:
+
+- **high** — source resolved cleanly and the field is direct or reliably computed.
+- **medium** — useful but derived, partial, or dependent on a weaker source.
+- **low** — missing, degraded, fallback, or error-prone.
+
+A HIGH conviction verdict built on low-confidence tool outputs deserves skepticism.
+
+---
+
+## Living Memo
+
+The Living Memo is the app's per-ticker memory. It is a distilled document, not a vector search dump.
+
+Each `/thesis` run can:
+
+- Read the previous memo.
+- Identify stale facts and open questions.
+- Add new cited findings.
+- Propose a memo update.
+
+The memo should get sharper over repeated sessions. History is preserved so you can audit how the thesis changed.
+
+---
+
+## Console command outputs
+
+- **`/why`** — fast explanation of what matters now, with citations.
+- **`/thesis`** — full agentic research, debate, verdict, self-critique, and memo update.
+- **`/dossier`** — broader ticker context.
+- **`/theme`** — theme-level analysis.
+- **`/compare`** — relative case across multiple tickers.
+
+Use the lightest command that answers the question. Use `/thesis` before a capital-allocation decision.
+
+---
+
+## Screener outputs
+
+The Screener is deterministic rule logic over selected universes:
+
+- **themes** — tickers in your theme packs.
+- **watchlist** — names you track in Terminal.
+- **sp500** — cached S&P 500 snapshot for fast fundamentals and relative fields.
+
+Screens find candidates; they do not create theses. Research the survivors before acting.
+
+---
+
+## Where numbers come from
+
+| Output area | Source |
 |---|---|
-| Fundamentals (revenue, margins, ratios) | yfinance `Ticker.info` + financial statements |
-| Financial trends (multi-year) | yfinance `income_stmt` / `balance_sheet` / `cashflow` |
-| Sentiment (composite 0–10) | Finnhub news + analyst consensus + Reddit + LLM scoring |
-| QoE Forensics (Beneish/Altman/Piotroski) | yfinance annual statements, pure computation |
-| DCF intrinsic value | yfinance FCF + revenue growth, 3-scenario model |
-| Peer comparison | yfinance sector averages (P/E, P/S, P/B) |
-| Macro regime | yfinance indices (^TNX, ^VIX, DXY, HYG, ^GSPC) |
-| Insider activity | SEC EDGAR Form 4 filings |
-| Earnings transcripts | yfinance / Seeking Alpha mirrors when available |
+| Fundamentals | yfinance `Ticker.info` and statements |
+| Financial trends | yfinance income, balance sheet, and cash-flow data |
+| Technicals and patterns | yfinance price history plus local detectors |
+| Sentiment and news | Finnhub when configured, yfinance fallback, Reddit where available |
+| Filings | SEC EDGAR |
+| Insider activity | SEC Form 4 |
+| Institutional holders | yfinance holder data |
+| Options flow | yfinance and optional premium sources |
+| Macro context | yfinance market indices |
+| S&P 500 relative fields | `.cache/sp500_data.json`, refreshable from Settings |
 
-Every fetch is cached (TTLs documented in [Architecture](architecture)). The agent loop's Budget enforces a per-session dollar cap so an exploding LLM call can't bankrupt you.
+Tool TTLs and endpoint details live in [Architecture](architecture) and `next_gen_tool.md`.
+
+---
+
+## When to override
+
+Override only for concrete reasons the tool did not capture: domain knowledge, a very recent event, tax constraints, liquidity needs, or a source you verified manually.
+
+If the override reason cannot be written in one or two precise sentences, it is probably not strong enough to overrule a well-cited thesis.
 
 ---
 
 ## What to read next
 
 - [How to Invest with This Tool](how-to-invest) — the workflow these outputs feed into.
-- [Architecture Overview](architecture) — the engineering view, for when you want to know *why* a number is the way it is.
+- [Architecture Overview](architecture) — where the numbers and events come from.

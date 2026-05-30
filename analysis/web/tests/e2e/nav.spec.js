@@ -2,21 +2,23 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Navigation — 6-page sidebar (Edge terminal) + Docs footer.
+ * Navigation — reconciled sidebar + Docs footer.
  *
  * Each page is lazy-loaded; we assert a heading renders to guard against blank
  * screens. Tests degrade gracefully when the backend is not running — they
  * only assert the client-side shell mounts.
  */
 const PAGES = [
-    { id: 'nav-terminal', label: 'Terminal' },
-    { id: 'nav-console',  label: 'Console' },
-    { id: 'nav-library',  label: 'Library' },
-    { id: 'nav-screener', label: 'Screener' },
-    { id: 'nav-settings', label: 'Settings' },
+    { id: 'nav-market',   heading: 'S&P 500 Intelligence' },
+    { id: 'nav-research', heading: 'Deep Research' },
+    { id: 'nav-terminal', heading: 'Terminal' },
+    { id: 'nav-console',  heading: 'Console' },
+    { id: 'nav-library',  heading: 'Library' },
+    { id: 'nav-screener', heading: 'Screener' },
+    { id: 'nav-settings', heading: 'Settings' },
 ];
 
-test.describe('Navigation — Edge 6-page nav', () => {
+test.describe('Navigation — Edge reconciled nav', () => {
     test('sidebar shows all primary nav items + docs footer', async ({ page }) => {
         await page.goto('/');
         for (const { id } of PAGES) {
@@ -26,16 +28,16 @@ test.describe('Navigation — Edge 6-page nav', () => {
         await expect(page.locator('#nav-docs')).toBeVisible();
     });
 
-    for (const { id, label } of PAGES) {
-        test(`${label} renders a heading`, async ({ page }) => {
+    for (const { id, heading } of PAGES) {
+        test(`${id} renders a heading`, async ({ page }) => {
             await page.goto('/');
             await page.locator(`#${id}`).click();
-            await expect(page.locator('h1').first()).toBeVisible({ timeout: 10_000 });
+            await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible({ timeout: 10_000 });
         });
     }
 
-    test('default route is Terminal', async ({ page }) => {
+    test('default route is Market', async ({ page }) => {
         await page.goto('/');
-        await expect(page.getByRole('heading', { name: 'Terminal' })).toBeVisible({ timeout: 10_000 });
+        await expect(page.getByRole('heading', { name: 'S&P 500 Intelligence', exact: true })).toBeVisible({ timeout: 10_000 });
     });
 });

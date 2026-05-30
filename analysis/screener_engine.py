@@ -26,6 +26,9 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_SP500_LIVE_SCAN_LIMIT = 150
+PATTERN_CACHE_TTL_SECONDS = 24 * 60 * 60
+
 
 # Fields the screener understands, each resolved from the tool result dicts.
 # Keeping this explicit (rather than dumping every tool field) keeps the
@@ -53,6 +56,9 @@ def _field_resolvers() -> Dict[str, Callable[[Dict, Dict, Dict], Optional[Any]]]
         "day_change_pct": lambda f, t, tr: f.get("day_change_pct"),
         "year_change_pct": lambda f, t, tr: f.get("year_change_pct"),
         "pct_from_52w_high": lambda f, t, tr: f.get("pct_from_52w_high"),
+        "volume": lambda f, t, tr: f.get("volume"),
+        "average_volume": lambda f, t, tr: f.get("average_volume"),
+        "volume_ratio": lambda f, t, tr: f.get("volume_ratio"),
         # financial_trends
         "yoy_revenue_growth": lambda f, t, tr: _resolve_yoy_revenue_growth(f, t, tr),
         "quarter_count": lambda f, t, tr: tr.get("quarter_count"),
@@ -90,6 +96,9 @@ def _snapshot_to_fundamentals(row: Dict[str, Any]) -> Dict[str, Any]:
         "day_change_pct": row.get("day_change_percent"),
         "year_change_pct": _as_pct(row.get("year_change")),
         "pct_from_52w_high": _as_pct(row.get("pct_from_high")),
+        "volume": row.get("volume"),
+        "average_volume": row.get("average_volume"),
+        "volume_ratio": row.get("volume_ratio"),
     }
 
 
@@ -97,6 +106,14 @@ def _detect_patterns(ticker: str) -> set:
     """Names of chart patterns currently detected for a ticker, from cached OHLC."""
     from tools import get_tool
     import pattern_detectors as pd
+    try:
+        import db
+        cached = db.get_tool_cache("screener_patterns", ticker.upper(), PATTERN_CACHE_TTL_SECONDS)
+        if cached is not None:
+            return set(cached.get("patterns") or [])
+    except Exception:
+        pass
+
     try:
         r = get_tool("price_history").execute(ticker=ticker, range="1y")
         bars = (r.data or {}).get("bars", []) if r.is_ok() else []
@@ -114,6 +131,11 @@ def _detect_patterns(ticker: str) -> set:
                 found.add(name)
         except Exception:
             continue
+    try:
+        import db
+        db.save_tool_cache("screener_patterns", ticker.upper(), {"patterns": sorted(found)})
+    except Exception:
+        pass
     return found
 
 
@@ -248,6 +270,11 @@ def run_screen(spec: Dict[str, Any], max_workers: int = 8) -> Dict[str, Any]:
     rules = spec.get("rules", []) or []
     combine = (spec.get("combine") or "AND").upper()
     scan = bool(spec.get("scan"))
+    try:
+        max_scan = int(spec.get("max_scan") or DEFAULT_SP500_LIVE_SCAN_LIMIT)
+    except (TypeError, ValueError):
+        max_scan = DEFAULT_SP500_LIVE_SCAN_LIMIT
+    max_scan = max(1, min(max_scan, len(universe) if universe else DEFAULT_SP500_LIVE_SCAN_LIMIT))
 
     base = {"rules": rules, "combine": combine, "universe": universe_spec}
     if not universe:
@@ -274,6 +301,12 @@ def run_screen(spec: Dict[str, Any], max_workers: int = 8) -> Dict[str, Any]:
                 "message": ("Technical/pattern rules over the S&P 500 require a live scan "
                             "(slow). Re-run with scan enabled, or narrow the universe."),
                 "needs_scan": True}
+
+    requested_universe_count = len(universe)
+    scan_limited = False
+    if is_sp500 and needs_technical and scan and len(universe) > max_scan:
+        universe = universe[:max_scan]
+        scan_limited = True
 
     resolvers = _field_resolvers()
 
@@ -322,4 +355,12 @@ def run_screen(spec: Dict[str, Any], max_workers: int = 8) -> Dict[str, Any]:
                 matches.append(result)
 
     matches.sort(key=lambda m: m["ticker"])
-    return {**base, "matches": matches, "evaluated": len(universe), "matched": len(matches)}
+    out = {**base, "matches": matches, "evaluated": len(universe), "matched": len(matches)}
+    if scan_limited:
+        out.update({
+            "scan_limited": True,
+            "requested_universe_count": requested_universe_count,
+            "max_scan": max_scan,
+            "message": f"Live scan capped at {max_scan} of {requested_universe_count} S&P 500 tickers.",
+        })
+    return out

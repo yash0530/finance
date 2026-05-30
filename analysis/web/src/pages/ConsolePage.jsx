@@ -6,12 +6,18 @@ import RunHistoryRail from '../components/console/RunHistoryRail';
 
 const EMPTY_RUN = {
     sectorInfo: null,
+    pipeline: null,
+    agentPlans: [],
+    activeTools: [],
     toolCalls: [],
     debateTurns: {},
     verdict: null,
+    selfCritique: null,
+    memoDelta: null,
     quickTake: null,
     themeInfo: null,
     compare: { candidates: [], ranking: null },
+    budgetWarnings: [],
     error: null,
     complete: null,
 };
@@ -42,11 +48,26 @@ export default function ConsolePage({ initialCommand, onCommandConsumed }) {
             setRun(r => {
                 const next = { ...r };
                 switch (ev) {
+                    case 'pipeline_start': next.pipeline = d; break;
                     case 'context_loaded': next.sectorInfo = d; break;
-                    case 'tool_call_complete': next.toolCalls = [...r.toolCalls, d]; break;
-                    case 'tool_call_error': next.toolCalls = [...r.toolCalls, { ...d, error: d.error }]; break;
+                    case 'agent_plan': next.agentPlans = [...(r.agentPlans || []), d]; break;
+                    case 'tool_call_start':
+                        next.activeTools = [...(r.activeTools || []), d];
+                        break;
+                    case 'tool_call_complete':
+                        next.toolCalls = [...r.toolCalls, d];
+                        next.activeTools = (r.activeTools || []).filter((t, i) => !(t.tool === d.tool && i === (r.activeTools || []).findIndex(x => x.tool === d.tool)));
+                        break;
+                    case 'tool_call_error':
+                        next.toolCalls = [...r.toolCalls, { ...d, error: d.error }];
+                        next.activeTools = (r.activeTools || []).filter((t, i) => !(t.tool === d.tool && i === (r.activeTools || []).findIndex(x => x.tool === d.tool)));
+                        break;
                     case 'debate_turn': next.debateTurns = { ...r.debateTurns, [d.agent]: d.output }; break;
                     case 'debate_complete': next.verdict = d.verdict; break;
+                    case 'self_critique_start': next.selfCritique = { running: true }; break;
+                    case 'self_critique': next.selfCritique = { ...d, running: false }; break;
+                    case 'memo_delta_proposed': next.memoDelta = d; break;
+                    case 'budget_warning': next.budgetWarnings = [...(r.budgetWarnings || []), d]; break;
                     case 'quick_take': next.quickTake = d; break;
                     case 'theme_start': next.themeInfo = d; break;
                     case 'compare_start': next.compare = { candidates: [], ranking: null }; break;
