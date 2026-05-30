@@ -28,7 +28,7 @@ Six pages, in the sidebar:
 | **Stock View** | Single-ticker cockpit. Click any ticker — in Movers, Watchlist, the News Tape, Theme Heat, or Catalysts — to open it. Price header, candlestick chart with MA/Bollinger/VWAP overlay toggles and multiple ranges, key fundamentals, ownership & insider activity, a merged filings/news timeline, theme-pack context, and a CTA bar that deep-links into the Console. |
 | **Console** | The on-demand brain. Type a slash command to kick off analysis: `/thesis <T>` (full report), `/dossier <T>` (deep dive), `/why <T>` (cheap 3-sentence read), `/theme <slug>` (theme-level verdict), `/compare <A> <B> <C>` (ranking + head-to-head). Everything streams live. |
 | **Library** | Your saved reports and Living Memos. |
-| **Screener** | Rule-based screening (arrives in a later phase). |
+| **Screener** | Rule-based screening over cached tool data. Build rules like "RSI < 30 AND yoy_revenue_growth > 0.20" over a theme/watchlist universe; matched tickers link straight to Stock View. Save configs for reuse. |
 | **Settings** | LLM provider and keys; data-tier badges. |
 
 The flow is: **scan on the Terminal → click into a Stock View → run a command in

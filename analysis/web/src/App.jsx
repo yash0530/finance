@@ -62,7 +62,7 @@ export default function App() {
             case 'stock':     return <StockViewPage ticker={params.t} onRunCommand={runCommand} onSelectTicker={selectTicker} />;
             case 'console':   return <ConsolePage initialCommand={pendingCommand} onCommandConsumed={() => setPendingCommand(null)} />;
             case 'library':   return <LibraryPage />;
-            case 'screener':  return <ScreenerPage />;
+            case 'screener':  return <ScreenerPage onSelectTicker={selectTicker} />;
             case 'settings':  return <SettingsPage />;
             case 'docs':      return <DocsPage />;
             default:          return <TerminalPage onSelectTicker={selectTicker} />;

@@ -916,3 +916,29 @@ ranking on LLM failure.
 unified `StreamView` (tool calls, debate, verdict, quick take, theme verdict,
 compare ranking). `LibraryPage` adds Reports/Memos tabs; `MemosTab` lists every
 Living Memo and opens a section-by-section read-only view.
+
+## 31. Phase 5 — Screener (shipped)
+
+**`screener_engine.py`** evaluates a rules-JSON spec against a ticker universe.
+For each ticker it pulls the cached `fundamentals`, `technicals`, and
+`financial_trends` tools, flattens their fields into one namespace, and walks the
+rules. No LLM; no new network beyond the tools' own (cached) fetches.
+
+- Universes: `themes` (theme-pack union), `watchlist`, `sp500` (theme union as
+  the free-tier proxy), or an explicit list.
+- Fields are an explicit allow-list (`available_fields()`) spanning technicals
+  (rsi, MAs, golden cross, RS-vs-SPY, returns), fundamentals (P/E, margin,
+  growth, market cap), and trends (yoy_revenue_growth, quarter_count).
+- Operators: `> >= < <= = != `. `AND` requires every evaluable rule to pass;
+  `OR` requires any. Tickers with no evaluable rule are dropped (unknown fields
+  never silently pass).
+
+**DB (additive):** `screener_saved` and `dashboard_layout` tables + CRUD.
+
+**Endpoints:** `POST /api/screener/run`, `GET /api/screener/fields`,
+`GET/POST /api/screener/saved`, `DELETE /api/screener/saved/<id>`.
+
+**Frontend:** `ScreenerPage` with `RulesBuilder` (universe + combine + add/remove
+typed rule rows; boolean fields get a true/false select) and `ResultsTable`
+(matched tickers with the evaluated field values; ticker links open Stock View).
+Saved screens persist the full spec and reload into the builder.

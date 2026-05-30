@@ -3285,6 +3285,50 @@ def library_memos():
     return jsonify({"memos": db.get_all_living_memos()})
 
 
+# ============================================================================
+# Screener
+# ============================================================================
+
+@app.route('/api/screener/run', methods=['POST'])
+def screener_run():
+    """Evaluate a rules-JSON spec against a universe; return matched tickers."""
+    spec = request.get_json(silent=True) or {}
+    try:
+        import screener_engine
+    except ImportError as e:
+        return jsonify({'error': f'Screener engine unavailable: {e}'}), 500
+    result = screener_engine.run_screen(spec)
+    return jsonify(result)
+
+
+@app.route('/api/screener/fields', methods=['GET'])
+def screener_fields():
+    import screener_engine
+    return jsonify({"fields": screener_engine.available_fields()})
+
+
+@app.route('/api/screener/saved', methods=['GET'])
+def screener_saved_list():
+    return jsonify({"saved": db.get_screener_saved()})
+
+
+@app.route('/api/screener/saved', methods=['POST'])
+def screener_saved_create():
+    body = request.get_json(silent=True) or {}
+    name = (body.get('name') or '').strip()
+    rules = body.get('rules')
+    if not name or rules is None:
+        return jsonify({'error': 'name and rules required'}), 400
+    sid = db.save_screener(name, rules)
+    return jsonify({'ok': True, 'id': sid})
+
+
+@app.route('/api/screener/saved/<int:screener_id>', methods=['DELETE'])
+def screener_saved_delete(screener_id):
+    db.delete_screener(screener_id)
+    return jsonify({'ok': True, 'id': screener_id})
+
+
 if __name__ == '__main__':
     print("\n" + "=" * 60)
     print("   Portfolio Intelligence Tool — API Server")

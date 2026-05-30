@@ -331,6 +331,19 @@ def init_db() -> None:
                 cost_usd           REAL,
                 evidence_refs_json TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS screener_saved (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                name        TEXT NOT NULL,
+                rules_json  TEXT NOT NULL,
+                created_at  TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS dashboard_layout (
+                id           INTEGER PRIMARY KEY CHECK (id = 1),
+                layout_json  TEXT NOT NULL,
+                updated_at   TEXT NOT NULL
+            );
         """)
         conn.commit()
 
@@ -1210,6 +1223,79 @@ def save_hypothesis(
                  evidence_refs_json = excluded.evidence_refs_json""",
             (ticker.upper().strip(), datetime.now().isoformat(), content_md,
              cost_usd, json.dumps(evidence_refs or [], default=str)),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# ============================================================================
+# Screener saved configs
+# ============================================================================
+
+def get_screener_saved() -> List[Dict]:
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT id, name, rules_json, created_at FROM screener_saved ORDER BY created_at DESC"
+        ).fetchall()
+        out = []
+        for r in rows:
+            d = dict(r)
+            d["rules"] = json.loads(d.pop("rules_json"))
+            out.append(d)
+        return out
+    finally:
+        conn.close()
+
+
+def save_screener(name: str, rules: Dict) -> int:
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            "INSERT INTO screener_saved (name, rules_json, created_at) VALUES (?, ?, ?)",
+            (name, json.dumps(rules, default=str), datetime.now().isoformat()),
+        )
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def delete_screener(screener_id: int) -> None:
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM screener_saved WHERE id = ?", (screener_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# ============================================================================
+# Dashboard layout (single-row persistence)
+# ============================================================================
+
+def get_dashboard_layout() -> Optional[Dict]:
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT layout_json, updated_at FROM dashboard_layout WHERE id = 1").fetchone()
+        if not row:
+            return None
+        return {"layout": json.loads(row["layout_json"]), "updated_at": row["updated_at"]}
+    finally:
+        conn.close()
+
+
+def save_dashboard_layout(layout: Any) -> None:
+    conn = get_connection()
+    try:
+        conn.execute(
+            """INSERT INTO dashboard_layout (id, layout_json, updated_at)
+               VALUES (1, ?, ?)
+               ON CONFLICT(id) DO UPDATE SET
+                 layout_json = excluded.layout_json,
+                 updated_at = excluded.updated_at""",
+            (json.dumps(layout, default=str), datetime.now().isoformat()),
         )
         conn.commit()
     finally:

@@ -410,6 +410,23 @@ export function streamConsole(command, onEvent, onError, onDone) {
 export const getLibraryMemos = () => apiFetch(`${API_BASE}/library/memos`);
 
 // ──────────────────────────────────────────────────────────
+// Screener
+// ──────────────────────────────────────────────────────────
+
+export const runScreener = (spec) =>
+    apiFetch(`${API_BASE}/screener/run`, { method: 'POST', body: JSON.stringify(spec) });
+
+export const getScreenerFields = () => apiFetch(`${API_BASE}/screener/fields`);
+
+export const getSavedScreeners = () => apiFetch(`${API_BASE}/screener/saved`);
+
+export const saveScreener = (name, rules) =>
+    apiFetch(`${API_BASE}/screener/saved`, { method: 'POST', body: JSON.stringify({ name, rules }) });
+
+export const deleteSavedScreener = (id) =>
+    apiFetch(`${API_BASE}/screener/saved/${id}`, { method: 'DELETE' });
+
+// ──────────────────────────────────────────────────────────
 // LLM Settings
 // ──────────────────────────────────────────────────────────
 
