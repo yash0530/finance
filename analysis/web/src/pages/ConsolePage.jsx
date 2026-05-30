@@ -1,23 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { streamDeepResearch } from '../utils/api';
+import { streamConsole } from '../utils/api';
 import CommandBar from '../components/console/CommandBar';
 import StreamView from '../components/console/StreamView';
 import RunHistoryRail from '../components/console/RunHistoryRail';
-
-const BUDGET_BY_COMMAND = { '/thesis': 'normal', '/dossier': 'deep' };
-
-function parseCommand(raw) {
-    const parts = raw.trim().split(/\s+/);
-    const cmd = (parts[0] || '').toLowerCase();
-    const args = parts.slice(1);
-    return { cmd, args };
-}
 
 const EMPTY_RUN = {
     sectorInfo: null,
     toolCalls: [],
     debateTurns: {},
     verdict: null,
+    quickTake: null,
+    themeInfo: null,
+    compare: { candidates: [], ranking: null },
     error: null,
     complete: null,
 };
@@ -25,51 +19,61 @@ const EMPTY_RUN = {
 /**
  * Console — slash-command bar + SSE stream + run-history rail.
  *
- * Phase 1 supports /thesis <T> and /dossier <T>, dispatched to the existing
- * v2 deep-research stream. Phase 4 replaces this with the console_orchestrator
- * endpoint and the full command set (/why, /theme, /compare).
+ * Dispatches every command (/thesis, /dossier, /why, /theme, /compare) to the
+ * console_orchestrator endpoint and renders the unified event stream.
  */
 export default function ConsolePage({ initialCommand, onCommandConsumed }) {
     const [command, setCommand] = useState('');
     const [running, setRunning] = useState(false);
     const [run, setRun] = useState(null);
     const [history, setHistory] = useState([]);
-    const closeRef = useRef(null);
+    const abortRef = useRef(null);
 
     const start = useCallback((raw) => {
-        const { cmd, args } = parseCommand(raw);
-        const budget = BUDGET_BY_COMMAND[cmd];
-        if (!budget) {
-            setRun({ ...EMPTY_RUN, error: `Command "${cmd}" not available yet. Try /thesis <T> or /dossier <T>.` });
-            return;
-        }
-        const ticker = (args[0] || '').toUpperCase();
-        if (!ticker) {
-            setRun({ ...EMPTY_RUN, error: `Usage: ${cmd} <TICKER>` });
-            return;
-        }
+        const cmd = (raw || '').trim();
+        if (!cmd) return;
 
         setRunning(true);
-        setRun({ ...EMPTY_RUN });
-        setHistory(prev => [{ command: raw.trim(), status: 'running' }, ...prev].slice(0, 20));
+        setRun({ ...EMPTY_RUN, compare: { candidates: [], ranking: null }, toolCalls: [], debateTurns: {} });
+        setHistory(prev => [{ command: cmd, status: 'running' }, ...prev].slice(0, 20));
+        const finish = (status) => setHistory(prev => prev.map((h, i) => (i === 0 ? { ...h, status } : h)));
 
-        const finish = (status) => {
-            setHistory(prev => prev.map((h, i) => (i === 0 ? { ...h, status } : h)));
+        const onEvent = (ev, d) => {
+            setRun(r => {
+                const next = { ...r };
+                switch (ev) {
+                    case 'context_loaded': next.sectorInfo = d; break;
+                    case 'tool_call_complete': next.toolCalls = [...r.toolCalls, d]; break;
+                    case 'tool_call_error': next.toolCalls = [...r.toolCalls, { ...d, error: d.error }]; break;
+                    case 'debate_turn': next.debateTurns = { ...r.debateTurns, [d.agent]: d.output }; break;
+                    case 'debate_complete': next.verdict = d.verdict; break;
+                    case 'quick_take': next.quickTake = d; break;
+                    case 'theme_start': next.themeInfo = d; break;
+                    case 'compare_start': next.compare = { candidates: [], ranking: null }; break;
+                    case 'compare_candidate':
+                        next.compare = { ...r.compare, candidates: [...r.compare.candidates, d] }; break;
+                    case 'compare_ranking':
+                        next.compare = { ...r.compare, ranking: d }; break;
+                    case 'report_complete':
+                    case 'console_complete': next.complete = d; break;
+                    case 'console_error':
+                    case 'error': next.error = d.error || 'stream error'; break;
+                    default: break;
+                }
+                return next;
+            });
+            if (ev === 'report_complete' || ev === 'console_complete') { setRunning(false); finish('done'); }
+            if (ev === 'console_error' || ev === 'error') { setRunning(false); finish('error'); }
         };
 
-        const close = streamDeepResearch(ticker, {
-            onContextLoaded: (d) => setRun(r => ({ ...r, sectorInfo: d })),
-            onToolCallComplete: (d) => setRun(r => ({ ...r, toolCalls: [...r.toolCalls, d] })),
-            onToolCallError: (d) => setRun(r => ({ ...r, toolCalls: [...r.toolCalls, { ...d, error: d.error }] })),
-            onDebateTurn: (d) => setRun(r => ({ ...r, debateTurns: { ...r.debateTurns, [d.agent]: d.output } })),
-            onDebateComplete: (d) => setRun(r => ({ ...r, verdict: d.verdict })),
-            onReportComplete: (d) => { setRun(r => ({ ...r, complete: d })); setRunning(false); finish('done'); },
-            onError: (d) => { setRun(r => ({ ...r, error: d.error || 'stream error' })); setRunning(false); finish('error'); },
-        }, { budget });
-        closeRef.current = close;
+        abortRef.current = streamConsole(
+            cmd,
+            onEvent,
+            (errMsg) => { setRun(r => ({ ...r, error: errMsg })); setRunning(false); finish('error'); },
+            () => { setRunning(false); finish(prev => prev); },
+        );
     }, []);
 
-    // Consume a deep-linked command from Stock View (e.g. "/thesis NVDA").
     useEffect(() => {
         if (initialCommand) {
             setCommand(initialCommand);
@@ -80,7 +84,7 @@ export default function ConsolePage({ initialCommand, onCommandConsumed }) {
     }, [initialCommand]);
 
     const cancel = useCallback(() => {
-        closeRef.current?.();
+        abortRef.current?.();
         setRunning(false);
     }, []);
 
@@ -95,12 +99,7 @@ export default function ConsolePage({ initialCommand, onCommandConsumed }) {
             </div>
 
             <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-                <CommandBar
-                    value={command}
-                    onChange={setCommand}
-                    onSubmit={() => start(command)}
-                    disabled={running}
-                />
+                <CommandBar value={command} onChange={setCommand} onSubmit={() => start(command)} disabled={running} />
             </div>
 
             <div style={{ display: 'flex', gap: 'var(--spacing-lg)', alignItems: 'flex-start' }}>
@@ -109,10 +108,11 @@ export default function ConsolePage({ initialCommand, onCommandConsumed }) {
                         <div className="glass-card" style={{ cursor: 'default' }}>
                             <div className="empty-state">
                                 <h3 style={{ color: 'var(--text-secondary)' }}>Analysis Console</h3>
-                                <p style={{ fontSize: '0.825rem', maxWidth: 460, lineHeight: 1.7 }}>
-                                    Run on-demand analysis with slash commands. Start with
-                                    {' '}<code>/thesis NVDA</code> for a full report or
-                                    {' '}<code>/dossier NVDA</code> for a deep dive.
+                                <p style={{ fontSize: '0.825rem', maxWidth: 480, lineHeight: 1.7 }}>
+                                    Run on-demand analysis with slash commands:
+                                    {' '}<code>/thesis NVDA</code>, <code>/dossier NVDA</code>,
+                                    {' '}<code>/why NVDA</code>, <code>/theme ai-infra</code>,
+                                    {' '}<code>/compare NVDA AMD AVGO</code>.
                                 </p>
                             </div>
                         </div>

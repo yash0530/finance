@@ -353,6 +353,63 @@ export const getStockFilings = (ticker) =>
     apiFetch(`${API_BASE}/stock/${encodeURIComponent(ticker)}/filings`);
 
 // ──────────────────────────────────────────────────────────
+// Console (slash-command SSE over POST) + Library memos
+// ──────────────────────────────────────────────────────────
+
+/**
+ * Run a slash command and stream SSE events. Because the endpoint is POST,
+ * we read the response body as a stream and parse SSE frames manually.
+ *
+ * Returns an abort function. Calls onEvent(eventName, data) per frame.
+ */
+export function streamConsole(command, onEvent, onError, onDone) {
+    const controller = new AbortController();
+
+    (async () => {
+        try {
+            const res = await fetch(`${API_BASE}/console/run`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command }),
+                signal: controller.signal,
+            });
+            if (!res.ok || !res.body) {
+                const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+                onError?.(err.error || `HTTP ${res.status}`);
+                return;
+            }
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            for (;;) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const frames = buffer.split('\n\n');
+                buffer = frames.pop() ?? '';
+                for (const frame of frames) {
+                    let ev = null, data = null;
+                    for (const line of frame.split('\n')) {
+                        if (line.startsWith('event: ')) ev = line.slice(7).trim();
+                        else if (line.startsWith('data: ')) {
+                            try { data = JSON.parse(line.slice(6)); } catch { /* ignore */ }
+                        }
+                    }
+                    if (ev) onEvent(ev, data);
+                }
+            }
+            onDone?.();
+        } catch (e) {
+            if (e.name !== 'AbortError') onError?.(e.message);
+        }
+    })();
+
+    return () => controller.abort();
+}
+
+export const getLibraryMemos = () => apiFetch(`${API_BASE}/library/memos`);
+
+// ──────────────────────────────────────────────────────────
 // LLM Settings
 // ──────────────────────────────────────────────────────────
 

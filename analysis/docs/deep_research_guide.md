@@ -26,7 +26,7 @@ Six pages, in the sidebar:
 |---|---|
 | **Terminal** | Daily scan. Movers (top gainers/losers across your watchlist ∪ the theme universe), Theme Heat (per-theme median move with leader/laggard), Watchlist (with day change), Hypotheses (on-demand AI "why" per ticker), Fresh Catalysts (next 7 days), a News Tape, and a Flow snapshot (degrades cleanly without an Unusual Whales key). |
 | **Stock View** | Single-ticker cockpit. Click any ticker — in Movers, Watchlist, the News Tape, Theme Heat, or Catalysts — to open it. Price header, candlestick chart with MA/Bollinger/VWAP overlay toggles and multiple ranges, key fundamentals, ownership & insider activity, a merged filings/news timeline, theme-pack context, and a CTA bar that deep-links into the Console. |
-| **Console** | The on-demand brain. Type a slash command to kick off analysis. Phase 1: `/thesis <T>` (full report) and `/dossier <T>` (deep dive), streamed live. |
+| **Console** | The on-demand brain. Type a slash command to kick off analysis: `/thesis <T>` (full report), `/dossier <T>` (deep dive), `/why <T>` (cheap 3-sentence read), `/theme <slug>` (theme-level verdict), `/compare <A> <B> <C>` (ranking + head-to-head). Everything streams live. |
 | **Library** | Your saved reports and Living Memos. |
 | **Screener** | Rule-based screening (arrives in a later phase). |
 | **Settings** | LLM provider and keys; data-tier badges. |
@@ -42,8 +42,9 @@ On the Console, type `/thesis NVDA` and press Run (or click "Run thesis" from an
 Stock View). The stream shows the sector classification, each tool call as it
 completes, the Bull and Bear arguments, and the Judge's verdict — the same v2
 deep-research engine described below, now driven from a command bar. `/dossier`
-is the same with a deeper budget. The remaining commands (`/why`, `/theme`,
-`/compare`) light up in later phases.
+is the same with a deeper budget. `/theme ai-infra` runs the debate over a whole
+theme pack and returns a theme-level verdict. `/compare NVDA AMD AVGO` runs a
+quick pass on each name in parallel, then ranks them head-to-head.
 
 ### Theme packs
 

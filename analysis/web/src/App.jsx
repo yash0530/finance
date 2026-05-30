@@ -8,7 +8,7 @@ import { getVersion } from './utils/api';
 const TerminalPage   = lazy(() => import('./pages/TerminalPage'));
 const StockViewPage  = lazy(() => import('./pages/StockViewPage'));
 const ConsolePage    = lazy(() => import('./pages/ConsolePage'));
-const LibraryPage    = lazy(() => import('./pages/ResearchHistoryPage'));
+const LibraryPage    = lazy(() => import('./pages/LibraryPage'));
 const ScreenerPage   = lazy(() => import('./pages/ScreenerPage'));
 const SettingsPage   = lazy(() => import('./pages/LLMSettingsPage'));
 const DocsPage       = lazy(() => import('./pages/DocsPage'));

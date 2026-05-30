@@ -885,3 +885,34 @@ Stock View filings timeline at $0 LLM spend.
 news), `ThemeContext` (theme-pack membership), `StockCTABar` (deep-links to
 Console). Each section mounts its shell immediately and fails independently, so
 a slow SEC/yfinance fetch never blanks the page.
+
+## 30. Phase 4 — Console v2 with all commands (shipped)
+
+**`console_orchestrator.py`** parses a command string and returns an SSE
+generator. All LLM work routes through `agent_loop`; the orchestrator never
+calls a provider directly.
+
+| Command | Dispatch | Cost |
+|---|---|---|
+| `/thesis <T>` | `stream_deep_research(T, budget='normal')` | ~$0.60 |
+| `/dossier <T>` | `stream_deep_research(T, budget='deep')` | ~$2-15 |
+| `/why <T>` | `run_quick_take(T)`, cached in `hypotheses_cache` (4h) | ~$0.05 |
+| `/theme <slug>` | per-constituent evidence (fundamentals + news + technicals) → `bull`/`bear`/`judge` with a theme prompt prefix | ~$0.60 |
+| `/compare <A> <B>…` | parallel `run_deep_research(quick)` per ticker → `agents/compare_synth` ranking | ~$0.40 |
+
+`/theme` and `/compare` wrap their LLM calls in an `LLMCallSession` and charge a
+fresh Budget. The theme/compare orchestrations gather evidence with the free
+tools only before the debate, keeping cost bounded.
+
+**`agents/compare_synth.py`** — one LLM call that ranks candidates from their
+per-ticker verdicts (rank + reason, head-to-head, winner). Degrades to a naive
+ranking on LLM failure.
+
+**Endpoints:** `POST /api/console/run {command}` (SSE), `GET /api/library/memos`
+(memo index). `db.get_all_living_memos()` backs the Library Memos tab.
+
+**Frontend:** `ConsolePage` dispatches every command through `streamConsole`
+(a POST-based SSE reader, since `EventSource` is GET-only) and renders the
+unified `StreamView` (tool calls, debate, verdict, quick take, theme verdict,
+compare ranking). `LibraryPage` adds Reports/Memos tabs; `MemosTab` lists every
+Living Memo and opens a section-by-section read-only view.

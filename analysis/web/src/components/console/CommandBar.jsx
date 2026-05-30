@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 
 const HINTS = [
-    '/thesis <T>   — full thesis report (~$0.60)',
-    '/dossier <T>  — deep dossier (~$2-15)',
-    '/why <T>      — quick 3-sentence why (~$0.05)   [Phase 2]',
-    '/theme <slug> — theme-level verdict             [Phase 4]',
-    '/compare <A> <B> <C> — ranking + head-to-head   [Phase 4]',
+    '/thesis <T>          — full thesis report (~$0.60)',
+    '/dossier <T>         — deep dossier (~$2-15)',
+    '/why <T>             — quick 3-sentence why (~$0.05, cached 4h)',
+    '/theme <slug>        — theme-level bull/bear/judge verdict',
+    '/compare <A> <B> <C> — ranking + head-to-head',
 ];
 
 export default function CommandBar({ value, onChange, onSubmit, disabled }) {

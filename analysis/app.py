@@ -3256,6 +3256,35 @@ def stock_filings(ticker):
     return jsonify({"ticker": t, "filings": filings, "count": len(filings)})
 
 
+# ============================================================================
+# Console — slash-command dispatcher (SSE)
+# ============================================================================
+
+@app.route('/api/console/run', methods=['POST'])
+def console_run():
+    """Dispatch a slash command and stream its SSE output."""
+    body = request.get_json(silent=True) or {}
+    command = (body.get('command') or '').strip()
+    if not command:
+        return jsonify({'error': 'command required'}), 400
+    try:
+        import console_orchestrator
+    except ImportError as e:
+        return jsonify({'error': f'Console orchestrator unavailable: {e}'}), 500
+
+    return Response(
+        console_orchestrator.run(command),
+        mimetype='text/event-stream',
+        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
+    )
+
+
+@app.route('/api/library/memos', methods=['GET'])
+def library_memos():
+    """Index of all Living Memos for the Library Memos tab."""
+    return jsonify({"memos": db.get_all_living_memos()})
+
+
 if __name__ == '__main__':
     print("\n" + "=" * 60)
     print("   Portfolio Intelligence Tool — API Server")

@@ -701,6 +701,22 @@ def get_living_memo(ticker: str) -> Optional[Dict]:
         conn.close()
 
 
+def get_all_living_memos() -> List[Dict]:
+    """Return a lightweight index of all Living Memos (no content_json parse).
+
+    Used by the Library Memos tab — ticker, version, updated_at only.
+    """
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT ticker, current_version, updated_at FROM living_memo "
+            "ORDER BY updated_at DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
 def save_living_memo(
     ticker: str,
     content_md: str,

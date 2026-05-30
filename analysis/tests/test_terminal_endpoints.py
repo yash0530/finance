@@ -220,3 +220,33 @@ def test_themes_crud_endpoints(client):
     assert client.delete("/api/themes/tst").status_code == 200
     body = client.get("/api/themes").get_json()
     assert not any(t["slug"] == "tst" for t in body["themes"])
+
+
+def test_library_memos_endpoint(client):
+    conn = db.get_connection()
+    try:
+        conn.execute("DELETE FROM living_memo")
+        conn.commit()
+    finally:
+        conn.close()
+    db.save_living_memo(
+        ticker="NVDA", content_md="# memo", content_json={"identity": {"content_md": "x"}},
+        delta_summary="init",
+    )
+    res = client.get("/api/library/memos")
+    assert res.status_code == 200
+    body = res.get_json()
+    assert any(m["ticker"] == "NVDA" for m in body["memos"])
+
+
+def test_console_run_requires_command(client):
+    res = client.post("/api/console/run", json={})
+    assert res.status_code == 400
+
+
+def test_console_run_streams_unknown_command(client):
+    res = client.post("/api/console/run", json={"command": "/bogus NVDA"})
+    assert res.status_code == 200
+    text = res.get_data(as_text=True)
+    assert "console_start" in text
+    assert "console_error" in text
