@@ -53,6 +53,8 @@ export default function StockTechnicals({ ticker }) {
     const bb = tech.bollinger || {};
     const patterns = tech.patterns || [];
     const spyRs = tech.relative_strength_vs_spy;
+    const yearReturnPct = tech.year_return_pct;
+    const volatilityPct = tech.annualized_volatility_pct;
 
     let rsiType = 'neutral';
     if (rsi > 70) rsiType = 'bearish'; // overbought -> bearish warning
@@ -164,16 +166,16 @@ export default function StockTechnicals({ ticker }) {
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>1Y Return</span>
                     <span style={{
                         fontSize: '0.76rem', fontWeight: 600,
-                        color: (tech.year_return ?? 0) >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'
+                        color: (yearReturnPct ?? 0) >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'
                     }}>
-                        {tech.year_return != null ? formatPercent(tech.year_return) : '—'}
+                        {yearReturnPct != null ? formatPercent(yearReturnPct, true) : '—'}
                     </span>
                 </div>
 
                 <div style={{ padding: '8px 10px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Annual Volatility</span>
                     <span style={{ fontSize: '0.76rem', fontWeight: 600, fontFamily: 'var(--font-mono, monospace)' }}>
-                        {tech.volatility != null ? formatPercent(tech.volatility) : '—'}
+                        {volatilityPct != null ? formatPercent(volatilityPct, true) : '—'}
                     </span>
                 </div>
 

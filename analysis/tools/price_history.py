@@ -29,6 +29,11 @@ RANGE_TO_YF: Dict[str, Tuple[str, str]] = {
     "5y": ("5y", "1wk"),
 }
 
+# Bump when the cached `data` shape changes so stale entries (written by an
+# older code version) are bypassed instead of served. v2 added overlays incl.
+# rsi + macd.
+_CACHE_VERSION = "v2"
+
 _TTL_BY_RANGE: Dict[str, int] = {
     "1d": 5 * 60,
     "5d": 15 * 60,
@@ -177,7 +182,7 @@ class PriceHistoryTool(Tool):
         if os.environ.get("POLYGON_API_KEY", "").strip() and yf_interval.endswith("m"):
             pass  # reserved for Polygon fetcher; yfinance handles free tier below
 
-        cache_key = f"{ticker}|{rng}|{yf_interval}"
+        cache_key = f"{_CACHE_VERSION}|{ticker}|{rng}|{yf_interval}"
         ttl = _TTL_BY_RANGE.get(rng, self.cache_ttl_seconds)
         cached = get_tool_cache(self.name, cache_key, ttl)
         if cached:
