@@ -20,7 +20,7 @@ export default function Sidebar({ currentPage, onNavigate }) {
                 <div className="sidebar-logo-icon" style={{ background: 'var(--accent-blue)', color: '#fff', fontSize: '0.9rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8 }}>E</div>
                 <div>
                     <div className="sidebar-logo-text">Edge</div>
-                    <div className="sidebar-logo-sub">Personal Markets Terminal</div>
+                    <div className="sidebar-logo-sub">Research Cockpit</div>
                 </div>
             </div>
 

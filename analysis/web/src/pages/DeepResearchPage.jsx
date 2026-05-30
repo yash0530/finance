@@ -170,7 +170,7 @@ export default function DeepResearchPage({ initialTicker = '' }) {
             <div className="page-header">
                 <div>
                     <h1 className="page-title">Deep Research</h1>
-                    <p className="page-subtitle">Agentic loop · Bull/Bear/Judge debate · Living Memo · Citation-first</p>
+                    <p className="page-subtitle">Evidence-cited bull, bear, and judge debate with Living Memo updates</p>
                 </div>
                 {isStreaming && <button className="btn btn-danger" onClick={cancel}>Stop</button>}
             </div>

@@ -114,7 +114,7 @@ export default function ConsolePage({ initialCommand, onCommandConsumed }) {
             <div className="page-header">
                 <div>
                     <h1 className="page-title">Console</h1>
-                    <p className="page-subtitle">Slash commands · live SSE stream · on-demand reasoning</p>
+                    <p className="page-subtitle">Direct commands for thesis, dossier, quick why, theme, and compare runs</p>
                 </div>
                 {running && <button className="btn btn-danger" onClick={cancel}>Stop</button>}
             </div>

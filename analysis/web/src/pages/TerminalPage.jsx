@@ -67,7 +67,7 @@ export default function TerminalPage({ onSelectTicker }) {
             <div className="page-header">
                 <div>
                     <h1 className="page-title">Daily Scan</h1>
-                    <p className="page-subtitle">Daily scan · drag panels to reorder · pull-based</p>
+                    <p className="page-subtitle">Movers, themes, catalysts, news, and watchlist signals</p>
                 </div>
             </div>
 
