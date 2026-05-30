@@ -1,10 +1,12 @@
 import StockHeader from '../components/stockview/StockHeader';
 import StockChart from '../components/stockview/StockChart';
 import StockCTABar from '../components/stockview/StockCTABar';
+import StockTechnicals from '../components/stockview/StockTechnicals';
 import FundamentalsCard from '../components/stockview/FundamentalsCard';
 import OwnershipStrip from '../components/stockview/OwnershipStrip';
 import FilingsNewsTimeline from '../components/stockview/FilingsNewsTimeline';
 import ThemeContext from '../components/stockview/ThemeContext';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 /**
  * Stock View — single-ticker cockpit. Each section lazy-fetches in parallel and
@@ -28,19 +30,37 @@ export default function StockViewPage({ ticker, onRunCommand }) {
     return (
         <div className="fade-in">
             <div className="page-header" style={{ alignItems: 'center' }}>
-                <StockHeader ticker={ticker} />
-                <StockCTABar ticker={ticker} onRunCommand={onRunCommand} />
+                <ErrorBoundary>
+                    <StockHeader ticker={ticker} />
+                </ErrorBoundary>
+                <ErrorBoundary>
+                    <StockCTABar ticker={ticker} onRunCommand={onRunCommand} />
+                </ErrorBoundary>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
-                <StockChart ticker={ticker} />
-                <FundamentalsCard ticker={ticker} />
-                <OwnershipStrip ticker={ticker} />
+                <ErrorBoundary>
+                    <StockChart ticker={ticker} />
+                </ErrorBoundary>
+                <ErrorBoundary>
+                    <StockTechnicals ticker={ticker} />
+                </ErrorBoundary>
+                <ErrorBoundary>
+                    <FundamentalsCard ticker={ticker} />
+                </ErrorBoundary>
+                <ErrorBoundary>
+                    <OwnershipStrip ticker={ticker} />
+                </ErrorBoundary>
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 'var(--spacing-lg)' }}>
-                    <FilingsNewsTimeline ticker={ticker} />
-                    <ThemeContext ticker={ticker} />
+                    <ErrorBoundary>
+                        <FilingsNewsTimeline ticker={ticker} />
+                    </ErrorBoundary>
+                    <ErrorBoundary>
+                        <ThemeContext ticker={ticker} />
+                    </ErrorBoundary>
                 </div>
             </div>
         </div>
     );
 }
+

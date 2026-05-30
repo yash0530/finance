@@ -1,19 +1,20 @@
-# Portfolio Intelligence — Architecture & Specification
+# Edge Personal Markets Terminal (v3) — Architecture & Specification
 
-> **Status**: v1.0 shipped · v2.0 "Living Analyst" in design
-> **Last updated**: 2026-05-17
-> **Audience**: Engineers and contributors. For a power-user guide to Deep Research, see [`deep_research_guide.md`](./deep_research_guide.md).
+> **Status**: v3.0 fully shipped (Edge Personal Markets Terminal)
+> **Last updated**: 2026-05-30
+> **Audience**: Engineers and contributors. For a power-user guide, see [`deep_research_guide.md`](./deep_research_guide.md).
 
 ---
 
-## 0. Document map
+## v3 Terminal Shift & Architecture
 
-This spec is split into two parts:
+Edge v3 moves the platform from a vector search RAG pipeline or Robinhood-based portfolio synchronizer into a Bloomberg-style, pull-based personal trading terminal. 
 
-- **Part I — Foundation (v1.0)**: what's shipped today. The 8-stage pipeline, Robinhood ingestion, S&P 500 scanner.
-- **Part II — Living Analyst (v2.0)**: the in-design upgrade. Tool-based agent loop, per-ticker Living Memo, multi-agent debate, citation infrastructure, sector specialization, personalization, calibration.
+Key v3 paradigms:
+1. **6 Navigation Pages**: `Terminal` (movers, watchlists, catalysts, news, hypotheses) · `Stock View` (candlestick chart with MA20/MA50/BB/VWAP/RSI/MACD overlays, StockTechnicals metrics card, fundamentals, ownership, filings) · `Console` (command runner with `/thesis`, `/dossier`, `/why`, `/theme`, `/compare`) · `Library` (memos, saved reports, telemetry) · `Screener` (partial-variable rule matching) · `Settings` (Ollama/Claude/Gemini provider selection, data-tier badges, themes).
+2. **On-Demand Command Engine**: The command runner parses and streams on-demand debates and quick research ticks under tight session budgets.
+3. **Additive sqlite Schema**: Keeps a full audit trail of Living Memos and telemetry across deep research runs.
 
-v2.0 is *additive* — v1 endpoints stay; v2 adds a parallel `/api/research/<ticker>/v2/stream` and a new memo/chat/calibration surface. Migration is opt-in per UI toggle until v2 is the default.
 
 ---
 

@@ -120,9 +120,14 @@ class MoversTool(Tool):
         quotes = fetch_quotes(universe)
         ranked = sorted(quotes.values(), key=lambda q: q["change_pct"], reverse=True)
 
+        universe_size = len(universe)
+        resolved = len(ranked)
+
         data: Dict[str, Any] = {
-            "universe_size": len(universe),
-            "resolved": len(ranked),
+            "universe_size": universe_size,
+            "resolved": resolved,
+            "resolved_count": resolved,
+            "requested_count": universe_size,
             "gainers": ranked[:top_n],
             "losers": list(reversed(ranked[-top_n:])) if ranked else [],
             "as_of": datetime.now().isoformat(),
@@ -134,11 +139,16 @@ class MoversTool(Tool):
                 error="No quotes resolved for universe",
             )
 
+        confidence = "high"
+        if resolved < universe_size * 0.5:
+            confidence = "low"
+            data["confidence_warning"] = "Sparse market data detected. More than 50% of tickers in the scan universe failed to resolve."
+
         save_tool_cache(self.name, cache_key, data)
         return ToolResult(
             tool_name=self.name, data=data,
             sources=_build_sources(data, cached=False),
-            confidence="high",
+            confidence=confidence,
         )
 
 

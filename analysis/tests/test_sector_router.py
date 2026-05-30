@@ -76,7 +76,11 @@ def test_classify_consumer():
     assert cls["sector_key"] == "consumer"
 
 
-def test_classify_falls_back_to_default():
+def test_classify_falls_back_to_default(monkeypatch):
+    monkeypatch.setattr(
+        "llm_service.classify_sector_with_llm",
+        lambda *a, **kw: {"sector_key": "default", "confidence": "low"},
+    )
     cls = sector_router.classify(
         "ZZZZ",
         fundamentals_data={"sector": "Utilities", "industry": "Diversified Utilities"},

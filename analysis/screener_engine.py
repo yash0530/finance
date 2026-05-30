@@ -50,9 +50,20 @@ def _field_resolvers() -> Dict[str, Callable[[Dict, Dict, Dict], Optional[Any]]]
         "profit_margin": lambda f, t, tr: f.get("profit_margin"),
         "revenue_growth": lambda f, t, tr: f.get("revenue_growth"),
         # financial_trends
-        "yoy_revenue_growth": lambda f, t, tr: _trend_value(tr, "yoy_revenue_growth", f.get("revenue_growth")),
+        "yoy_revenue_growth": lambda f, t, tr: _resolve_yoy_revenue_growth(f, t, tr),
         "quarter_count": lambda f, t, tr: tr.get("quarter_count"),
     }
+
+
+def _resolve_yoy_revenue_growth(f: Dict, t: Dict, tr: Dict) -> Optional[float]:
+    signals = tr.get("trend_signals") or tr.get("signals") or {}
+    rates = signals.get("revenue_growth_rates")
+    if isinstance(rates, list) and len(rates) > 0:
+        try:
+            return float(rates[-1]) / 100.0
+        except (ValueError, TypeError):
+            pass
+    return f.get("revenue_growth")
 
 
 def _trend_value(trends: Dict, key: str, fallback: Any = None) -> Any:
@@ -153,25 +164,43 @@ def run_screen(spec: Dict[str, Any], max_workers: int = 8) -> Dict[str, Any]:
     def _eval_ticker(ticker: str):
         data = _gather_ticker_data(ticker)
         f, t, tr = data["fundamentals"], data["technicals"], data["trends"]
-        results = [_evaluate_rule(r, f, t, tr) for r in rules]
-        considered = [r for r in results if r is not None]
+        
+        evaluations = []
+        missing_fields = []
+        for r in rules:
+            field = r.get("field")
+            res = _evaluate_rule(r, f, t, tr)
+            if res is None:
+                evaluations.append(None)
+                missing_fields.append(field)
+            else:
+                evaluations.append(res)
+
+        considered = [e for e in evaluations if e is not None]
         if not considered:
             return None
+
         if combine == "OR":
             passed = any(considered)
         else:
-            # AND requires every *evaluable* rule to pass; unknown fields don't
-            # silently pass, but a ticker missing all data is dropped above.
-            passed = all(considered) and len(considered) == len(rules)
+            # AND requires all evaluable rules to pass
+            passed = all(considered)
+
         if not passed:
             return None
+
         snapshot = {}
         for r in rules:
             field = r.get("field")
             res = resolvers.get(field)
             if res:
                 snapshot[field] = res(f, t, tr)
-        return {"ticker": ticker, "values": snapshot}
+                
+        out = {"ticker": ticker, "values": snapshot}
+        if len(missing_fields) > 0:
+            out["partial"] = True
+            out["missing_fields"] = missing_fields
+        return out
 
     matches: List[Dict] = []
     with ThreadPoolExecutor(max_workers=min(max_workers, max(1, len(universe)))) as pool:

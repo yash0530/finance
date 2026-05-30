@@ -811,7 +811,8 @@ def terminal_hypothesis():
         cost_usd=take.get("cost_usd", 0.0),
         evidence_refs=take.get("evidence_refs", []),
     )
-    return jsonify({**take, "cached": False})
+    from datetime import datetime
+    return jsonify({**take, "cached": False, "generated_at": datetime.now().isoformat()})
 
 
 @app.route('/api/themes', methods=['GET'])

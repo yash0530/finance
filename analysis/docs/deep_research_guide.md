@@ -1,6 +1,6 @@
-# Deep Research — Power-User Guide
+# Edge Personal Markets Terminal (v3) — Power-User Guide
 
-> A guide to using Portfolio Intelligence's Deep Research like an analyst, not a tourist.
+> A guide to using the Edge Personal Markets Terminal like an analyst, not a tourist.
 > For the engineering spec, see [`next_gen_tool.md`](./next_gen_tool.md).
 
 ---

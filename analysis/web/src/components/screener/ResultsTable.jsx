@@ -24,11 +24,16 @@ export default function ResultsTable({ result, onSelectTicker }) {
                     <tbody>
                         {matches.map(m => (
                             <tr key={m.ticker} style={{ borderTop: '1px solid var(--border-color)' }}>
-                                <td style={{ padding: '4px 8px' }}>
+                                <td style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
                                     <button onClick={() => onSelectTicker(m.ticker)}
                                         style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--accent-blue-bright)', fontWeight: 600, fontFamily: 'var(--font-mono, monospace)' }}>
                                         {m.ticker}
                                     </button>
+                                    {m.partial && (
+                                        <span className="badge badge-gray" style={{ fontSize: '0.55rem', padding: '1px 4px', opacity: 0.8 }} title={`Missing fields: ${m.missing_fields?.join(', ')}`}>
+                                            partial
+                                        </span>
+                                    )}
                                 </td>
                                 {fields.map(f => (
                                     <td key={f} style={{ padding: '4px 8px', color: 'var(--text-secondary)' }}>

@@ -19,7 +19,11 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any, Dict, Generator, List, Tuple
 
+from agent_loop import run_quick_take
+import db
+
 logger = logging.getLogger(__name__)
+
 
 
 def _sse(event: str, data: Dict[str, Any]) -> str:
@@ -82,9 +86,6 @@ def _run_research(ticker: str, budget_profile: str) -> Generator[str, None, None
 # ── /why ─────────────────────────────────────────────────────────────────
 
 def _run_why(ticker: str) -> Generator[str, None, None]:
-    from agent_loop import run_quick_take
-    import db
-
     cached = db.get_hypothesis(ticker, max_age_seconds=4 * 3600)
     if cached:
         yield _sse("quick_take", {
@@ -187,19 +188,28 @@ def _run_compare(tickers: List[str]) -> Generator[str, None, None]:
     from agents import compare_synth
     from llm_service import LLMCallSession
 
+    if len(tickers) > 5:
+        yield _sse("console_error", {"error": "Budget guard limit: /compare is capped at 5 tickers max to avoid runaway costs."})
+        return
+
     yield _sse("compare_start", {"tickers": tickers})
 
     def _one(t: str):
         try:
             report = run_deep_research(t, budget_profile="quick")
-            return t, report.get("verdict") or {}
+            return t, report
         except Exception as e:
             logger.warning(f"/compare run for {t} failed: {e}")
             return t, {}
 
     candidates: List[Dict[str, Any]] = []
+    total_candidate_cost = 0.0
     with ThreadPoolExecutor(max_workers=min(4, len(tickers))) as pool:
-        for t, verdict in pool.map(_one, tickers):
+        for t, report in pool.map(_one, tickers):
+            verdict = report.get("verdict") or {}
+            cost = report.get("cost_used_usd", 0.0)
+            total_candidate_cost += cost
+
             candidates.append({"ticker": t, "verdict": verdict})
             yield _sse("compare_candidate", {
                 "ticker": t,
@@ -221,5 +231,5 @@ def _run_compare(tickers: List[str]) -> Generator[str, None, None]:
     yield _sse("console_complete", {
         "command": f"/compare {' '.join(tickers)}",
         "candidate_count": len(candidates),
-        "cost_used_usd": round(budget.spent_usd, 4),
+        "cost_used_usd": round(budget.spent_usd + total_candidate_cost, 4),
     })

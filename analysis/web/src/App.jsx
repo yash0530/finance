@@ -4,6 +4,10 @@ import './App.css';
 import Sidebar from './components/Sidebar';
 import { useHashRoute } from './hooks/useHashRoute';
 import { getVersion } from './utils/api';
+import ErrorBoundary from './components/ErrorBoundary';
+import { ToastProvider } from './components/Toast';
+
+
 
 const TerminalPage   = lazy(() => import('./pages/TerminalPage'));
 const StockViewPage  = lazy(() => import('./pages/StockViewPage'));
@@ -58,54 +62,56 @@ export default function App() {
 
     function renderPage() {
         switch (page) {
-            case 'terminal':  return <TerminalPage onSelectTicker={selectTicker} />;
-            case 'stock':     return <StockViewPage ticker={params.t} onRunCommand={runCommand} onSelectTicker={selectTicker} />;
-            case 'console':   return <ConsolePage initialCommand={pendingCommand} onCommandConsumed={() => setPendingCommand(null)} />;
-            case 'library':   return <LibraryPage />;
-            case 'screener':  return <ScreenerPage onSelectTicker={selectTicker} />;
-            case 'settings':  return <SettingsPage />;
-            case 'docs':      return <DocsPage />;
-            default:          return <TerminalPage onSelectTicker={selectTicker} />;
+            case 'terminal':  return <ErrorBoundary><TerminalPage onSelectTicker={selectTicker} /></ErrorBoundary>;
+            case 'stock':     return <ErrorBoundary><StockViewPage ticker={params.t} onRunCommand={runCommand} onSelectTicker={selectTicker} /></ErrorBoundary>;
+            case 'console':   return <ErrorBoundary><ConsolePage initialCommand={pendingCommand} onCommandConsumed={() => setPendingCommand(null)} /></ErrorBoundary>;
+            case 'library':   return <ErrorBoundary><LibraryPage /></ErrorBoundary>;
+            case 'screener':  return <ErrorBoundary><ScreenerPage onSelectTicker={selectTicker} /></ErrorBoundary>;
+            case 'settings':  return <ErrorBoundary><SettingsPage /></ErrorBoundary>;
+            case 'docs':      return <ErrorBoundary><DocsPage /></ErrorBoundary>;
+            default:          return <ErrorBoundary><TerminalPage onSelectTicker={selectTicker} /></ErrorBoundary>;
         }
     }
 
     return (
-        <div className="app-shell">
-            <Sidebar currentPage={page} onNavigate={go} />
-            <main className="main-content">
-                {backendStale && (
-                    <div
-                        id="stale-backend-banner"
-                        style={{
-                            background: 'var(--accent-yellow, #f59e0b)',
-                            color: '#000',
-                            padding: '8px 16px',
-                            fontSize: '0.82rem',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            gap: 12,
-                        }}
-                    >
-                        <span>
-                            Backend was updated (was <code>{bootSha}</code>, now <code>{liveSha}</code>).
-                            Refresh to pick up new endpoints.
-                        </span>
-                        <button
-                            className="btn btn-secondary"
-                            style={{ padding: '2px 10px', fontSize: '0.78rem' }}
-                            onClick={() => window.location.reload()}
+        <ToastProvider>
+            <div className="app-shell">
+                <Sidebar currentPage={page} onNavigate={go} />
+                <main className="main-content">
+                    {backendStale && (
+                        <div
+                            id="stale-backend-banner"
+                            style={{
+                                background: 'var(--accent-yellow, #f59e0b)',
+                                color: '#000',
+                                padding: '8px 16px',
+                                fontSize: '0.82rem',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                gap: 12,
+                            }}
                         >
-                            Refresh
-                        </button>
+                            <span>
+                                Backend was updated (was <code>{bootSha}</code>, now <code>{liveSha}</code>).
+                                Refresh to pick up new endpoints.
+                            </span>
+                            <button
+                                className="btn btn-secondary"
+                                style={{ padding: '2px 10px', fontSize: '0.78rem' }}
+                                onClick={() => window.location.reload()}
+                            >
+                                Refresh
+                            </button>
+                        </div>
+                    )}
+                    <div className="page-content">
+                        <Suspense fallback={<PageLoader />}>
+                            {renderPage()}
+                        </Suspense>
                     </div>
-                )}
-                <div className="page-content">
-                    <Suspense fallback={<PageLoader />}>
-                        {renderPage()}
-                    </Suspense>
-                </div>
-            </main>
-        </div>
+                </main>
+            </div>
+        </ToastProvider>
     );
 }

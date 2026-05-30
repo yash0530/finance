@@ -29,6 +29,7 @@ function MoverRow({ row, onClick }) {
 
 export default function MoversPanel({ onSelectTicker, area = 'movers' }) {
     const [data, setData] = useState(null);
+    const [confidence, setConfidence] = useState('high');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
@@ -38,6 +39,7 @@ export default function MoversPanel({ onSelectTicker, area = 'movers' }) {
         try {
             const res = await getMovers('themes', 10);
             setData(res.data);
+            setConfidence(res.confidence || 'high');
             if (res.error && !(res.data?.gainers?.length)) setError(res.error);
         } catch (e) {
             setError(e.message);
@@ -61,6 +63,11 @@ export default function MoversPanel({ onSelectTicker, area = 'movers' }) {
             loading={loading}
             error={error}
         >
+            {confidence === 'low' && (
+                <div className="alert alert-warning" style={{ fontSize: '0.72rem', padding: '6px 10px', marginBottom: 12, borderLeft: '3px solid var(--accent-yellow)' }}>
+                    ⚠️ Sparse data: Only {data?.resolved}/{data?.universe_size} tickers resolved. Data may be incomplete.
+                </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
                 <div>
                     <div style={{ fontSize: '0.68rem', color: 'var(--accent-green)', fontWeight: 700, marginBottom: 4 }}>GAINERS</div>

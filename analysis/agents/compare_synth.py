@@ -76,7 +76,7 @@ def synthesize(candidates: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     user_prompt = _build_prompt(valid)
     try:
-        provider, model = _get_provider_and_model("compare", role="compare_synth")
+        provider, model = _get_provider_and_model("analysis", role="compare_synth")
         result = provider.complete_json(COMPARE_SYSTEM, user_prompt, model)
     except Exception as e:
         logger.warning(f"compare_synth failed: {e}")

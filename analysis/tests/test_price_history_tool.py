@@ -111,7 +111,7 @@ def test_price_history_includes_overlays(monkeypatch):
     result = PriceHistoryTool().execute(ticker="NVDA", range="1y")
     assert result.is_ok()
     overlays = result.data["overlays"]
-    assert set(overlays.keys()) == {"ma20", "ma50", "bb_upper", "bb_lower", "vwap"}
+    assert set(overlays.keys()) == {"ma20", "ma50", "bb_upper", "bb_lower", "vwap", "rsi", "macd"}
     # ma20 should be None for the first 19 bars, populated after.
     assert overlays["ma20"][0] is None
     assert overlays["ma20"][19] is not None

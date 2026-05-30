@@ -16,7 +16,9 @@ async function apiFetch(url, options = {}) {
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(err.error || `HTTP ${res.status}`);
+        const errMsg = err.error || `HTTP ${res.status}`;
+        window.dispatchEvent(new CustomEvent('toast-error', { detail: errMsg }));
+        throw new Error(errMsg);
     }
     return res.json();
 }

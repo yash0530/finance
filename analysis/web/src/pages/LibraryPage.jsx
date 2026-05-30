@@ -44,5 +44,6 @@ export default function LibraryPage() {
  * a large, well-tested component.
  */
 function ReportsPane() {
-    return <ResearchHistoryPage />;
+    return <ResearchHistoryPage embedded />;
 }
+

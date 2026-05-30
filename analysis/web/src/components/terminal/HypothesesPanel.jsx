@@ -20,6 +20,27 @@ function HypothesisRow({ ticker, onSelectTicker }) {
         }
     }, [ticker]);
 
+    const getBadge = () => {
+        if (!take) return null;
+        if (!take.generated_at) return <span className="badge badge-green" style={{ fontSize: '0.55rem', padding: '1px 4px' }}>fresh</span>;
+
+        const genTime = new Date(take.generated_at).getTime();
+        const now = Date.now();
+        const diffSec = Math.floor((now - genTime) / 1000);
+
+        if (diffSec < 30) {
+            return <span className="badge badge-green" style={{ fontSize: '0.55rem', padding: '1px 4px' }}>fresh</span>;
+        } else {
+            const diffMin = Math.floor(diffSec / 60);
+            if (diffMin < 60) {
+                return <span className="badge badge-gray" style={{ fontSize: '0.55rem', padding: '1px 4px' }}>cached ({diffMin}m ago)</span>;
+            } else {
+                const diffHour = Math.floor(diffMin / 60);
+                return <span className="badge badge-gray" style={{ fontSize: '0.55rem', padding: '1px 4px' }}>cached ({diffHour}h ago)</span>;
+            }
+        }
+    };
+
     return (
         <li style={{ padding: '7px 0', borderBottom: '1px solid var(--border-color)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -41,9 +62,10 @@ function HypothesisRow({ ticker, onSelectTicker }) {
             {take && (
                 <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: 5, lineHeight: 1.5 }}>
                     {take.why_md}
-                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', marginTop: 3 }}>
-                        {take.cached ? 'cached' : `$${Number(take.cost_usd || 0).toFixed(3)}`}
-                        {take.evidence_refs?.length ? ` · ${take.evidence_refs.join(', ')}` : ''}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.62rem', color: 'var(--text-muted)', marginTop: 3 }}>
+                        {getBadge()}
+                        {!take.cached && <span>· ${Number(take.cost_usd || 0).toFixed(3)}</span>}
+                        {take.evidence_refs?.length ? <span>· {take.evidence_refs.join(', ')}</span> : ''}
                     </div>
                 </div>
             )}

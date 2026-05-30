@@ -574,8 +574,9 @@ def run_deep_research(
         try:
             from db import get_research_report
             persisted = get_research_report(last_complete["report_id"])
-            if persisted:
-                final_report = persisted["report"]
+            if persisted and isinstance(persisted.get("report"), dict):
+                final_report = {**last_complete, **persisted["report"]}
         except Exception as e:
             logger.warning(f"Could not re-fetch persisted report: {e}")
     return final_report or last_complete
+

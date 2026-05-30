@@ -57,48 +57,83 @@ def _bars_from_history(hist) -> List[Dict[str, Any]]:
     return bars
 
 
-def _compute_overlays(bars: List[Dict[str, Any]]) -> Dict[str, List]:
-    """Server-computed overlay series aligned to bars: MA20, MA50, Bollinger, VWAP.
+def _compute_overlays(bars: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Server-computed overlay series aligned to bars: MA20, MA50, Bollinger, VWAP, RSI, MACD.
 
     Each series is a list the same length as bars, with None where the window
     isn't yet full. Keeps the chart client thin and consistent with technicals.
     """
-    closes = [b["close"] for b in bars]
-    highs = [b["high"] for b in bars]
-    lows = [b["low"] for b in bars]
-    vols = [b["volume"] or 0 for b in bars]
+    import pandas as pd
+    import numpy as np
+
     n = len(bars)
+    if n == 0:
+        return {
+            "ma20": [], "ma50": [],
+            "bb_upper": [], "bb_lower": [],
+            "vwap": [], "rsi": [],
+            "macd": {"line": [], "signal": [], "histogram": []}
+        }
 
-    def sma(period: int) -> List:
-        out = [None] * n
-        for i in range(period - 1, n):
-            window = closes[i - period + 1:i + 1]
-            out[i] = round(sum(window) / period, 4)
-        return out
+    closes = pd.Series([b["close"] for b in bars])
+    highs = pd.Series([b["high"] for b in bars])
+    lows = pd.Series([b["low"] for b in bars])
+    vols = pd.Series([b["volume"] or 0 for b in bars])
 
-    ma20 = sma(20) if n >= 20 else [None] * n
-    ma50 = sma(50) if n >= 50 else [None] * n
+    # Moving averages
+    ma20 = closes.rolling(20).mean()
+    ma50 = closes.rolling(50).mean()
 
-    bb_upper, bb_lower = [None] * n, [None] * n
-    if n >= 20:
-        for i in range(19, n):
-            window = closes[i - 19:i + 1]
-            mean = sum(window) / 20
-            var = sum((c - mean) ** 2 for c in window) / 20
-            sd = var ** 0.5
-            bb_upper[i] = round(mean + 2 * sd, 4)
-            bb_lower[i] = round(mean - 2 * sd, 4)
+    # Bollinger Bands
+    std20 = closes.rolling(20).std()
+    bb_upper = ma20 + 2 * std20
+    bb_lower = ma20 - 2 * std20
 
-    vwap = [None] * n
-    cum_pv = 0.0
-    cum_v = 0.0
-    for i in range(n):
-        typical = (highs[i] + lows[i] + closes[i]) / 3
-        cum_pv += typical * vols[i]
-        cum_v += vols[i]
-        vwap[i] = round(cum_pv / cum_v, 4) if cum_v else None
+    # VWAP
+    typical = (highs + lows + closes) / 3.0
+    cum_pv = (typical * vols).cumsum()
+    cum_v = vols.cumsum()
+    vwap = cum_pv / cum_v
 
-    return {"ma20": ma20, "ma50": ma50, "bb_upper": bb_upper, "bb_lower": bb_lower, "vwap": vwap}
+    # RSI (14)
+    delta = closes.diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    gain_roll = gain.rolling(window=14).mean()
+    loss_roll = loss.rolling(window=14).mean()
+    rs = gain_roll / loss_roll
+    rsi = 100 - (100 / (1 + rs))
+
+    # MACD (12, 26, 9)
+    ema12 = closes.ewm(span=12, adjust=False).mean()
+    ema26 = closes.ewm(span=26, adjust=False).mean()
+    macd_line = ema12 - ema26
+    signal_line = macd_line.ewm(span=9, adjust=False).mean()
+    macd_hist = macd_line - signal_line
+
+    def sanitize(series) -> List:
+        res = []
+        for val in series:
+            if pd.isna(val) or np.isinf(val):
+                res.append(None)
+            else:
+                res.append(round(float(val), 4))
+        return res
+
+    return {
+        "ma20": sanitize(ma20),
+        "ma50": sanitize(ma50),
+        "bb_upper": sanitize(bb_upper),
+        "bb_lower": sanitize(bb_lower),
+        "vwap": sanitize(vwap),
+        "rsi": sanitize(rsi),
+        "macd": {
+            "line": sanitize(macd_line),
+            "signal": sanitize(signal_line),
+            "histogram": sanitize(macd_hist)
+        }
+    }
+
 
 
 class PriceHistoryTool(Tool):

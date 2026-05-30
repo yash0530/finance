@@ -16,7 +16,7 @@ function formatDate(isoString) {
 
 // ── Main Component ────────────────────────────────────────────────────
 
-export default function ResearchHistoryPage() {
+export default function ResearchHistoryPage({ embedded = false }) {
     const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -214,12 +214,14 @@ export default function ResearchHistoryPage() {
     // ── List View ────────────────────────────────────────────────────
     return (
         <div className="fade-in">
-            <div className="page-header">
-                <div>
-                    <h1 className="page-title">Research History</h1>
-                    <p className="page-subtitle">Archive of deep research reports with full telemetry</p>
+            {!embedded && (
+                <div className="page-header">
+                    <div>
+                        <h1 className="page-title">Research History</h1>
+                        <p className="page-subtitle">Archive of deep research reports with full telemetry</p>
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Filter bar */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 'var(--spacing-lg)', flexWrap: 'wrap', alignItems: 'center' }}>
