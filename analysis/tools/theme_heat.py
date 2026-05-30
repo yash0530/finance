@@ -28,6 +28,19 @@ def _theme_packs() -> List[Dict[str, Any]]:
     return packs
 
 
+def _sp500_sector_packs() -> List[Dict[str, Any]]:
+    """One pack per GICS sector, constituents from the S&P 500 snapshot cache."""
+    from tools.sp500_lookup import sp500_by_sector
+    packs = []
+    for sector, tickers in sp500_by_sector().items():
+        packs.append({
+            "slug": "sp500:" + sector.lower().replace(" ", "-"),
+            "name": sector,
+            "tickers": tickers,
+        })
+    return packs
+
+
 class ThemeHeatTool(Tool):
     name = "theme_heat"
     description = (
@@ -38,24 +51,34 @@ class ThemeHeatTool(Tool):
     requires_llm = False
 
     def schema(self) -> Dict[str, Any]:
-        return {"type": "object", "properties": {}, "required": []}
+        return {
+            "type": "object",
+            "properties": {
+                "universe": {
+                    "type": "string",
+                    "enum": ["themes", "sp500-sectors"],
+                    "description": "Group by user theme packs (default) or by GICS sector across the S&P 500.",
+                },
+            },
+            "required": [],
+        }
 
     def estimate_cost(self, **args) -> float:
         return 0.0
 
-    def _execute(self, **kwargs) -> ToolResult:
+    def _execute(self, universe: str = "themes", **kwargs) -> ToolResult:
         from tools.movers import fetch_quotes
 
-        packs = _theme_packs()
+        packs = _sp500_sector_packs() if universe == "sp500-sectors" else _theme_packs()
         if not packs:
             return ToolResult(
-                tool_name=self.name, data={"themes": []},
+                tool_name=self.name, data={"themes": [], "universe": universe},
                 sources=[], confidence="low",
-                error="No themes defined",
+                error="No S&P 500 snapshot available" if universe == "sp500-sectors" else "No themes defined",
             )
 
         all_tickers = sorted({t for p in packs for t in p["tickers"]})
-        cache_key = ",".join(all_tickers)
+        cache_key = f"{universe}|" + ",".join(all_tickers)
         cached = get_tool_cache(self.name, cache_key, self.cache_ttl_seconds)
         if cached:
             return ToolResult(
@@ -95,7 +118,7 @@ class ThemeHeatTool(Tool):
             reverse=True,
         )
 
-        data = {"themes": themes_out, "as_of": datetime.now().isoformat()}
+        data = {"themes": themes_out, "universe": universe, "as_of": datetime.now().isoformat()}
         save_tool_cache(self.name, cache_key, data)
         return ToolResult(
             tool_name=self.name, data=data,

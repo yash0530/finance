@@ -16,6 +16,40 @@ from typing import Any, Dict, List
 from tools import Source, Tool, ToolResult, register
 
 
+_CACHE_PATH = Path(__file__).parent.parent / ".cache" / "sp500_data.json"
+
+
+def _load_sp500_rows() -> List[Dict[str, Any]]:
+    """S&P 500 snapshot rows from the scanner cache. Empty list if unavailable."""
+    if not _CACHE_PATH.exists():
+        return []
+    try:
+        with open(_CACHE_PATH, "r") as f:
+            return json.load(f).get("data", []) or []
+    except Exception:
+        return []
+
+
+def sp500_constituents() -> List[str]:
+    """All S&P 500 tickers from the snapshot cache."""
+    return sorted({(r.get("ticker") or "").upper() for r in _load_sp500_rows() if r.get("ticker")})
+
+
+def sp500_by_sector() -> Dict[str, List[str]]:
+    """GICS sector → constituent tickers."""
+    out: Dict[str, List[str]] = {}
+    for r in _load_sp500_rows():
+        t = (r.get("ticker") or "").upper()
+        if t:
+            out.setdefault(r.get("sector") or "Unknown", []).append(t)
+    return {sec: sorted(ts) for sec, ts in out.items()}
+
+
+def sp500_snapshot() -> Dict[str, Dict[str, Any]]:
+    """ticker → snapshot row (fundamentals + day/year change) from the cache."""
+    return {(r.get("ticker") or "").upper(): r for r in _load_sp500_rows() if r.get("ticker")}
+
+
 class SP500LookupTool(Tool):
     name = "sp500_lookup"
     description = (

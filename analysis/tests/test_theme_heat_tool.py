@@ -92,6 +92,29 @@ def test_theme_heat_handles_unresolved_theme(monkeypatch):
         assert t["leader"] is None
 
 
+def test_theme_heat_sp500_sectors(monkeypatch):
+    monkeypatch.setattr(
+        "tools.sp500_lookup.sp500_by_sector",
+        lambda: {"Information Technology": ["NVDA", "AMD"], "Energy": ["XOM"]},
+    )
+    quotes = {
+        "NVDA": _FastInfo(110, 100),  # +10
+        "AMD": _FastInfo(90, 100),    # -10
+        "XOM": _FastInfo(102, 100),   # +2
+    }
+    monkeypatch.setitem(sys.modules, "yfinance", _fake_yf(quotes))
+
+    from tools.theme_heat import ThemeHeatTool
+    result = ThemeHeatTool().execute(universe="sp500-sectors")
+    assert result.is_ok()
+    assert result.data["universe"] == "sp500-sectors"
+    by_name = {t["name"]: t for t in result.data["themes"]}
+    assert "Information Technology" in by_name and "Energy" in by_name
+    it = by_name["Information Technology"]
+    assert it["leader"]["ticker"] == "NVDA"
+    assert it["laggard"]["ticker"] == "AMD"
+
+
 def test_theme_heat_no_themes_degrades(monkeypatch):
     conn = db.get_connection()
     try:

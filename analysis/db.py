@@ -373,6 +373,14 @@ def init_db() -> None:
         import logging
         logging.getLogger(__name__).warning(f"Theme seeding skipped: {_e}")
 
+    # Seed default screener presets (idempotent — matched by name).
+    try:
+        from seed_screeners import seed_default_screeners
+        seed_default_screeners()
+    except Exception as _e:
+        import logging
+        logging.getLogger(__name__).warning(f"Screener seeding skipped: {_e}")
+
 
 # ============================================================================
 # Portfolio Holdings

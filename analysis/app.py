@@ -732,9 +732,10 @@ def chart(ticker):
 
 @app.route('/api/terminal/theme-heat', methods=['GET'])
 def terminal_theme_heat():
-    """Per-theme median move + leader/laggard."""
+    """Per-theme median move + leader/laggard. ?universe=themes|sp500-sectors."""
     from tools import get_tool
-    result = get_tool('theme_heat').execute()
+    universe = request.args.get('universe', 'themes')
+    result = get_tool('theme_heat').execute(universe=universe)
     return jsonify(result.to_dict())
 
 
@@ -981,7 +982,10 @@ def screener_run():
 @app.route('/api/screener/fields', methods=['GET'])
 def screener_fields():
     import screener_engine
-    return jsonify({"fields": screener_engine.available_fields()})
+    return jsonify({
+        "fields": screener_engine.available_fields(),
+        "patterns": screener_engine.pattern_names(),
+    })
 
 
 @app.route('/api/screener/saved', methods=['GET'])

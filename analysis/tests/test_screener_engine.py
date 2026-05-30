@@ -36,12 +36,12 @@ FAKE = {
 
 @pytest.fixture(autouse=True)
 def _mock_tools(monkeypatch):
-    def fake_gather(ticker):
+    def fake_gather(ticker, snapshot_row=None, fetch_technical=True):
         d = FAKE.get(ticker.upper(), {})
         return {
             "fundamentals": d.get("fundamentals", {}),
-            "technicals": d.get("technicals", {}),
-            "trends": d.get("trends", {}),
+            "technicals": d.get("technicals", {}) if fetch_technical else {},
+            "trends": d.get("trends", {}) if fetch_technical else {},
         }
     monkeypatch.setattr(se, "_gather_ticker_data", fake_gather)
     yield
@@ -119,8 +119,83 @@ def test_resolve_universe_watchlist(monkeypatch):
 
 def test_available_fields_includes_core():
     fields = se.available_fields()
-    for need in ("rsi", "forward_pe", "yoy_revenue_growth", "ma_50_above_ma_200"):
+    for need in ("rsi", "forward_pe", "yoy_revenue_growth", "ma_50_above_ma_200", "pattern",
+                 "pct_from_52w_high", "year_change_pct"):
         assert need in fields
+
+
+# ── S&P 500 universe (snapshot fast path) ─────────────────────────────────
+
+# pct_from_high and year_change are fractions in the real snapshot (-0.01 = -1%).
+_SNAPSHOT = {
+    "AAA": {"ticker": "AAA", "current_price": 100, "market_cap": 5e10, "forward_pe": 18,
+            "revenue_growth": 0.2, "pct_from_high": -0.01, "year_change": 0.60, "day_change_percent": 1.2},
+    "BBB": {"ticker": "BBB", "current_price": 50, "market_cap": 2e9, "forward_pe": 9,
+            "revenue_growth": 0.05, "pct_from_high": -0.40, "year_change": -0.15, "day_change_percent": -2.0},
+}
+
+
+def test_sp500_snapshot_fast_path(monkeypatch):
+    # Real gather is restored (autouse mock replaced it) by patching it to use snapshot rows.
+    def gather(ticker, snapshot_row=None, fetch_technical=True):
+        return {"fundamentals": se._snapshot_to_fundamentals(snapshot_row) if snapshot_row else {},
+                "technicals": {}, "trends": {}}
+    monkeypatch.setattr(se, "_gather_ticker_data", gather)
+    monkeypatch.setattr(se, "resolve_universe", lambda spec: ["AAA", "BBB"])
+    monkeypatch.setattr("tools.sp500_lookup.sp500_snapshot", lambda: _SNAPSHOT)
+
+    spec = {"universe": "sp500", "combine": "AND",
+            "rules": [{"field": "pct_from_52w_high", "op": ">=", "value": -2}]}
+    out = se.run_screen(spec)
+    assert {m["ticker"] for m in out["matches"]} == {"AAA"}  # only AAA is near its high
+
+
+def test_sp500_technical_rule_needs_scan(monkeypatch):
+    monkeypatch.setattr(se, "resolve_universe", lambda spec: ["AAA", "BBB"])
+    monkeypatch.setattr("tools.sp500_lookup.sp500_snapshot", lambda: _SNAPSHOT)
+    spec = {"universe": "sp500", "combine": "AND",
+            "rules": [{"field": "rsi", "op": "<", "value": 30}]}
+    out = se.run_screen(spec)
+    assert out.get("needs_scan") is True
+    assert out["error"] == "needs_scan"
+
+
+def test_sp500_technical_rule_runs_with_scan(monkeypatch):
+    def gather(ticker, snapshot_row=None, fetch_technical=True):
+        return {"fundamentals": {}, "technicals": {"rsi": 20.0} if fetch_technical else {}, "trends": {}}
+    monkeypatch.setattr(se, "_gather_ticker_data", gather)
+    monkeypatch.setattr(se, "resolve_universe", lambda spec: ["AAA"])
+    monkeypatch.setattr("tools.sp500_lookup.sp500_snapshot", lambda: _SNAPSHOT)
+    spec = {"universe": "sp500", "combine": "AND", "scan": True,
+            "rules": [{"field": "rsi", "op": "<", "value": 30}]}
+    out = se.run_screen(spec)
+    assert {m["ticker"] for m in out["matches"]} == {"AAA"}
+
+
+def test_pattern_rule_matches(monkeypatch):
+    monkeypatch.setattr(se, "resolve_universe", lambda spec: ["NVDA", "AMD"])
+    monkeypatch.setattr(se, "_detect_patterns",
+                        lambda t: {"cup_and_handle"} if t == "NVDA" else set())
+    spec = {"universe": ["NVDA", "AMD"], "combine": "AND",
+            "rules": [{"field": "pattern", "op": "is", "value": "cup_and_handle"}]}
+    out = se.run_screen(spec)
+    assert {m["ticker"] for m in out["matches"]} == {"NVDA"}
+    assert out["matches"][0]["values"]["pattern"] == ["cup_and_handle"]
+
+
+def test_partial_match_flags_missing_field(monkeypatch):
+    spec = {"universe": ["NVDA"], "combine": "AND", "rules": [
+        {"field": "rsi", "op": "<", "value": 30},
+        {"field": "not_a_field", "op": ">", "value": 1},
+    ]}
+    out = se.run_screen(spec)
+    assert out["matches"][0]["partial"] is True
+    assert "not_a_field" in out["matches"][0]["missing_fields"]
+
+
+def test_pattern_names_exposed():
+    names = se.pattern_names()
+    assert "head_shoulders" in names and "cup_and_handle" in names
 
 
 # ── Endpoint tests ─────────────────────────────────────────────────────────
