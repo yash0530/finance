@@ -67,27 +67,34 @@ The command line supports powerful on-demand analysis via slash commands:
 
 ---
 
-## Tool Registry (17 Tools)
+## Tool Registry (21 Tools)
 
-The Planner agent dynamically loads and invokes specialized data tools:
+The Planner agent (and the terminal panels) dynamically load and invoke specialized data tools.
 
+**Research / fundamentals**
 1. `fundamentals`: Key metrics, market cap, margin structures.
-2. `financial_trends`: Standard multi-quarter growth rates.
-3. `technicals`: Price volatility, crosses, RSI, and MACD.
+2. `financial_trends`: Multi-quarter growth rates.
+3. `technicals`: Volatility, MA crosses, RSI, MACD, relative strength vs SPY.
 4. `dcf_valuation`: Discounted cash flow intrinsic calculations.
 5. `sentiment`: Composite market news and rating sentiments.
 6. `edgar_filings`: SEC Form 10-K/10-Q extraction.
 7. `qoe_forensics`: Quality-of-Earnings accounting forensics.
-8. `macro_context`: Core interest rate and indices spreads.
+8. `macro_context`: Core interest-rate and index spreads.
 9. `insider_form4`: SEC insider trading flow.
 10. `institutional_13f`: Form 13F major holder positions.
-11. `options_flow`: Unusual block flows and puts/calls chains.
-12. `transcripts`: Earnings call transcript snippets (FMP).
+11. `options_flow`: Options block flow and put/call chains.
+12. `transcripts`: Earnings call transcript snippets (FMP, optional).
 13. `catalyst_lookup`: Calendar catalysts and macro dates.
-14. `peer_compare`: Sector average cohorts evaluations.
+14. `peer_compare`: Sector cohort comparisons.
 15. `alt_data`: Google Trends tracking (optional).
-16. `memo_read`: Living Memo sections retrieval.
-17. `calibration_lookup`: Past recommendation entries lookup.
+16. `memo_read`: Living Memo section retrieval.
+17. `sp500_lookup`: Ticker → name / sector / industry resolution.
+
+**Terminal panels**
+18. `movers`: Batched day-change gainers/losers across a universe.
+19. `news_tape`: Deduped company news across theme constituents (Finnhub).
+20. `price_history`: OHLCV candlestick bars + server-computed overlays for charts.
+21. `theme_heat`: Per-theme median move with leader/laggard.
 
 ---
 

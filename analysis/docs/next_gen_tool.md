@@ -405,6 +405,9 @@ Extends v1's Half-Kelly with:
 - Tax-lot awareness (if existing position underwater → wash sale window)
 
 ### 16.3 Calibration log
+
+> **v3 status (partially removed):** Recommendations are still logged to the `recommendations` table by the agent loop, but the **nightly outcome cron and Calibration Dashboard described below were removed** — they violate the pull-based rule (no background workers/cron). Outcome backfill, if ever revived, must be pull-triggered. The historical design is retained here for context only.
+
 Every recommendation is logged to `recommendations` table with:
 - Recommendation + conviction
 - Price at recommendation
@@ -423,6 +426,8 @@ The Calibration Dashboard shows:
 **This is the trust loop.** Over months you see whether the tool's HIGH conviction actually deserves it. Calibration is what separates a tool from a vibes machine.
 
 ## 17. Catalyst calendar + active monitoring
+
+> **v3 status (removed):** The `monitoring_worker.py` daily background job and digest below were **cut** under the pull-based rule (no background workers, cron, or notifications). Upcoming catalysts are surfaced on demand via the `catalyst_lookup` tool and the Terminal's Catalysts panel (`GET /api/terminal/catalysts`), refreshed when the user opens/refreshes the panel — never by a daemon. The design below is historical.
 
 `analysis/catalyst_calendar.py` aggregates:
 - Earnings dates (yfinance)

@@ -285,6 +285,8 @@ Computed via Half-Kelly with portfolio-level vol budget and per-position caps. S
 
 ## Calibration — the trust loop
 
+> **Not in v3.** The Calibration Dashboard and its nightly background job were removed — Edge is pull-based (no cron/workers). Recommendations are still logged when you run `/thesis` or `/dossier`, but outcome tracking is not automated. Treat the section below as the original design intent, not current behavior.
+
 The Calibration Dashboard answers one question: **"how often is this tool actually right?"**
 
 Updated nightly by a background job that tracks every recommendation's outcome at 1m / 3m / 6m / 1y horizons.
@@ -357,6 +359,9 @@ Recommended for v2:
 Force a fresh run with the "Refresh" button or `?refresh=true` query param.
 
 ### Active monitoring
+
+> **Not in v3.** There is no monitoring worker, daily digest, or notifications — Edge is pull-based. To re-check a position, open its Stock View or run `/why <T>` / `/thesis <T>` in the Console. The design below is historical.
+
 For any owned position, toggle "Monitor" to enable the daily digest. The monitoring worker:
 1. Reruns cheap tools each day (price action, new filings, insider, news)
 2. Compares against the last Living Memo
@@ -427,15 +432,15 @@ When skeptical, default to **read the debate transcript directly** rather than a
 
 | You want to | Do this |
 |---|---|
-| Research a new ticker | Deep Research → Normal budget |
-| Watchlist scan | Deep Research → Quick budget for each |
-| Post-earnings reassessment | Deep Research → Deep budget, force refresh |
-| Understand why conviction changed | Memo → version diff |
-| Find specific historical claim | Memo → search section |
-| Question the verdict | Chat → ask for the bear case to be stronger |
+| Research a new ticker | Console → `/thesis <T>` (normal budget) |
+| Quick "why is it moving" read | Console → `/why <T>` (or the Terminal Hypotheses panel) |
+| Post-earnings deep dive | Console → `/dossier <T>` (deep budget) |
+| Compare several names | Console → `/compare <A> <B> <C>` |
+| Map a theme | Console → `/theme <slug>` |
+| Scan for setups | Screener → build/run a rule |
+| Understand why conviction changed | Library → Memo version diff |
+| Find a specific historical claim | Library → Memo section |
 | Audit a number | Click the citation chip |
-| Track your tool's accuracy | Calibration Dashboard |
-| Monitor an owned position | Toggle "Monitor" → daily digest |
 | Override a sector classification | Memo → Identity section → edit |
 
 ---
