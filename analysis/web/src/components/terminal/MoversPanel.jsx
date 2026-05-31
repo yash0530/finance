@@ -27,7 +27,7 @@ function MoverRow({ row, onClick }) {
     );
 }
 
-export default function MoversPanel({ onSelectTicker, area = 'movers' }) {
+export default function MoversPanel({ onSelectTicker, area = 'movers', initialResult = null, deferInitialLoad = false }) {
     const [data, setData] = useState(null);
     const [confidence, setConfidence] = useState('high');
     const [loading, setLoading] = useState(false);
@@ -48,7 +48,17 @@ export default function MoversPanel({ onSelectTicker, area = 'movers' }) {
         }
     }, []);
 
-    useEffect(() => { load(); }, [load]);
+    useEffect(() => {
+        if (!initialResult) return;
+        setData(initialResult.data || null);
+        setConfidence(initialResult.confidence || 'high');
+        if (initialResult.error && !(initialResult.data?.gainers?.length)) setError(initialResult.error);
+    }, [initialResult]);
+
+    useEffect(() => {
+        if (deferInitialLoad) return;
+        load();
+    }, [deferInitialLoad, load]);
 
     const gainers = data?.gainers || [];
     const losers = data?.losers || [];

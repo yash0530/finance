@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { getTerminalNews } from '../../utils/api';
 import PanelShell from './PanelShell';
 
-export default function NewsTape({ onSelectTicker, area = 'news-tape' }) {
+export default function NewsTape({ onSelectTicker, area = 'news-tape', initialResult = null, deferInitialLoad = false }) {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -21,7 +21,16 @@ export default function NewsTape({ onSelectTicker, area = 'news-tape' }) {
         }
     }, []);
 
-    useEffect(() => { load(); }, [load]);
+    useEffect(() => {
+        if (!initialResult) return;
+        setItems(initialResult.data?.items || []);
+        if (initialResult.error && !(initialResult.data?.items?.length)) setError(initialResult.error);
+    }, [initialResult]);
+
+    useEffect(() => {
+        if (deferInitialLoad) return;
+        load();
+    }, [deferInitialLoad, load]);
 
     return (
         <PanelShell

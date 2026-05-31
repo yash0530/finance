@@ -10,7 +10,7 @@ const TYPE_COLOR = {
     NFP: 'badge-cyan',
 };
 
-export default function CatalystsPanel({ onSelectTicker, area = 'catalysts' }) {
+export default function CatalystsPanel({ onSelectTicker, area = 'catalysts', initialPayload = null, deferInitialLoad = false }) {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -28,7 +28,15 @@ export default function CatalystsPanel({ onSelectTicker, area = 'catalysts' }) {
         }
     }, []);
 
-    useEffect(() => { load(); }, [load]);
+    useEffect(() => {
+        if (!initialPayload) return;
+        setItems(initialPayload.items || []);
+    }, [initialPayload]);
+
+    useEffect(() => {
+        if (deferInitialLoad) return;
+        load();
+    }, [deferInitialLoad, load]);
 
     return (
         <PanelShell

@@ -18,7 +18,7 @@ function HeatBar({ pct }) {
     );
 }
 
-export default function ThemeHeatPanel({ onSelectTicker, area = 'theme-heat' }) {
+export default function ThemeHeatPanel({ onSelectTicker, area = 'theme-heat', initialResult = null, deferInitialLoad = false }) {
     const [themes, setThemes] = useState([]);
     const [payload, setPayload] = useState(null);
     const [confidence, setConfidence] = useState('high');
@@ -42,7 +42,18 @@ export default function ThemeHeatPanel({ onSelectTicker, area = 'theme-heat' }) 
         }
     }, [universe]);
 
-    useEffect(() => { load(); }, [load]);
+    useEffect(() => {
+        if (!initialResult || universe !== 'themes') return;
+        setPayload(initialResult.data || null);
+        setConfidence(initialResult.confidence || 'high');
+        setThemes(initialResult.data?.themes || []);
+        if (initialResult.error && !(initialResult.data?.themes?.length)) setError(initialResult.error);
+    }, [initialResult, universe]);
+
+    useEffect(() => {
+        if (deferInitialLoad && universe === 'themes') return;
+        load();
+    }, [deferInitialLoad, load, universe]);
 
     const toggle = (
         <div style={{ display: 'flex', gap: 4 }}>

@@ -7,7 +7,7 @@ import PanelShell from './PanelShell';
  * returns {degraded:true} and we render a sparse state explaining the upgrade
  * path. With a key, the panel shows the options_flow payload.
  */
-export default function FlowPanel({ area = 'flow', ticker = '' }) {
+export default function FlowPanel({ area = 'flow', ticker = '', initialStatus = null }) {
     const [payload, setPayload] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -29,6 +29,15 @@ export default function FlowPanel({ area = 'flow', ticker = '' }) {
         const id = window.setTimeout(load, 0);
         return () => window.clearTimeout(id);
     }, [load, ticker]);
+
+    useEffect(() => {
+        if (ticker || !initialStatus) return;
+        setPayload({
+            degraded: initialStatus.status !== 'available',
+            reason: initialStatus.message,
+            free_tier: initialStatus.provider,
+        });
+    }, [initialStatus, ticker]);
 
     const degraded = payload?.degraded;
 

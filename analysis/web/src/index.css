@@ -425,9 +425,174 @@ h4, h5, h6 { font-weight: 600; letter-spacing: var(--type-body-tracking); line-h
 
 .terminal-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
   gap: var(--spacing-md);
   align-items: start;
+}
+
+.terminal-panel-wrap.wide {
+  grid-column: span 2;
+}
+
+.daily-scan-brief {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.daily-scan-brief-tile {
+  min-width: 0;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.daily-scan-brief-label {
+  color: var(--text-muted);
+  font-size: 0.64rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.daily-scan-brief-value {
+  margin-top: 5px;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 750;
+  min-height: 2.25em;
+  line-height: 1.12;
+  white-space: normal;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.daily-scan-brief-value.up { color: var(--accent-green); }
+.daily-scan-brief-value.down { color: var(--accent-red); }
+.daily-scan-brief-value.warn { color: var(--accent-yellow); }
+
+.daily-scan-brief-note {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.daily-scan-health {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: var(--spacing-md);
+}
+
+.daily-scan-health-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  min-height: 28px;
+}
+
+.daily-scan-health-pill strong {
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.daily-scan-health-pill.ok strong { color: var(--accent-green); }
+.daily-scan-health-pill.stale strong,
+.daily-scan-health-pill.degraded strong { color: var(--accent-yellow); }
+.daily-scan-health-pill.pending strong { color: var(--accent-blue-bright); }
+
+.daily-scan-focus {
+  margin-bottom: var(--spacing-md);
+  cursor: default;
+}
+
+.daily-scan-focus-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+}
+
+.daily-scan-focus-header h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.daily-scan-focus-header p,
+.daily-scan-focus-header span {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.daily-scan-queue {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.daily-scan-queue-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) minmax(60px, auto);
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  min-height: 38px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.daily-scan-queue-row:hover {
+  border-color: var(--border-color-hover);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.daily-scan-queue-reasons {
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.daily-scan-queue-score {
+  justify-self: end;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.daily-scan-queue-score.up { color: var(--accent-green); }
+.daily-scan-queue-score.down { color: var(--accent-red); }
+
+.daily-scan-empty {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+@media (max-width: 1040px) {
+  .terminal-panel-wrap.wide {
+    grid-column: span 1;
+  }
 }
 
 .stock-workbench {
@@ -1286,6 +1451,22 @@ h4, h5, h6 { font-weight: 600; letter-spacing: var(--type-body-tracking); line-h
   }
 
   .terminal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .terminal-panel-wrap.wide {
+    grid-column: span 1;
+  }
+
+  .daily-scan-brief {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .daily-scan-focus-header {
+    flex-direction: column;
+  }
+
+  .daily-scan-queue {
     grid-template-columns: 1fr;
   }
 
