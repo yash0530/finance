@@ -388,3 +388,121 @@ def test_alt_data_happy_path_with_mock_pytrends(monkeypatch):
     assert d["trend_direction"] in ("rising", "falling", "stable")
     assert result.confidence == "medium"
     assert any(s.field == "google_trends_score" for s in result.sources)
+
+
+def test_alt_data_pytrends_unexpected_error(monkeypatch):
+    """If pytrends is installed but raises an unexpected error, degrade gracefully."""
+    class FlakyTrendReq:
+        def __init__(self, **kw):
+            pass
+        def build_payload(self, *a, **kw):
+            pass
+        def interest_over_time(self):
+            raise RuntimeError("Google Trends rate limit")
+
+    from tools import alt_data as alt_mod
+    monkeypatch.setattr(alt_mod, "_check_optional_import", lambda: (True, FlakyTrendReq))
+
+    fake_yf = SimpleNamespace(Ticker=lambda t: _FakeTicker())
+    monkeypatch.setitem(sys.modules, "yfinance", fake_yf)
+
+    result = alt_mod.AltDataTool().execute(ticker="NVDA")
+    assert isinstance(result, ToolResult)
+    assert result.confidence == "low"
+    assert result.data["available"] is False
+    assert "Google Trends rate limit" in "".join(result.data["warnings"])
+
+
+def test_fundamentals_yahoo_fallback(monkeypatch):
+    """Verify fundamentals fallback correctly queries Yahoo and merges data on yfinance failure."""
+    from tools import fundamentals as fund_mod
+
+    # Canned payloads
+    chart_payload = {
+        "chart": {
+            "result": [
+                {
+                    "meta": {
+                        "longName": "Apple Inc.",
+                        "regularMarketPrice": 180.0,
+                        "marketCap": 2800000000000,
+                        "fiftyTwoWeekHigh": 195.0,
+                        "fiftyTwoWeekLow": 165.0,
+                    }
+                }
+            ]
+        }
+    }
+    ts_payload = {
+        "timeseries": {
+            "result": [
+                {
+                    "meta": {"type": ["trailingPeRatio"]},
+                    "trailingPeRatio": [{"reportedValue": {"raw": 28.5}}],
+                },
+                {
+                    "meta": {"type": ["trailingForwardPeRatio"]},
+                    "trailingForwardPeRatio": [{"reportedValue": {"raw": 26.0}}],
+                },
+                {
+                    "meta": {"type": ["trailingTotalRevenue"]},
+                    "trailingTotalRevenue": [{"reportedValue": {"raw": 383000000000}}],
+                },
+                {
+                    "meta": {"type": ["trailingNetIncome"]},
+                    "trailingNetIncome": [{"reportedValue": {"raw": 97000000000}}],
+                },
+                {
+                    "meta": {"type": ["annualTotalRevenue"]},
+                    "annualTotalRevenue": [
+                        {"reportedValue": {"raw": 394000000000}},
+                        {"reportedValue": {"raw": 383000000000}},
+                    ],
+                },
+            ]
+        }
+    }
+
+    # Mock requests.get
+    class _FakeResponse:
+        def __init__(self, payload=None, status_code=200):
+            self._payload = payload
+            self.status_code = status_code
+        def json(self):
+            return self._payload
+        def raise_for_status(self):
+            pass
+
+    import requests
+    def fake_get(url, params=None, headers=None, timeout=None):
+        if "chart" in url:
+            return _FakeResponse(payload=chart_payload)
+        if "timeseries" in url:
+            return _FakeResponse(payload=ts_payload)
+        return _FakeResponse(status_code=404)
+
+    monkeypatch.setattr(requests, "get", fake_get)
+
+    # 1. Test raw fallback function
+    fb_data = fund_mod._fetch_yahoo_fundamentals_fallback("AAPL")
+    assert fb_data["ticker"] == "AAPL"
+    assert fb_data["company_name"] == "Apple Inc."
+    assert fb_data["current_price"] == 180.0
+    assert fb_data["market_cap"] == 2800000000000
+    assert fb_data["trailing_pe"] == 28.5
+    assert fb_data["forward_pe"] == 26.0
+    assert fb_data["revenue"] == 383000000000
+    assert fb_data["net_income"] == 97000000000
+    assert fb_data["profit_margin"] == pytest.approx(97000000000 / 383000000000)
+    assert fb_data["revenue_growth"] == pytest.approx((383000000000 - 394000000000) / 394000000000)
+
+    # 2. Test FundamentalsTool integration under direct error
+    # We mock yfinance fetch_fundamentals to return an error dict
+    monkeypatch.setattr("research_engine.fetch_fundamentals", lambda t: {"error": "rate limit"})
+
+    result = fund_mod.FundamentalsTool().execute(ticker="AAPL")
+    assert isinstance(result, ToolResult)
+    assert not result.is_ok()  # False because error is set to report yfinance rate limit
+    assert "used Yahoo fundamentals fallback" in result.error
+    assert result.data["company_name"] == "Apple Inc."
+    assert result.data["forward_pe"] == 26.0
