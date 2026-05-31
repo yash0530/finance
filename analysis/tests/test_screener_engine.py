@@ -216,6 +216,7 @@ def test_detect_patterns_uses_cache(monkeypatch):
     finally:
         conn.close()
 
+    db.save_tool_cache("screener_patterns", "CACHE", {"patterns": []})
     bars = [{"close": float(i), "time": f"2026-01-{i:02d}"} for i in range(1, 35)]
 
     class PriceHistoryTool:
@@ -228,7 +229,7 @@ def test_detect_patterns_uses_cache(monkeypatch):
     import pattern_detectors
     monkeypatch.setattr("tools.get_tool", lambda name: PriceHistoryTool())
     monkeypatch.setattr(pattern_detectors, "PATTERN_DETECTORS", {
-        "cached_pattern": lambda prices, dates: {"detected": True}
+        "cached_pattern": ("Cached Pattern", "bullish", lambda prices, dates: {"detected": True})
     })
 
     assert se._detect_patterns("CACHE") == {"cached_pattern"}

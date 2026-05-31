@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_SP500_LIVE_SCAN_LIMIT = 150
 PATTERN_CACHE_TTL_SECONDS = 24 * 60 * 60
+PATTERN_CACHE_VERSION = "v2"
 
 
 # Fields the screener understands, each resolved from the tool result dicts.
@@ -106,9 +107,10 @@ def _detect_patterns(ticker: str) -> set:
     """Names of chart patterns currently detected for a ticker, from cached OHLC."""
     from tools import get_tool
     import pattern_detectors as pd
+    cache_key = f"{PATTERN_CACHE_VERSION}|{ticker.upper()}"
     try:
         import db
-        cached = db.get_tool_cache("screener_patterns", ticker.upper(), PATTERN_CACHE_TTL_SECONDS)
+        cached = db.get_tool_cache("screener_patterns", cache_key, PATTERN_CACHE_TTL_SECONDS)
         if cached is not None:
             return set(cached.get("patterns") or [])
     except Exception:
@@ -124,7 +126,10 @@ def _detect_patterns(ticker: str) -> set:
     prices = [b["close"] for b in bars]
     dates = [b["time"] for b in bars]
     found = set()
-    for name, detector in pd.PATTERN_DETECTORS.items():
+    for name, meta in pd.PATTERN_DETECTORS.items():
+        detector = meta[2] if isinstance(meta, (list, tuple)) and len(meta) >= 3 else meta
+        if not callable(detector):
+            continue
         try:
             res = detector(prices, dates)
             if isinstance(res, dict) and res.get("detected"):
@@ -133,7 +138,7 @@ def _detect_patterns(ticker: str) -> set:
             continue
     try:
         import db
-        db.save_tool_cache("screener_patterns", ticker.upper(), {"patterns": sorted(found)})
+        db.save_tool_cache("screener_patterns", cache_key, {"patterns": sorted(found)})
     except Exception:
         pass
     return found

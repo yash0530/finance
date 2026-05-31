@@ -12,6 +12,11 @@ const DEFAULT_SPEC = {
     ],
 };
 
+async function fetchSavedScreeners() {
+    const rows = (await getSavedScreeners()).saved || [];
+    return rows;
+}
+
 /**
  * Screener — rule-based screening over cached tool data, with saved configs.
  */
@@ -22,9 +27,9 @@ export default function ScreenerPage({ onSelectTicker, presetName }) {
     const [saved, setSaved] = useState([]);
     const [name, setName] = useState('');
 
-    const loadSaved = useCallback(async () => {
+    const refreshSaved = useCallback(async () => {
         try {
-            const rows = (await getSavedScreeners()).saved || [];
+            const rows = await fetchSavedScreeners();
             setSaved(rows);
             return rows;
         } catch { return []; }
@@ -50,30 +55,40 @@ export default function ScreenerPage({ onSelectTicker, presetName }) {
         runSpec(next);
     }, [runSpec]);
 
-    useEffect(() => { loadSaved(); }, [loadSaved]);
+    useEffect(() => {
+        if (presetName) return undefined;
+        let cancelled = false;
+        fetchSavedScreeners()
+            .then(rows => { if (!cancelled) setSaved(rows); })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, [presetName]);
 
     // Deep-link from Market action buttons: load + auto-run a named preset.
     useEffect(() => {
         if (!presetName) return;
         let cancelled = false;
-        loadSaved().then(rows => {
-            if (cancelled) return;
-            const match = rows.find(s => s.name === presetName);
-            if (match) loadAndRun(match.rules);
-        });
+        fetchSavedScreeners()
+            .then(rows => {
+                if (cancelled) return;
+                setSaved(rows);
+                const match = rows.find(s => s.name === presetName);
+                if (match) loadAndRun(match.rules);
+            })
+            .catch(() => {});
         return () => { cancelled = true; };
-    }, [presetName, loadSaved, loadAndRun]);
+    }, [presetName, loadAndRun]);
 
     const save = useCallback(async () => {
         const n = name.trim();
         if (!n) return;
         await saveScreener(n, spec);
         setName('');
-        loadSaved();
-    }, [name, spec, loadSaved]);
+        await refreshSaved();
+    }, [name, spec, refreshSaved]);
 
     return (
-        <div className="fade-in">
+        <div className="fade-in screener-page">
             <div className="page-header">
                 <div>
                     <h1 className="page-title">Screener</h1>
@@ -81,29 +96,32 @@ export default function ScreenerPage({ onSelectTicker, presetName }) {
                 </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 'var(--spacing-lg)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: 360, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
+            <div className="screener-layout">
+                <div className="screener-main">
                     <RulesBuilder spec={spec} onChange={setSpec} onRun={run} running={running} />
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div className="screener-save-row">
                         <input className="input" placeholder="Save this screen as…" value={name}
-                            onChange={e => setName(e.target.value)} style={{ maxWidth: 240 }} />
+                            onChange={e => setName(e.target.value)} />
                         <button className="btn btn-secondary" onClick={save} disabled={!name.trim()}>Save</button>
                     </div>
                     <ResultsTable result={result} onSelectTicker={onSelectTicker} />
                 </div>
 
-                <aside className="glass-card" style={{ cursor: 'default', minWidth: 200 }}>
-                    <h4 style={{ fontSize: '0.78rem', margin: '0 0 8px 0', color: 'var(--text-secondary)' }}>Saved screens</h4>
+                <aside className="glass-card screener-saved-panel">
+                    <h4 className="screener-saved-title">Saved screens</h4>
                     {saved.length === 0 && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>None saved.</div>}
-                    <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                    <ul className="screener-saved-list">
                         {saved.map(s => (
-                            <li key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid var(--border-color)' }}>
+                            <li key={s.id} className="screener-saved-item">
                                 <button onClick={() => loadAndRun(s.rules)}
-                                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--accent-blue-bright)', fontSize: '0.74rem', textAlign: 'left' }}>
+                                    className="screener-saved-name"
+                                    title={s.name}>
                                     {s.name}
                                 </button>
-                                <button onClick={async () => { await deleteSavedScreener(s.id); loadSaved(); }}
-                                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>×</button>
+                                <button onClick={async () => { await deleteSavedScreener(s.id); await refreshSaved(); }}
+                                    className="screener-saved-delete"
+                                    type="button"
+                                    aria-label={`Delete saved screen ${s.name}`}>×</button>
                             </li>
                         ))}
                     </ul>
