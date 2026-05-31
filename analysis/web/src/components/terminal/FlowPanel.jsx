@@ -7,7 +7,7 @@ import PanelShell from './PanelShell';
  * returns {degraded:true} and we render a sparse state explaining the upgrade
  * path. With a key, the panel shows the options_flow payload.
  */
-export default function FlowPanel({ area = 'flow' }) {
+export default function FlowPanel({ area = 'flow', ticker = '' }) {
     const [payload, setPayload] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -16,23 +16,26 @@ export default function FlowPanel({ area = 'flow' }) {
         setLoading(true);
         setError(null);
         try {
-            setPayload(await getFlow());
+            setPayload(await getFlow(ticker));
         } catch (e) {
             setError(e.message);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [ticker]);
 
-    useEffect(() => { load(); }, [load]);
+    useEffect(() => {
+        const id = window.setTimeout(load, 0);
+        return () => window.clearTimeout(id);
+    }, [load]);
 
     const degraded = payload?.degraded;
 
     return (
         <PanelShell
             id="panel-flow"
-            title="Flow Snapshot"
-            subtitle={degraded ? 'degraded' : 'options flow'}
+            title={ticker ? `${ticker} Flow` : 'Flow Snapshot'}
+            subtitle={degraded ? 'degraded' : (ticker ? 'options flow' : 'market-wide')}
             area={area}
             onRefresh={load}
             loading={loading}
@@ -49,7 +52,7 @@ export default function FlowPanel({ area = 'flow' }) {
             )}
             {!degraded && payload && (
                 <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
-                    {payload.note || 'Provide a ticker via Stock View for a flow snapshot.'}
+                    {payload.note || (ticker ? 'No notable flow returned for this ticker.' : 'Provide a ticker via Stock View for a flow snapshot.')}
                 </div>
             )}
         </PanelShell>

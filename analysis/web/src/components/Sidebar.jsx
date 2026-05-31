@@ -6,8 +6,11 @@ const NAV_ITEMS = [
     { id: 'research',  label: 'Research' },
     { id: 'terminal',  label: 'Daily Scan' },
     { id: 'console',   label: 'Console' },
+    { id: 'portfolio', label: 'Portfolio' },
+    { id: 'review',    label: 'Review' },
     { id: 'library',   label: 'Library' },
     { id: 'screener',  label: 'Screener' },
+    { id: 'patterns',  label: 'Patterns' },
     { id: 'settings',  label: 'Settings' },
 ];
 

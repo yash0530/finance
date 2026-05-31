@@ -3,9 +3,10 @@
 Edge — Personal Markets Terminal · Flask backend API.
 
 Routes: market snapshot, terminal panels, stock view, chart, console (slash
-commands), themes, screener, library, deep-research SSE + memo/report CRUD,
-settings, docs. The legacy portfolio and background scanner routes remain
-removed; the revived S&P 500 market surface is pull-based over the snapshot.
+commands), themes, screener, manual portfolio, library, deep-research SSE +
+memo/report CRUD, settings, docs. Background scanner and broker sync routes
+remain removed; the revived S&P 500 market surface is pull-based over the
+snapshot.
 """
 
 from flask import Flask, jsonify, request, Response
@@ -203,26 +204,70 @@ def version():
 
 
 # ============================================================================
-# Portfolio Routes (Phase 1)
+# Manual Portfolio Routes (pull-based, no broker sync)
 # ============================================================================
 
+def _portfolio_service():
+    import portfolio_manual_service
+    return portfolio_manual_service
 
 
+@app.route('/api/portfolio/holdings', methods=['GET'])
+def portfolio_holdings_list():
+    service = _portfolio_service()
+    return jsonify({"holdings": service.list_holdings()})
 
 
+@app.route('/api/portfolio/holdings', methods=['POST'])
+def portfolio_holdings_create():
+    service = _portfolio_service()
+    body = request.get_json(silent=True) or {}
+    try:
+        holding = service.create_holding(body)
+    except service.PortfolioValidationError as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify({"ok": True, "holding": holding})
 
 
+@app.route('/api/portfolio/holdings/<int:holding_id>', methods=['PUT'])
+def portfolio_holdings_update(holding_id):
+    service = _portfolio_service()
+    body = request.get_json(silent=True) or {}
+    try:
+        holding = service.update_holding(holding_id, body)
+    except service.PortfolioValidationError as e:
+        return jsonify({"error": str(e)}), 400
+    if not holding:
+        return jsonify({"error": "holding not found"}), 404
+    return jsonify({"ok": True, "holding": holding})
 
 
+@app.route('/api/portfolio/holdings/<int:holding_id>', methods=['DELETE'])
+def portfolio_holdings_delete(holding_id):
+    service = _portfolio_service()
+    if not service.delete_holding(holding_id):
+        return jsonify({"error": "holding not found"}), 404
+    return jsonify({"ok": True, "id": holding_id})
 
 
+@app.route('/api/portfolio/import', methods=['POST'])
+def portfolio_import():
+    service = _portfolio_service()
+    body = request.get_json(silent=True) or {}
+    csv_text = body.get("csv") or body.get("csv_text") or ""
+    replace_manual = bool(body.get("replace_manual", False))
+    try:
+        result = service.import_csv(csv_text, replace_manual=replace_manual)
+    except service.PortfolioValidationError as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify(result), (200 if result.get("ok") else 400)
 
 
-
-
-
-
-
+@app.route('/api/portfolio/summary', methods=['GET'])
+def portfolio_summary():
+    service = _portfolio_service()
+    include_quotes = request.args.get("quotes", "true").lower() not in ("0", "false", "no")
+    return jsonify(service.summary(include_quotes=include_quotes))
 # ============================================================================
 # LLM Settings Routes
 # ============================================================================
@@ -398,6 +443,97 @@ def get_research_report_drift(report_id: str):
         "days_old": days_old,
         "ticker": ticker,
     })
+
+
+# ============================================================================
+# Calibration routes — manual and pull-triggered only
+# ============================================================================
+
+def _optional_float(value):
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"Expected numeric value, got {value!r}")
+
+
+def _optional_bool(value):
+    if value in (None, ""):
+        return None
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in ("true", "1", "yes"):
+        return True
+    if text in ("false", "0", "no"):
+        return False
+    raise ValueError(f"Expected boolean value, got {value!r}")
+
+
+@app.route('/api/calibration/dashboard', methods=['GET'])
+def calibration_dashboard():
+    if not SERVICES_ENABLED:
+        return _services_unavailable()
+    try:
+        import calibration_service
+        ticker = request.args.get('ticker') or None
+        limit = request.args.get('limit', 500, type=int)
+        return jsonify(convert_numpy_types(calibration_service.get_dashboard(ticker=ticker, limit=limit)))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/research/<ticker>/calibration', methods=['GET'])
+def ticker_calibration(ticker):
+    if not SERVICES_ENABLED:
+        return _services_unavailable()
+    try:
+        import calibration_service
+        limit = request.args.get('limit', 100, type=int)
+        payload = calibration_service.get_dashboard(ticker=ticker, limit=limit)
+        return jsonify(convert_numpy_types(payload))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/calibration/refresh', methods=['POST'])
+def refresh_calibration_outcomes():
+    if not SERVICES_ENABLED:
+        return _services_unavailable()
+    try:
+        import calibration_service
+        body = request.get_json() or {}
+        ids = body.get('recommendation_ids')
+        result = calibration_service.refresh_due_outcomes(recommendation_ids=ids)
+        return jsonify(convert_numpy_types(result))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/recommendations/<int:recommendation_id>/outcome', methods=['POST'])
+def update_recommendation_outcome_route(recommendation_id: int):
+    if not SERVICES_ENABLED:
+        return _services_unavailable()
+    try:
+        import calibration_service
+        body = request.get_json() or {}
+        updated = calibration_service.update_outcome(
+            recommendation_id,
+            outcome_1m=_optional_float(body.get('outcome_1m_return_pct')),
+            outcome_3m=_optional_float(body.get('outcome_3m_return_pct')),
+            outcome_6m=_optional_float(body.get('outcome_6m_return_pct')),
+            outcome_1y=_optional_float(body.get('outcome_1y_return_pct')),
+            thesis_falsified=_optional_bool(body.get('outcome_thesis_falsified')),
+            notes=body.get('outcome_notes') or "",
+        )
+        return jsonify(convert_numpy_types({'success': True, 'recommendation': updated}))
+    except ValueError as e:
+        msg = str(e)
+        status = 404 if "not found" in msg.lower() else 400
+        return jsonify({'error': msg}), status
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 
@@ -1335,6 +1471,67 @@ def screener_saved_create():
 def screener_saved_delete(screener_id):
     db.delete_screener(screener_id)
     return jsonify({'ok': True, 'id': screener_id})
+
+
+# ============================================================================
+# Technical Patterns
+# ============================================================================
+
+@app.route('/api/patterns/catalog', methods=['GET'])
+def patterns_catalog():
+    import pattern_service
+    return jsonify({"patterns": pattern_service.pattern_catalog()})
+
+
+@app.route('/api/patterns/all', methods=['GET'])
+def patterns_all():
+    import pattern_service
+    try:
+        limit = int(request.args.get("limit", pattern_service.DEFAULT_SCAN_LIMIT))
+    except (TypeError, ValueError):
+        limit = pattern_service.DEFAULT_SCAN_LIMIT
+    universe = request.args.get("universe", "sp500")
+    refresh = request.args.get("refresh", "").lower() == "true"
+    result = pattern_service.scan_universe(universe=universe, limit=limit, refresh=refresh)
+    return jsonify(convert_numpy_types(result))
+
+
+@app.route('/api/patterns/<pattern_type>', methods=['GET'])
+def patterns_by_type(pattern_type):
+    import pattern_service
+    try:
+        limit = int(request.args.get("limit", pattern_service.DEFAULT_SCAN_LIMIT))
+    except (TypeError, ValueError):
+        limit = pattern_service.DEFAULT_SCAN_LIMIT
+    universe = request.args.get("universe", "sp500")
+    refresh = request.args.get("refresh", "").lower() == "true"
+    try:
+        result = pattern_service.scan_universe(
+            universe=universe,
+            pattern_type=pattern_type,
+            limit=limit,
+            refresh=refresh,
+        )
+    except KeyError:
+        return jsonify({
+            "error": f"Unknown pattern type: {pattern_type}",
+            "valid_types": [p["key"] for p in pattern_service.pattern_catalog()],
+        }), 404
+    return jsonify(convert_numpy_types(result))
+
+
+@app.route('/api/patterns/<pattern_type>/<ticker>', methods=['GET'])
+def pattern_for_ticker(pattern_type, ticker):
+    import pattern_service
+    refresh = request.args.get("refresh", "").lower() == "true"
+    try:
+        result = pattern_service.scan_ticker(ticker, pattern_type=pattern_type, refresh=refresh)
+    except KeyError:
+        return jsonify({
+            "error": f"Unknown pattern type: {pattern_type}",
+            "valid_types": [p["key"] for p in pattern_service.pattern_catalog()],
+        }), 404
+    return jsonify(convert_numpy_types(result))
 
 
 # ============================================================================

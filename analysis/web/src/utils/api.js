@@ -78,6 +78,36 @@ export const getResearchHistory = (ticker, limit = 10) =>
     apiFetch(`${API_BASE}/research/reports/${encodeURIComponent(ticker)}?limit=${limit}`);
 
 // ──────────────────────────────────────────────────────────
+// Manual Portfolio
+// ──────────────────────────────────────────────────────────
+
+export const getPortfolioHoldings = () => apiFetch(`${API_BASE}/portfolio/holdings`);
+
+export const createPortfolioHolding = (holding) =>
+    apiFetch(`${API_BASE}/portfolio/holdings`, {
+        method: 'POST',
+        body: JSON.stringify(holding),
+    });
+
+export const updatePortfolioHolding = (id, holding) =>
+    apiFetch(`${API_BASE}/portfolio/holdings/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(holding),
+    });
+
+export const deletePortfolioHolding = (id) =>
+    apiFetch(`${API_BASE}/portfolio/holdings/${id}`, { method: 'DELETE' });
+
+export const importPortfolioCsv = (csv, replaceManual = false) =>
+    apiFetch(`${API_BASE}/portfolio/import`, {
+        method: 'POST',
+        body: JSON.stringify({ csv, replace_manual: replaceManual }),
+    });
+
+export const getPortfolioSummary = (quotes = true) =>
+    apiFetch(`${API_BASE}/portfolio/summary?quotes=${quotes ? 'true' : 'false'}`);
+
+// ──────────────────────────────────────────────────────────
 // Deep Research — agentic loop + Memo + Calibration
 // ──────────────────────────────────────────────────────────
 
@@ -206,6 +236,28 @@ export const deleteResearchReportsBulk = (reportIds) =>
 export const getResearchReportDrift = (reportId) =>
     apiFetch(`${API_BASE}/research/report/${encodeURIComponent(reportId)}/drift`);
 
+export const getCalibrationDashboard = (options = {}) => {
+    const qs = new URLSearchParams();
+    if (options.ticker) qs.set('ticker', options.ticker);
+    if (options.limit) qs.set('limit', String(options.limit));
+    return apiFetch(`${API_BASE}/calibration/dashboard${qs.toString() ? `?${qs}` : ''}`);
+};
+
+export const getTickerCalibration = (ticker, limit = 100) =>
+    apiFetch(`${API_BASE}/research/${encodeURIComponent(ticker)}/calibration?limit=${limit}`);
+
+export const refreshCalibrationOutcomes = (recommendationIds = null) =>
+    apiFetch(`${API_BASE}/calibration/refresh`, {
+        method: 'POST',
+        body: JSON.stringify(recommendationIds ? { recommendation_ids: recommendationIds } : {}),
+    });
+
+export const updateRecommendationOutcome = (recommendationId, outcome) =>
+    apiFetch(`${API_BASE}/recommendations/${encodeURIComponent(recommendationId)}/outcome`, {
+        method: 'POST',
+        body: JSON.stringify(outcome),
+    });
+
 
 // ──────────────────────────────────────────────────────────
 // Terminal (daily scan) + Chart
@@ -301,6 +353,31 @@ export const getStockOwnership = (ticker) =>
 
 export const getStockFilings = (ticker) =>
     apiFetch(`${API_BASE}/stock/${encodeURIComponent(ticker)}/filings`);
+
+// ──────────────────────────────────────────────────────────
+// Technical pattern scanner
+// ──────────────────────────────────────────────────────────
+
+export const getPatternCatalog = () => apiFetch(`${API_BASE}/patterns/catalog`);
+
+export const getAllPatterns = (options = {}) => {
+    const qs = new URLSearchParams();
+    qs.set('universe', options.universe || 'sp500');
+    qs.set('limit', String(options.limit || 150));
+    if (options.refresh) qs.set('refresh', 'true');
+    return apiFetch(`${API_BASE}/patterns/all?${qs}`);
+};
+
+export const getPatternsByType = (patternType, options = {}) => {
+    const qs = new URLSearchParams();
+    qs.set('universe', options.universe || 'sp500');
+    qs.set('limit', String(options.limit || 150));
+    if (options.refresh) qs.set('refresh', 'true');
+    return apiFetch(`${API_BASE}/patterns/${encodeURIComponent(patternType)}?${qs}`);
+};
+
+export const getPatternForTicker = (patternType, ticker, refresh = false) =>
+    apiFetch(`${API_BASE}/patterns/${encodeURIComponent(patternType)}/${encodeURIComponent(ticker)}${refresh ? '?refresh=true' : ''}`);
 
 // ──────────────────────────────────────────────────────────
 // Console (slash-command SSE over POST) + Library memos

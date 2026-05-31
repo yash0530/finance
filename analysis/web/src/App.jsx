@@ -16,6 +16,9 @@ const DeepResearchPage = lazy(() => import('./pages/DeepResearchPage'));
 const ConsolePage    = lazy(() => import('./pages/ConsolePage'));
 const LibraryPage    = lazy(() => import('./pages/LibraryPage'));
 const ScreenerPage   = lazy(() => import('./pages/ScreenerPage'));
+const TechnicalPatternsPage = lazy(() => import('./pages/TechnicalPatternsPage'));
+const PortfolioPage  = lazy(() => import('./pages/PortfolioPage'));
+const CalibrationPage = lazy(() => import('./pages/CalibrationPage'));
 const SettingsPage   = lazy(() => import('./pages/SettingsPage'));
 const DocsPage       = lazy(() => import('./pages/DocsPage'));
 
@@ -70,18 +73,25 @@ export default function App() {
         go('screener', { preset });
     }, [go]);
 
+    const openPatterns = useCallback(() => {
+        go('patterns');
+    }, [go]);
+
     function renderPage() {
         switch (page) {
-            case 'market':    return <ErrorBoundary><MarketPage onSelectTicker={selectTicker} onOpenScreenerPreset={openScreenerPreset} /></ErrorBoundary>;
+            case 'market':    return <ErrorBoundary><MarketPage onSelectTicker={selectTicker} onOpenScreenerPreset={openScreenerPreset} onOpenPatterns={openPatterns} /></ErrorBoundary>;
             case 'terminal':  return <ErrorBoundary><TerminalPage onSelectTicker={selectTicker} /></ErrorBoundary>;
             case 'stock':     return <ErrorBoundary><StockViewPage ticker={params.t} onRunCommand={runCommand} onRunResearch={runResearch} onSelectTicker={selectTicker} /></ErrorBoundary>;
             case 'research':  return <ErrorBoundary><DeepResearchPage initialTicker={params.t} /></ErrorBoundary>;
             case 'console':   return <ErrorBoundary><ConsolePage initialCommand={pendingCommand} onCommandConsumed={() => setPendingCommand(null)} /></ErrorBoundary>;
+            case 'portfolio': return <ErrorBoundary><PortfolioPage onSelectTicker={selectTicker} /></ErrorBoundary>;
             case 'library':   return <ErrorBoundary><LibraryPage /></ErrorBoundary>;
             case 'screener':  return <ErrorBoundary><ScreenerPage onSelectTicker={selectTicker} presetName={params.preset} /></ErrorBoundary>;
+            case 'patterns':  return <ErrorBoundary><TechnicalPatternsPage onSelectTicker={selectTicker} /></ErrorBoundary>;
+            case 'review':    return <ErrorBoundary><CalibrationPage /></ErrorBoundary>;
             case 'settings':  return <ErrorBoundary><SettingsPage /></ErrorBoundary>;
             case 'docs':      return <ErrorBoundary><DocsPage /></ErrorBoundary>;
-            default:          return <ErrorBoundary><MarketPage onSelectTicker={selectTicker} onOpenScreenerPreset={openScreenerPreset} /></ErrorBoundary>;
+            default:          return <ErrorBoundary><MarketPage onSelectTicker={selectTicker} onOpenScreenerPreset={openScreenerPreset} onOpenPatterns={openPatterns} /></ErrorBoundary>;
         }
     }
 

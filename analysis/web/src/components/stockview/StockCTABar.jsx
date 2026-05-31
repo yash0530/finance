@@ -11,7 +11,7 @@ export default function StockCTABar({ ticker, onRunCommand, onRunResearch }) {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {actions.map(a => (
                 <button
-                    key={a.cmd}
+                    key={a.cmd || a.label}
                     id={`cta-${a.label.toLowerCase().replace(/\s+/g, '-')}`}
                     className={`btn ${a.primary ? 'btn-primary' : 'btn-secondary'}`}
                     style={{ fontSize: '0.78rem' }}

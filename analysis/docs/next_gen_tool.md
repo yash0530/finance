@@ -905,8 +905,8 @@ For each ticker it pulls the cached `fundamentals`, `technicals`, and
 `financial_trends` tools, flattens their fields into one namespace, and walks the
 rules. No LLM; no new network beyond the tools' own (cached) fetches.
 
-- Universes: `themes` (theme-pack union), `watchlist`, `sp500` (theme union as
-  the free-tier proxy), or an explicit list.
+- Universes: `themes` (theme-pack union), `watchlist`, `sp500` (cached S&P 500
+  snapshot), or an explicit list.
 - Fields are an explicit allow-list (`available_fields()`) spanning technicals
   (rsi, MAs, golden cross, RS-vs-SPY, returns), fundamentals (P/E, margin,
   growth, market cap), and trends (yoy_revenue_growth, quarter_count).

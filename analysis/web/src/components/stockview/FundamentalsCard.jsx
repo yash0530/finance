@@ -11,6 +11,18 @@ function Metric({ label, value }) {
     );
 }
 
+function humanizeSignal(value) {
+    if (!value) return '';
+    if (typeof value === 'string') return value.replace(/_/g, ' ');
+    if (typeof value === 'object') {
+        const parts = [];
+        if (value.direction) parts.push(String(value.direction).replace(/_/g, ' '));
+        if (value.change_pct != null) parts.push(`${value.change_pct >= 0 ? '+' : ''}${value.change_pct}%`);
+        return parts.join(' ');
+    }
+    return String(value);
+}
+
 export default function FundamentalsCard({ ticker }) {
     const [fund, setFund] = useState(null);
     const [trends, setTrends] = useState(null);
@@ -19,14 +31,20 @@ export default function FundamentalsCard({ ticker }) {
 
     useEffect(() => {
         let cancelled = false;
-        setLoading(true);
-        getStockFundamentals(ticker).then(res => {
-            if (cancelled) return;
-            setFund(res.fundamentals?.data || {});
-            setTrends(res.trends?.data || {});
-        }).catch(e => !cancelled && setError(e.message))
-          .finally(() => !cancelled && setLoading(false));
-        return () => { cancelled = true; };
+        const id = window.setTimeout(() => {
+            setLoading(true);
+            setError(null);
+            getStockFundamentals(ticker).then(res => {
+                if (cancelled) return;
+                setFund(res.fundamentals?.data || {});
+                setTrends(res.trends?.data || {});
+            }).catch(e => !cancelled && setError(e.message))
+              .finally(() => !cancelled && setLoading(false));
+        }, 0);
+        return () => {
+            cancelled = true;
+            window.clearTimeout(id);
+        };
     }, [ticker]);
 
     if (loading) return <SectionCard title="Key Fundamentals"><div className="loading-state" style={{ minHeight: 80 }}><div className="spinner spinner-sm" /></div></SectionCard>;
@@ -42,8 +60,8 @@ export default function FundamentalsCard({ ticker }) {
                 <Metric label="Fwd P/E" value={formatNumber(f.forward_pe)} />
                 <Metric label="Trailing P/E" value={formatNumber(f.trailing_pe)} />
                 <Metric label="Revenue" value={f.revenue != null ? formatCurrency(f.revenue) : 'N/A'} />
-                <Metric label="Rev Growth" value={f.revenue_growth != null ? formatPercent(f.revenue_growth) : 'N/A'} />
-                <Metric label="Profit Margin" value={f.profit_margin != null ? formatPercent(f.profit_margin) : 'N/A'} />
+                <Metric label="Rev Growth" value={f.revenue_growth != null ? formatPercent(f.revenue_growth, true) : 'N/A'} />
+                <Metric label="Profit Margin" value={f.profit_margin != null ? formatPercent(f.profit_margin, true) : 'N/A'} />
                 <Metric label="52w High" value={f.week_52_high != null ? `$${formatNumber(f.week_52_high)}` : 'N/A'} />
                 <Metric label="52w Low" value={f.week_52_low != null ? `$${formatNumber(f.week_52_low)}` : 'N/A'} />
                 <Metric label="Analyst Tgt" value={f.analyst_target != null ? `$${formatNumber(f.analyst_target)}` : 'N/A'} />
@@ -51,8 +69,8 @@ export default function FundamentalsCard({ ticker }) {
             {trends?.quarter_count > 0 && (
                 <div style={{ marginTop: 'var(--spacing-md)', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
                     {trends.quarter_count} quarters of trend data
-                    {signal?.revenue_trend ? ` · revenue ${signal.revenue_trend}` : ''}
-                    {signal?.margin_trend ? ` · margins ${signal.margin_trend}` : ''}
+                    {signal?.revenue_acceleration ? ` · revenue ${humanizeSignal(signal.revenue_acceleration)}` : ''}
+                    {signal?.operating_margin_trend ? ` · margins ${humanizeSignal(signal.operating_margin_trend)}` : ''}
                 </div>
             )}
         </SectionCard>

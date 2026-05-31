@@ -13,6 +13,7 @@ import math
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from io import StringIO
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -21,6 +22,8 @@ from tools.movers import fetch_quotes
 
 
 _CACHE_PATH = Path(__file__).parent.parent / ".cache" / "sp500_data.json"
+_CONSTITUENTS_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+_USER_AGENT = "PortfolioIntelligence/1.0"
 
 
 def _clean_number(value: Any) -> Optional[float]:
@@ -74,6 +77,68 @@ def _read_payload(cache_path: Optional[Path] = None) -> Dict[str, Any]:
         return {}
 
 
+def _normalize_ticker(ticker: Any) -> str:
+    """Normalize S&P symbols to yfinance-compatible tickers."""
+    return str(ticker or "").upper().strip().replace(".", "-")
+
+
+def _cache_constituent_rows(cache_path: Optional[Path] = None) -> List[Dict[str, Any]]:
+    """Constituent metadata from the existing snapshot, used only as fallback."""
+    rows = _read_payload(cache_path).get("data") or []
+    out: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        ticker = _normalize_ticker(row.get("ticker"))
+        if not ticker:
+            continue
+        out[ticker] = {
+            "ticker": ticker,
+            "company_name": row.get("company_name") or ticker,
+            "sector": row.get("sector") or "Unknown",
+            "industry": row.get("industry") or "",
+        }
+    return [out[t] for t in sorted(out)]
+
+
+def _fetch_constituent_rows() -> List[Dict[str, Any]]:
+    """Fetch the current S&P 500 constituent table.
+
+    The index has 500 companies but more than 500 listed securities because a
+    few companies have multiple share classes. Keep all listed symbols.
+    """
+    import pandas as pd
+    import requests
+
+    response = requests.get(_CONSTITUENTS_URL, headers={"User-Agent": _USER_AGENT}, timeout=20)
+    response.raise_for_status()
+    tables = pd.read_html(StringIO(response.text), attrs={"id": "constituents"})
+    if not tables:
+        raise ValueError("S&P 500 constituents table not found")
+
+    rows: Dict[str, Dict[str, Any]] = {}
+    for _, item in tables[0].iterrows():
+        ticker = _normalize_ticker(item.get("Symbol"))
+        if not ticker:
+            continue
+        rows[ticker] = {
+            "ticker": ticker,
+            "company_name": str(item.get("Security") or ticker).strip(),
+            "sector": str(item.get("GICS Sector") or "Unknown").strip() or "Unknown",
+            "industry": str(item.get("GICS Sub-Industry") or "").strip(),
+        }
+
+    if len(rows) < 450:
+        raise ValueError(f"S&P 500 constituent source returned only {len(rows)} rows")
+    return [rows[t] for t in sorted(rows)]
+
+
+def constituent_rows(cache_path: Optional[Path] = None) -> List[Dict[str, Any]]:
+    """Current S&P 500 constituent metadata, falling back to the cache offline."""
+    try:
+        return _fetch_constituent_rows()
+    except Exception:
+        return _cache_constituent_rows(cache_path)
+
+
 def snapshot_status(cache_path: Optional[Path] = None) -> Dict[str, Any]:
     """Return timestamp/count/age metadata for the current snapshot."""
     cache_path = cache_path or _CACHE_PATH
@@ -99,13 +164,17 @@ def snapshot_status(cache_path: Optional[Path] = None) -> Dict[str, Any]:
 
 
 def seed_tickers(cache_path: Optional[Path] = None) -> List[str]:
-    """Use the tracked snapshot as the constituent source."""
-    cache_path = cache_path or _CACHE_PATH
-    rows = _read_payload(cache_path).get("data") or []
-    return sorted({str(r.get("ticker", "")).upper().strip() for r in rows if r.get("ticker")})
+    """Use the live S&P 500 constituent source, with the snapshot as fallback."""
+    return sorted({r["ticker"] for r in constituent_rows(cache_path) if r.get("ticker")})
 
 
-def _build_row(ticker: str, info: Dict[str, Any], quote: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+def _build_row(
+    ticker: str,
+    info: Dict[str, Any],
+    quote: Optional[Dict[str, Any]],
+    metadata: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    metadata = metadata or {}
     current_price = (
         _clean_number((quote or {}).get("price"))
         or _safe_info(info, "currentPrice")
@@ -170,9 +239,9 @@ def _build_row(ticker: str, info: Dict[str, Any], quote: Optional[Dict[str, Any]
         "two_hundred_day_average": _safe_info(info, "twoHundredDayAverage"),
         "pct_from_high": pct_from_high,
         "ticker": ticker,
-        "company_name": info.get("longName") or info.get("shortName") or ticker,
-        "sector": info.get("sector") or "Unknown",
-        "industry": info.get("industry") or "",
+        "company_name": info.get("longName") or info.get("shortName") or metadata.get("company_name") or ticker,
+        "sector": info.get("sector") or metadata.get("sector") or "Unknown",
+        "industry": info.get("industry") or metadata.get("industry") or "",
     }
 
 
@@ -196,7 +265,12 @@ def rebuild_snapshot(
 ) -> Dict[str, Any]:
     """Fetch yfinance data and atomically write a fresh S&P 500 snapshot."""
     cache_path = cache_path or _CACHE_PATH
-    universe = sorted({str(t).upper().strip() for t in (tickers or seed_tickers(cache_path)) if str(t).strip()})
+    if tickers is None:
+        seed_rows = constituent_rows(cache_path)
+    else:
+        seed_rows = [{"ticker": _normalize_ticker(t)} for t in tickers]
+    metadata_by_ticker = {r["ticker"]: r for r in seed_rows if r.get("ticker")}
+    universe = sorted(metadata_by_ticker)
     if not universe:
         raise ValueError("No S&P 500 tickers available to refresh")
     try:
@@ -211,9 +285,10 @@ def rebuild_snapshot(
     def _one(ticker: str):
         try:
             info = yf.Ticker(ticker).info or {}
-            return ticker, _build_row(ticker, info, quotes.get(ticker)), None
+            return ticker, _build_row(ticker, info, quotes.get(ticker), metadata_by_ticker.get(ticker)), None
         except Exception as exc:
-            return ticker, None, f"{type(exc).__name__}: {exc}"
+            row = _build_row(ticker, {}, quotes.get(ticker), metadata_by_ticker.get(ticker))
+            return ticker, row, f"{type(exc).__name__}: {exc}"
 
     rows: List[Dict[str, Any]] = []
     failures: Dict[str, str] = {}
@@ -221,7 +296,7 @@ def rebuild_snapshot(
         for ticker, row, error in pool.map(_one, universe):
             if row:
                 rows.append(row)
-            elif error:
+            if error:
                 failures[ticker] = error
 
     if not rows:
@@ -233,6 +308,7 @@ def rebuild_snapshot(
         "timestamp": payload["timestamp"],
         "row_count": len(rows),
         "requested_count": len(universe),
+        "resolved_count": len(rows) - len(failures),
         "failed_count": len(failures),
         "failures": failures,
         "cache_path": str(cache_path),
@@ -244,7 +320,7 @@ class SP500RefreshTool(Tool):
     name = "sp500_refresh"
     description = (
         "Pull-triggered rebuild of the S&P 500 snapshot cache from yfinance "
-        "using the existing cached constituent list. Writes .cache/sp500_data.json."
+        "using a current S&P 500 constituent seed. Writes .cache/sp500_data.json."
     )
     cache_ttl_seconds = 0
     requires_llm = False
@@ -272,7 +348,7 @@ class SP500RefreshTool(Tool):
     def _execute(self, tickers: Optional[List[str]] = None, max_workers: int = 8, **kwargs) -> ToolResult:
         data = rebuild_snapshot(tickers=tickers, max_workers=max_workers)
         now = datetime.now().isoformat()
-        confidence = "high" if data["row_count"] >= max(1, data["requested_count"] * 0.9) else "medium"
+        confidence = "high" if data["resolved_count"] >= max(1, data["requested_count"] * 0.9) else "medium"
         return ToolResult(
             tool_name=self.name,
             data=data,
@@ -281,8 +357,8 @@ class SP500RefreshTool(Tool):
                     tool=self.name,
                     field="sp500_snapshot",
                     fetched_at=now,
-                    url=None,
-                    note="yfinance info + fast_info; constituent seed from cached S&P 500 snapshot",
+                    url=_CONSTITUENTS_URL,
+                    note="S&P 500 constituent seed, enriched with yfinance info + fast_info",
                 )
             ],
             confidence=confidence,

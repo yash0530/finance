@@ -14,7 +14,7 @@ function formatSnapshot(timestamp) {
     return `Snapshot ${d.toLocaleString()}`;
 }
 
-export default function MarketPage({ onSelectTicker, onOpenScreenerPreset }) {
+export default function MarketPage({ onSelectTicker, onOpenScreenerPreset, onOpenPatterns }) {
     const [sectors, setSectors] = useState([]);
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -39,7 +39,10 @@ export default function MarketPage({ onSelectTicker, onOpenScreenerPreset }) {
         }
     }, []);
 
-    useEffect(() => { load(); }, [load]);
+    useEffect(() => {
+        const id = window.setTimeout(load, 0);
+        return () => window.clearTimeout(id);
+    }, [load]);
 
     const openTicker = useCallback((ticker) => {
         onSelectTicker?.(ticker);
@@ -124,7 +127,7 @@ export default function MarketPage({ onSelectTicker, onOpenScreenerPreset }) {
                         <button
                             id="btn-patterns"
                             className="btn btn-secondary"
-                            onClick={() => onOpenScreenerPreset?.('Pattern: Head & Shoulders (S&P)')}
+                            onClick={() => onOpenPatterns?.() || onOpenScreenerPreset?.('Pattern: Head & Shoulders (S&P)')}
                         >
                             Technical Patterns
                         </button>

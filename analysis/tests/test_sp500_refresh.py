@@ -82,6 +82,10 @@ def test_sp500_refresh_writes_snapshot_and_lookup_reads_it(tmp_path, monkeypatch
 
     monkeypatch.setattr(refresh, "_CACHE_PATH", cache_path)
     monkeypatch.setattr(lookup, "_CACHE_PATH", cache_path)
+    monkeypatch.setattr(refresh, "_fetch_constituent_rows", lambda: [
+        {"ticker": "AAPL", "company_name": "Apple Inc.", "sector": "Information Technology", "industry": "Consumer Electronics"},
+        {"ticker": "MSFT", "company_name": "Microsoft Corporation", "sector": "Information Technology", "industry": "Software - Infrastructure"},
+    ])
 
     result = refresh.SP500RefreshTool().execute(max_workers=1)
 
@@ -119,3 +123,44 @@ def test_sp500_refresh_can_use_explicit_tickers(tmp_path, monkeypatch):
     assert result.error is None
     assert result.data["requested_count"] == 1
     assert refresh.snapshot_status(cache_path)["row_count"] == 1
+
+
+def test_seed_tickers_prefers_live_constituents_over_partial_cache(tmp_path, monkeypatch):
+    cache_path = tmp_path / "sp500_data.json"
+    cache_path.write_text(json.dumps({
+        "timestamp": "2026-01-01T00:00:00",
+        "data": [{"ticker": "AAPL"}],
+    }))
+
+    import tools.sp500_refresh as refresh
+
+    monkeypatch.setattr(refresh, "_fetch_constituent_rows", lambda: [
+        {"ticker": "AAPL", "company_name": "Apple Inc.", "sector": "Information Technology", "industry": "Consumer Electronics"},
+        {"ticker": "MU", "company_name": "Micron Technology", "sector": "Information Technology", "industry": "Semiconductors"},
+    ])
+
+    assert refresh.seed_tickers(cache_path) == ["AAPL", "MU"]
+
+
+def test_rebuild_keeps_constituent_row_when_yfinance_info_fails(tmp_path, monkeypatch):
+    cache_path = tmp_path / "sp500_data.json"
+    monkeypatch.setitem(sys.modules, "yfinance", SimpleNamespace(Ticker=_Ticker))
+
+    import tools.sp500_refresh as refresh
+
+    monkeypatch.setattr(refresh, "_CACHE_PATH", cache_path)
+    monkeypatch.setattr(refresh, "_fetch_constituent_rows", lambda: [
+        {"ticker": "MU", "company_name": "Micron Technology", "sector": "Information Technology", "industry": "Semiconductors"},
+    ])
+
+    result = refresh.SP500RefreshTool().execute(max_workers=1)
+
+    assert result.error is None
+    assert result.data["requested_count"] == 1
+    assert result.data["row_count"] == 1
+    assert result.data["failed_count"] == 1
+
+    payload = json.loads(cache_path.read_text())
+    assert payload["data"][0]["ticker"] == "MU"
+    assert payload["data"][0]["company_name"] == "Micron Technology"
+    assert payload["data"][0]["sector"] == "Information Technology"

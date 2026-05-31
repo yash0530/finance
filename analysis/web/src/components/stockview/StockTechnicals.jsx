@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getStockTechnicals, formatPercent, formatNumber } from '../../utils/api';
 import SectionCard from './SectionCard';
+import StockPatternDetails from './StockPatternDetails';
 
 function Badge({ type, children }) {
     const styles = {
@@ -26,22 +27,27 @@ export default function StockTechnicals({ ticker }) {
 
     useEffect(() => {
         let cancelled = false;
-        setLoading(true);
-        setError(null);
-        
-        getStockTechnicals(ticker)
-            .then(res => {
-                if (cancelled) return;
-                setTech(res.data || {});
-            })
-            .catch(e => {
-                if (!cancelled) setError(e.message);
-            })
-            .finally(() => {
-                if (!cancelled) setLoading(false);
-            });
+        const id = window.setTimeout(() => {
+            setLoading(true);
+            setError(null);
+
+            getStockTechnicals(ticker)
+                .then(res => {
+                    if (cancelled) return;
+                    setTech(res.data || {});
+                })
+                .catch(e => {
+                    if (!cancelled) setError(e.message);
+                })
+                .finally(() => {
+                    if (!cancelled) setLoading(false);
+                });
+        }, 0);
             
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+            window.clearTimeout(id);
+        };
     }, [ticker]);
 
     if (loading) return <SectionCard title="Technical Analysis"><div className="loading-state" style={{ minHeight: 120 }}><div className="spinner spinner-sm" /></div></SectionCard>;
@@ -190,26 +196,7 @@ export default function StockTechnicals({ ticker }) {
                 </div>
             </div>
 
-            {/* Pattern Signals */}
-            {patterns.length > 0 && (
-                <div style={{ marginTop: 'var(--spacing-md)', padding: 10, background: 'rgba(244,180,0,0.03)', border: '1px solid rgba(244,180,0,0.15)', borderRadius: 'var(--radius-md)' }}>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--accent-yellow)', fontWeight: 700, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Detected Chart Patterns
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {patterns.map((p, i) => {
-                            const isDict = typeof p === 'object' && p !== null;
-                            const type = isDict ? p.type : p;
-                            const desc = isDict && p.description ? ` (${p.description})` : '';
-                            return (
-                                <span key={i} className="badge badge-gray" style={{ fontSize: '0.66rem', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                    Pattern: {type}{desc}
-                                </span>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
+            <StockPatternDetails patterns={patterns} currentPrice={tech.current_price} />
         </SectionCard>
     );
 }
