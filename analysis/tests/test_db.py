@@ -21,13 +21,16 @@ def clean_tables():
             "living_memo", "living_memo_versions", "tool_call_log",
             "recommendations", "catalysts", "tool_result_cache",
             "sector_classification_cache", "monitoring_digest",
-            "monitoring_enabled",
+            "monitoring_enabled", "recommendation_sizing",
+            "hypotheses_cache", "watchlist", "screener_saved",
+            "dashboard_layout",
         ):
             conn.execute(f"DELETE FROM {table}")
         conn.commit()
     finally:
         conn.close()
     yield
+
 
 
 # ── Living Memo ─────────────────────────────────────────────────────────
@@ -386,3 +389,145 @@ def test_delete_research_reports_bulk():
     assert db.get_research_report(id2) is None
     assert len(db.get_tool_call_log(id1)) == 0
     assert len(db.get_tool_call_log(id2)) == 0
+
+
+# ── Watchlist ──
+
+def test_watchlist_crud():
+    # Initial state should be empty
+    assert db.get_watchlist() == []
+
+    # Add tickers to watchlist
+    db.add_watchlist("AAPL", "Favorite high-conviction play")
+    db.add_watchlist("MSFT", "Stable enterprise cloud")
+
+    wl = db.get_watchlist()
+    assert len(wl) == 2
+    tickers = {w["ticker"] for w in wl}
+    assert tickers == {"AAPL", "MSFT"}
+    aapl_entry = next(w for w in wl if w["ticker"] == "AAPL")
+    assert aapl_entry["notes"] == "Favorite high-conviction play"
+
+    # Idempotent addition updates the notes
+    db.add_watchlist("AAPL", "Updated high-conviction play")
+    wl = db.get_watchlist()
+    aapl_entry = next(w for w in wl if w["ticker"] == "AAPL")
+    assert aapl_entry["notes"] == "Updated high-conviction play"
+
+    # Remove a ticker from watchlist
+    db.remove_watchlist("AAPL")
+    wl = db.get_watchlist()
+    assert len(wl) == 1
+    assert wl[0]["ticker"] == "MSFT"
+
+
+# ── Hypotheses Cache ──
+
+def test_hypotheses_cache_crud():
+    # Fetch empty ticker hypothesis
+    assert db.get_hypothesis("NVDA", max_age_seconds=3600) is None
+
+    # Save hypothesis
+    evidence = ["fundamentals", "technicals"]
+    db.save_hypothesis("NVDA", "GPU secular growth trend.", cost_usd=0.05, evidence_refs=evidence)
+
+    # Retrieve valid hypothesis
+    hyp = db.get_hypothesis("NVDA", max_age_seconds=3600)
+    assert hyp is not None
+    assert hyp["ticker"] == "NVDA"
+    assert hyp["content_md"] == "GPU secular growth trend."
+    assert hyp["cost_usd"] == 0.05
+    assert hyp["evidence_refs"] == evidence
+
+    # Verify age-based expiry (max_age_seconds = 0)
+    assert db.get_hypothesis("NVDA", max_age_seconds=0) is None
+
+
+# ── Saved Screeners ──
+
+def test_saved_screeners_crud():
+    # Initial state should be empty
+    assert db.get_screener_saved() == []
+
+    # Save a screener
+    rules = {"forward_pe": {"op": "lt", "val": 15}, "profit_margin": {"op": "gt", "val": 0.1}}
+    sid = db.save_screener("Value Growth Screen", rules)
+    assert sid > 0
+
+    # Retrieve saved screeners
+    saved = db.get_screener_saved()
+    assert len(saved) == 1
+    assert saved[0]["name"] == "Value Growth Screen"
+    assert saved[0]["rules"] == rules
+    assert saved[0]["id"] == sid
+
+    # Delete screener
+    db.delete_screener(sid)
+    assert db.get_screener_saved() == []
+
+
+# ── Dashboard Layout ──
+
+def test_dashboard_layout_crud():
+    # Initial layout is None
+    assert db.get_dashboard_layout() is None
+
+    # Save layout
+    layout_spec = {"widgets": [{"type": "movers"}, {"type": "news"}]}
+    db.save_dashboard_layout(layout_spec)
+
+    # Retrieve layout
+    saved = db.get_dashboard_layout()
+    assert saved is not None
+    assert saved["layout"] == layout_spec
+    assert "updated_at" in saved
+
+    # Overwrite / update layout
+    new_spec = {"widgets": [{"type": "watchlist"}]}
+    db.save_dashboard_layout(new_spec)
+    saved = db.get_dashboard_layout()
+    assert saved["layout"] == new_spec
+
+
+# ── Recommendation Sizing ──
+
+def test_recommendation_sizing_crud():
+    # Setup: save a recommendation first to get valid recommendation ID (rec_id)
+    rec_id = db.save_recommendation(
+        report_id="rep-1",
+        ticker="AAPL",
+        recommendation="BUY",
+        conviction="HIGH",
+        price_at_recommendation=180.0,
+    )
+    assert rec_id > 0
+
+    # Get empty sizing first
+    assert db.get_recommendation_sizing(rec_id) is None
+
+    # Save recommendation sizing details
+    db.save_recommendation_sizing(
+        rec_id=rec_id,
+        judge_size_pct=8.0,
+        governed_size_pct=5.0,
+        governor_reason="Calibration sizing governor cap applied.",
+    )
+
+    # Retrieve sizing
+    sizing = db.get_recommendation_sizing(rec_id)
+    assert sizing is not None
+    assert sizing["rec_id"] == rec_id
+    assert sizing["judge_size_pct"] == 8.0
+    assert sizing["governed_size_pct"] == 5.0
+    assert sizing["governor_reason"] == "Calibration sizing governor cap applied."
+
+    # Update partial values: check COALESCE behavior
+    db.save_recommendation_sizing(
+        rec_id=rec_id,
+        governed_size_pct=6.5,
+    )
+    sizing = db.get_recommendation_sizing(rec_id)
+    assert sizing["judge_size_pct"] == 8.0  # preserved
+    assert sizing["governed_size_pct"] == 6.5  # updated
+    assert sizing["governor_reason"] == "Calibration sizing governor cap applied."  # preserved
+
