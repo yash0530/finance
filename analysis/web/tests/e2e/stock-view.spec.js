@@ -11,7 +11,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Stock View — single-ticker cockpit', () => {
     test('opens via hash deep-link and shows all sections', async ({ page }) => {
         await page.goto('/#stock?t=NVDA');
-        await expect(page.getByRole('heading', { name: 'NVDA' })).toBeVisible({ timeout: 10_000 });
+        await expect(page.getByRole('heading', { name: 'NVDA', exact: true })).toBeVisible({ timeout: 10_000 });
         await expect(page.locator('#stock-chart')).toBeVisible();
         await expect(page.locator('#section-fundamentals')).toBeVisible({ timeout: 10_000 });
         await expect(page.locator('#section-ownership')).toBeVisible();
