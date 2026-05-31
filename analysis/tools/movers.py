@@ -12,71 +12,18 @@ Terminal before the user has built a watchlist or theme packs.
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from tools import Source, Tool, ToolResult, register
 from db import get_tool_cache, get_tool_cache_stale, save_tool_cache
+from tools.quote_snapshot import QuoteSnapshotTool, fetch_quotes
 
 
 DEFAULT_UNIVERSE: List[str] = [
     "NVDA", "AMD", "AVGO", "TSM", "ASML", "ARM",
     "MRVL", "SMCI", "DELL", "ORCL", "MSFT",
 ]
-
-
-def _fi_get(fi: Any, *names: str) -> Optional[float]:
-    """Read a field from a yfinance fast_info object across naming variants."""
-    for name in names:
-        try:
-            v = getattr(fi, name)
-            if v is not None:
-                return float(v)
-        except (AttributeError, TypeError, ValueError):
-            pass
-        try:
-            v = fi[name]
-            if v is not None:
-                return float(v)
-        except (KeyError, TypeError, ValueError):
-            pass
-    return None
-
-
-def fetch_quotes(tickers: List[str], max_workers: int = 10) -> Dict[str, Dict[str, Any]]:
-    """Return {ticker: {price, previous_close, change_pct, volume, market_cap}}.
-
-    Tickers that fail to resolve are omitted. Network is per-ticker fast_info.
-    """
-    import yfinance as yf
-
-    def _one(ticker: str):
-        try:
-            fi = yf.Ticker(ticker).fast_info
-            price = _fi_get(fi, "last_price", "lastPrice")
-            prev = _fi_get(fi, "previous_close", "previousClose", "regularMarketPreviousClose")
-            volume = _fi_get(fi, "last_volume", "lastVolume", "regularMarketVolume")
-            market_cap = _fi_get(fi, "market_cap", "marketCap")
-            if price is None or prev is None or prev == 0:
-                return ticker, None
-            return ticker, {
-                "ticker": ticker,
-                "price": round(price, 4),
-                "previous_close": round(prev, 4),
-                "change_pct": round((price - prev) / prev * 100, 2),
-                "volume": int(volume) if volume is not None else None,
-                "market_cap": market_cap,
-            }
-        except Exception:
-            return ticker, None
-
-    out: Dict[str, Dict[str, Any]] = {}
-    with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        for ticker, quote in pool.map(_one, [t.upper().strip() for t in tickers]):
-            if quote is not None:
-                out[ticker] = quote
-    return out
 
 
 class MoversTool(Tool):
@@ -117,7 +64,8 @@ class MoversTool(Tool):
                 confidence="high", cached=True,
             )
 
-        quotes = fetch_quotes(universe)
+        quote_result = QuoteSnapshotTool().execute(tickers=universe)
+        quotes = quote_result.data.get("quotes", {})
         ranked = sorted(quotes.values(), key=lambda q: q["change_pct"], reverse=True)
 
         universe_size = len(universe)
@@ -132,6 +80,13 @@ class MoversTool(Tool):
             "losers": list(reversed(ranked[-top_n:])) if ranked else [],
             "as_of": datetime.now().isoformat(),
         }
+        if quote_result.data.get("confidence_warning"):
+            data["confidence_warning"] = quote_result.data["confidence_warning"]
+        if quote_result.data.get("stale"):
+            data["stale"] = True
+            data["cache_status"] = "stale"
+            data["stale_reason"] = quote_result.data.get("stale_reason")
+
         if not ranked:
             stale = _stale_payload(self.name, cache_key, "Live quote provider returned no resolvable tickers.")
             if stale:
@@ -146,7 +101,7 @@ class MoversTool(Tool):
                 error="No quotes resolved for universe",
             )
 
-        confidence = "high"
+        confidence = "low" if quote_result.confidence == "low" or data.get("stale") else "high"
         if resolved < universe_size * 0.5:
             stale = _stale_payload(self.name, cache_key, "Live quote provider returned sparse data.")
             if stale and int(stale.get("resolved") or 0) > resolved:
@@ -157,8 +112,7 @@ class MoversTool(Tool):
                     sources=_build_sources(stale, cached=True),
                     confidence="low", cached=True,
                 )
-            confidence = "low"
-            data["confidence_warning"] = "Sparse market data detected. More than 50% of tickers in the scan universe failed to resolve."
+            data["confidence_warning"] = data.get("confidence_warning") or "Sparse market data detected. More than 50% of tickers in the scan universe failed to resolve."
             data["cache_status"] = "live_sparse"
             return ToolResult(
                 tool_name=self.name, data=data,
@@ -166,11 +120,13 @@ class MoversTool(Tool):
                 confidence=confidence,
             )
 
-        save_tool_cache(self.name, cache_key, data)
+        if not data.get("stale"):
+            save_tool_cache(self.name, cache_key, data)
         return ToolResult(
             tool_name=self.name, data=data,
-            sources=_build_sources(data, cached=False),
+            sources=_build_sources(data, cached=quote_result.cached),
             confidence=confidence,
+            cached=quote_result.cached,
         )
 
 

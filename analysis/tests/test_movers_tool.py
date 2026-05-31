@@ -107,8 +107,8 @@ def test_movers_uses_stale_cache_when_live_quotes_fail(monkeypatch):
     conn = db.get_connection()
     try:
         conn.execute(
-            "UPDATE tool_result_cache SET fetched_at = ? WHERE tool_name = ?",
-            (stale_at, "movers"),
+            "UPDATE tool_result_cache SET fetched_at = ? WHERE tool_name IN (?, ?)",
+            (stale_at, "movers", "quote_snapshot"),
         )
         conn.commit()
     finally:

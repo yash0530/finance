@@ -261,8 +261,11 @@ export const getChart = (ticker, range = '1y', interval = '') => {
 export const getThemeHeat = (universe = 'themes') =>
     apiFetch(`${API_BASE}/terminal/theme-heat?universe=${encodeURIComponent(universe)}`);
 
-export const getTerminalCatalysts = (days = 7) =>
-    apiFetch(`${API_BASE}/terminal/catalysts?days=${days}`);
+export const getTerminalCatalysts = (days = 7, refresh = false) =>
+    apiFetch(`${API_BASE}/terminal/catalysts?days=${days}${refresh ? '&refresh=true' : ''}`);
+
+export const getTerminalSnapshot = ({ topN = 10, days = 7, newsLimit = 40 } = {}) =>
+    apiFetch(`${API_BASE}/terminal/snapshot?top_n=${topN}&days=${days}&news_limit=${newsLimit}`);
 
 export const getFlow = (ticker = '') =>
     apiFetch(`${API_BASE}/terminal/flow${ticker ? `?ticker=${encodeURIComponent(ticker)}` : ''}`);

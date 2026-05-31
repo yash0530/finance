@@ -15,11 +15,11 @@ export default function CatalystsPanel({ onSelectTicker, area = 'catalysts' }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    const load = useCallback(async () => {
+    const load = useCallback(async (refresh = false) => {
         setLoading(true);
         setError(null);
         try {
-            const res = await getTerminalCatalysts(7);
+            const res = await getTerminalCatalysts(7, refresh);
             setItems(res.items || []);
         } catch (e) {
             setError(e.message);
@@ -36,7 +36,7 @@ export default function CatalystsPanel({ onSelectTicker, area = 'catalysts' }) {
             title="Fresh Catalysts"
             subtitle="next 7 days"
             area={area}
-            onRefresh={load}
+            onRefresh={() => load(true)}
             loading={loading}
             error={error}
         >

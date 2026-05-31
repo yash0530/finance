@@ -182,10 +182,39 @@ def test_catalysts_endpoint_dedupes_market_wide_events(client, monkeypatch, _see
     res = client.get("/api/terminal/catalysts?days=7")
     assert res.status_code == 200
     body = res.get_json()
-    rows = [r for r in body["items"] if r["event_type"] == "NFP"]
+    rows = [r for r in body["items"] if r["event_type"] == "NFP" and r["event_date"] == event_date]
     assert len(rows) == 1
     assert rows[0]["ticker"] == "MARKET"
     assert rows[0]["market_wide"] is True
+
+
+def test_terminal_snapshot_returns_one_daily_scan_envelope(client, monkeypatch, _seed_theme):
+    monkeypatch.setattr(_app, "_terminal_universe", lambda: ["NVDA", "AMD"])
+    monkeypatch.setitem(sys.modules, "yfinance", _fake_yf({
+        "NVDA": _FastInfo(110, 100),
+        "AMD": _FastInfo(95, 100),
+    }))
+    monkeypatch.delenv("FINNHUB_API_KEY", raising=False)
+    monkeypatch.setattr(
+        sentiment_service,
+        "get_yfinance_news",
+        lambda t: [{
+            "headline": f"{t} morning read",
+            "summary": "",
+            "url": f"http://x/{t}",
+            "source": "Wire",
+            "published_at": "2026-05-30",
+        }],
+    )
+
+    res = client.get("/api/terminal/snapshot?news_universe_limit=2")
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["universe"]["count"] == 2
+    assert body["panels"]["quotes"]["data"]["resolved_count"] == 2
+    assert body["panels"]["movers"]["data"]["gainers"][0]["ticker"] == "NVDA"
+    assert body["panels"]["flow"]["status"] == "degraded"
+    assert len(body["health"]) >= 5
 
 
 def test_hypothesis_endpoint_requires_ticker(client):

@@ -726,15 +726,25 @@ def _watchlist_tickers() -> List[str]:
 
 
 def _terminal_universe() -> List[str]:
-    """Resolve the default Terminal scan universe: watchlist ∪ movers default."""
+    """Resolve the default Terminal scan universe: watchlist ∪ themes ∪ default."""
     from tools.movers import DEFAULT_UNIVERSE
+    try:
+        import themes_service
+        theme_tickers = themes_service.scan_universe(extra=[])
+    except Exception:
+        theme_tickers = []
     seen, universe = set(), []
-    for t in _watchlist_tickers() + DEFAULT_UNIVERSE:
+    for t in _watchlist_tickers() + theme_tickers + DEFAULT_UNIVERSE:
         u = t.upper().strip()
         if u and u not in seen:
             seen.add(u)
             universe.append(u)
     return universe
+
+
+def _terminal_news_universe(universe: Optional[List[str]] = None, limit: int = 24) -> List[str]:
+    """Bound headline fan-out so a morning page does not hammer news providers."""
+    return (universe or _terminal_universe())[:max(1, limit)]
 
 
 def _dedupe_terminal_catalysts(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -759,6 +769,74 @@ def _dedupe_terminal_catalysts(events: List[Dict[str, Any]]) -> List[Dict[str, A
     return out
 
 
+def _upsert_market_wide_catalysts() -> None:
+    """Keep macro catalysts available without refreshing every company calendar."""
+    try:
+        from datetime import date
+        from tools.catalyst_lookup import MARKET_WIDE_2026, MARKET_WIDE_TICKER
+        today = date.today().isoformat()
+        for ev in MARKET_WIDE_2026:
+            if ev.get("date") and ev["date"] >= today:
+                db.upsert_catalyst(
+                    ticker=MARKET_WIDE_TICKER,
+                    event_type=ev["type"],
+                    event_date=ev["date"],
+                    description=ev.get("description", ""),
+                    source="static_calendar",
+                )
+    except Exception:
+        pass
+
+
+def _terminal_catalysts_payload(days: int = 7, refresh: bool = False) -> Dict[str, Any]:
+    import themes_service
+    tickers = themes_service.scan_universe(extra=_watchlist_tickers())
+    _upsert_market_wide_catalysts()
+
+    if refresh:
+        from tools import get_tool
+        tool = get_tool('catalyst_lookup')
+        for t in tickers:
+            try:
+                tool.execute(ticker=t)
+            except Exception:
+                continue
+
+    events = _dedupe_terminal_catalysts(db.get_catalysts(tickers=tickers + ["MARKET"], days_ahead=days))
+    return {"items": events, "count": len(events), "days": days, "refreshed": bool(refresh)}
+
+
+def _tool_health(label: str, result: Any) -> Dict[str, Any]:
+    data = getattr(result, "data", {}) or {}
+    error = getattr(result, "error", None)
+    confidence = getattr(result, "confidence", "medium")
+    status = "ok"
+    if error or confidence == "low":
+        status = "degraded"
+    if data.get("stale"):
+        status = "stale"
+    return {
+        "label": label,
+        "status": status,
+        "confidence": confidence,
+        "cached": bool(getattr(result, "cached", False)),
+        "stale": bool(data.get("stale")),
+        "message": error or data.get("confidence_warning") or data.get("stale_reason") or "",
+        "as_of": data.get("as_of") or data.get("_cache_fetched_at"),
+    }
+
+
+def _flow_provider_status() -> Dict[str, Any]:
+    import os
+    has_key = bool(os.environ.get('UNUSUAL_WHALES_API_KEY', '').strip())
+    return {
+        "label": "Options flow",
+        "status": "available" if has_key else "degraded",
+        "provider": "Unusual Whales" if has_key else "free-tier",
+        "message": "Real unusual blocks, dark pool, and gamma available." if has_key else "Flow is on demand; no UNUSUAL_WHALES_API_KEY is configured.",
+    }
+
+
 @app.route('/api/terminal/movers', methods=['GET'])
 def terminal_movers():
     """Top gainers/losers across the requested universe. TTL handled by the tool."""
@@ -778,11 +856,12 @@ def terminal_news():
     """Recent news headlines across the universe (or a single theme/ticker set)."""
     from tools import get_tool
     limit = int(request.args.get('limit', 50))
+    universe_limit = int(request.args.get('universe_limit', 24))
     theme = request.args.get('theme', 'all')
     if theme and theme not in ('all', ''):
         tickers = [theme.upper()]
     else:
-        tickers = _terminal_universe()
+        tickers = _terminal_news_universe(limit=universe_limit)
     result = get_tool('news_tape').execute(tickers=tickers, limit=limit)
     return jsonify(result.to_dict())
 
@@ -790,7 +869,7 @@ def terminal_news():
 @app.route('/api/terminal/watchlist', methods=['GET'])
 def terminal_watchlist():
     """Watchlist tickers enriched with day change from the movers tool."""
-    from tools.movers import fetch_quotes
+    from tools.quote_snapshot import fetch_quotes
     rows = db.get_watchlist()
     tickers = [r["ticker"] for r in rows]
     quotes = fetch_quotes(tickers) if tickers else {}
@@ -848,18 +927,66 @@ def terminal_theme_heat():
 def terminal_catalysts():
     """Upcoming catalysts for watchlist + theme constituents within `days`."""
     days = int(request.args.get('days', 7))
-    import themes_service
-    tickers = themes_service.scan_universe(extra=_watchlist_tickers())
-    # Refresh catalysts for the universe so the table isn't stale (cached per-tool).
+    refresh = request.args.get("refresh", "").lower() == "true"
+    return jsonify(_terminal_catalysts_payload(days=days, refresh=refresh))
+
+
+@app.route('/api/terminal/snapshot', methods=['GET'])
+def terminal_snapshot():
+    """One-envelope Daily Scan snapshot for reliable morning refreshes."""
+    from datetime import datetime
     from tools import get_tool
-    tool = get_tool('catalyst_lookup')
-    for t in tickers:
-        try:
-            tool.execute(ticker=t)
-        except Exception:
-            continue
-    events = _dedupe_terminal_catalysts(db.get_catalysts(tickers=tickers + ["MARKET"], days_ahead=days))
-    return jsonify({"items": events, "count": len(events), "days": days})
+
+    top_n = int(request.args.get('top_n', 10))
+    days = int(request.args.get('days', 7))
+    news_limit = int(request.args.get('news_limit', 40))
+    news_universe_limit = int(request.args.get('news_universe_limit', 24))
+    refresh_catalysts = request.args.get("refresh_catalysts", "").lower() == "true"
+
+    universe = _terminal_universe()
+    watchlist_rows = db.get_watchlist()
+    quote_result = get_tool('quote_snapshot').execute(tickers=universe)
+    movers_result = get_tool('movers').execute(tickers=universe, top_n=top_n)
+    theme_result = get_tool('theme_heat').execute(universe='themes')
+    news_result = get_tool('news_tape').execute(
+        tickers=_terminal_news_universe(universe, news_universe_limit),
+        limit=news_limit,
+    )
+    catalysts = _terminal_catalysts_payload(days=days, refresh=refresh_catalysts)
+
+    return jsonify({
+        "as_of": datetime.now().isoformat(),
+        "universe": {
+            "tickers": universe,
+            "count": len(universe),
+            "watchlist_count": len(watchlist_rows),
+            "news_tickers": _terminal_news_universe(universe, news_universe_limit),
+        },
+        "panels": {
+            "quotes": quote_result.to_dict(),
+            "movers": movers_result.to_dict(),
+            "theme_heat": theme_result.to_dict(),
+            "news": news_result.to_dict(),
+            "catalysts": catalysts,
+            "flow": _flow_provider_status(),
+        },
+        "health": [
+            _tool_health("Quotes", quote_result),
+            _tool_health("Movers", movers_result),
+            _tool_health("Theme heat", theme_result),
+            _tool_health("News", news_result),
+            {
+                "label": "Catalysts",
+                "status": "ok",
+                "confidence": "medium",
+                "cached": True,
+                "stale": False,
+                "message": f"{catalysts['count']} events in the next {days} days",
+                "as_of": None,
+            },
+            _flow_provider_status(),
+        ],
+    })
 
 
 @app.route('/api/terminal/flow', methods=['GET'])

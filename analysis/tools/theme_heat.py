@@ -67,7 +67,7 @@ class ThemeHeatTool(Tool):
         return 0.0
 
     def _execute(self, universe: str = "themes", **kwargs) -> ToolResult:
-        from tools.movers import fetch_quotes
+        from tools.quote_snapshot import QuoteSnapshotTool
 
         packs = _sp500_sector_packs() if universe == "sp500-sectors" else _theme_packs()
         if not packs:
@@ -87,7 +87,8 @@ class ThemeHeatTool(Tool):
                 confidence="high", cached=True,
             )
 
-        quotes = fetch_quotes(all_tickers)
+        quote_result = QuoteSnapshotTool().execute(tickers=all_tickers)
+        quotes = quote_result.data.get("quotes", {})
         if not quotes:
             stale = _stale_payload(self.name, cache_key, "Live quote provider returned no theme constituents.")
             if stale:
@@ -134,6 +135,13 @@ class ThemeHeatTool(Tool):
             "requested_count": len(all_tickers),
             "as_of": datetime.now().isoformat(),
         }
+        if quote_result.data.get("confidence_warning"):
+            data["confidence_warning"] = quote_result.data["confidence_warning"]
+        if quote_result.data.get("stale"):
+            data["stale"] = True
+            data["cache_status"] = "stale"
+            data["stale_reason"] = quote_result.data.get("stale_reason")
+
         if resolved_total < len(all_tickers) * 0.5:
             stale = _stale_payload(self.name, cache_key, "Live quote provider returned sparse theme data.")
             if stale and int(stale.get("resolved_count") or 0) > resolved_total:
@@ -144,19 +152,21 @@ class ThemeHeatTool(Tool):
                     sources=_build_sources(stale, cached=True),
                     confidence="low", cached=True,
                 )
-            data["cache_status"] = "live_sparse"
-            data["confidence_warning"] = "Sparse market data detected. Theme heat may be incomplete."
+            data["cache_status"] = data.get("cache_status") or "live_sparse"
+            data["confidence_warning"] = data.get("confidence_warning") or "Sparse market data detected. Theme heat may be incomplete."
             return ToolResult(
                 tool_name=self.name, data=data,
                 sources=_build_sources(data, cached=False),
                 confidence="low",
             )
 
-        save_tool_cache(self.name, cache_key, data)
+        if not data.get("stale"):
+            save_tool_cache(self.name, cache_key, data)
         return ToolResult(
             tool_name=self.name, data=data,
-            sources=_build_sources(data, cached=False),
-            confidence="high",
+            sources=_build_sources(data, cached=quote_result.cached),
+            confidence="low" if quote_result.confidence == "low" or data.get("stale") else "high",
+            cached=quote_result.cached,
         )
 
 

@@ -316,6 +316,7 @@ _AUTOLOAD = [
     "peer_compare",
     "alt_data",
     "memo_read",
+    "quote_snapshot",
     "movers",
     "news_tape",
     "price_history",
