@@ -121,7 +121,8 @@ export default function ScreenerPage({ onSelectTicker, presetName }) {
                                 <button onClick={async () => { await deleteSavedScreener(s.id); await refreshSaved(); }}
                                     className="screener-saved-delete"
                                     type="button"
-                                    aria-label={`Delete saved screen ${s.name}`}>×</button>
+                                    title={`Delete ${s.name}`}
+                                    aria-label="Delete saved screen">×</button>
                             </li>
                         ))}
                     </ul>
