@@ -6,6 +6,7 @@ yfinance is mocked via monkeypatch so these run offline.
 from __future__ import annotations
 
 import sys
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -91,6 +92,35 @@ def test_movers_degrades_when_no_quotes(monkeypatch):
     assert result.error is not None
     assert result.confidence == "low"
     assert result.data["gainers"] == []
+
+
+def test_movers_uses_stale_cache_when_live_quotes_fail(monkeypatch):
+    monkeypatch.setitem(sys.modules, "yfinance", _fake_yf({
+        "AAA": _FastInfo(110, 100),
+        "BBB": _FastInfo(90, 100),
+    }))
+    from tools.movers import MoversTool
+    first = MoversTool().execute(tickers=["AAA", "BBB"], top_n=2)
+    assert first.is_ok()
+
+    stale_at = (datetime.now() - timedelta(hours=2)).isoformat()
+    conn = db.get_connection()
+    try:
+        conn.execute(
+            "UPDATE tool_result_cache SET fetched_at = ? WHERE tool_name = ?",
+            (stale_at, "movers"),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    monkeypatch.setitem(sys.modules, "yfinance", _fake_yf({}))
+    second = MoversTool().execute(tickers=["AAA", "BBB"], top_n=2)
+    assert second.error is None
+    assert second.cached is True
+    assert second.confidence == "low"
+    assert second.data["stale"] is True
+    assert second.data["gainers"][0]["ticker"] == "AAA"
 
 
 def test_movers_handles_zero_previous_close(monkeypatch):

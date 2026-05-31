@@ -17,7 +17,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from tools import Source, Tool, ToolResult, register
-from db import get_tool_cache, save_tool_cache
+from db import get_tool_cache, get_tool_cache_stale, save_tool_cache
 
 
 DEFAULT_UNIVERSE: List[str] = [
@@ -133,6 +133,13 @@ class MoversTool(Tool):
             "as_of": datetime.now().isoformat(),
         }
         if not ranked:
+            stale = _stale_payload(self.name, cache_key, "Live quote provider returned no resolvable tickers.")
+            if stale:
+                return ToolResult(
+                    tool_name=self.name, data=stale,
+                    sources=_build_sources(stale, cached=True),
+                    confidence="low", cached=True,
+                )
             return ToolResult(
                 tool_name=self.name, data=data,
                 sources=[], confidence="low",
@@ -141,8 +148,23 @@ class MoversTool(Tool):
 
         confidence = "high"
         if resolved < universe_size * 0.5:
+            stale = _stale_payload(self.name, cache_key, "Live quote provider returned sparse data.")
+            if stale and int(stale.get("resolved") or 0) > resolved:
+                stale["live_resolved"] = resolved
+                stale["live_universe_size"] = universe_size
+                return ToolResult(
+                    tool_name=self.name, data=stale,
+                    sources=_build_sources(stale, cached=True),
+                    confidence="low", cached=True,
+                )
             confidence = "low"
             data["confidence_warning"] = "Sparse market data detected. More than 50% of tickers in the scan universe failed to resolve."
+            data["cache_status"] = "live_sparse"
+            return ToolResult(
+                tool_name=self.name, data=data,
+                sources=_build_sources(data, cached=False),
+                confidence=confidence,
+            )
 
         save_tool_cache(self.name, cache_key, data)
         return ToolResult(
@@ -152,9 +174,24 @@ class MoversTool(Tool):
         )
 
 
+def _stale_payload(tool_name: str, cache_key: str, reason: str) -> Optional[Dict[str, Any]]:
+    stale = get_tool_cache_stale(tool_name, cache_key)
+    if not stale:
+        return None
+    stale = dict(stale)
+    stale["stale"] = True
+    stale["cache_status"] = "stale"
+    stale["confidence_warning"] = f"{reason} Showing last successful snapshot."
+    stale["stale_reason"] = reason
+    return stale
+
+
 def _build_sources(data: Dict, cached: bool) -> List[Source]:
     now = datetime.now().isoformat()
-    note = "yfinance fast_info" + (" (cached)" if cached else "")
+    if data.get("stale"):
+        note = "yfinance fast_info (stale cache)"
+    else:
+        note = "yfinance fast_info" + (" (cached)" if cached else "")
     return [Source(
         tool="movers", field="gainers/losers",
         fetched_at=now, url=None, note=note,

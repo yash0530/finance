@@ -737,6 +737,28 @@ def _terminal_universe() -> List[str]:
     return universe
 
 
+def _dedupe_terminal_catalysts(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Collapse repeated market-wide rows while preserving company-specific catalysts."""
+    macro_types = {"FOMC", "CPI", "NFP"}
+    seen, out = set(), []
+    for raw in events:
+        item = dict(raw)
+        event_type = str(item.get("event_type") or "")
+        is_macro = item.get("source") == "static_calendar" or event_type in macro_types
+        if is_macro:
+            item["ticker"] = "MARKET"
+            item["market_wide"] = True
+            key = ("macro", event_type, item.get("event_date"), item.get("description"))
+        else:
+            item["market_wide"] = False
+            key = (item.get("ticker"), event_type, item.get("event_date"))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(item)
+    return out
+
+
 @app.route('/api/terminal/movers', methods=['GET'])
 def terminal_movers():
     """Top gainers/losers across the requested universe. TTL handled by the tool."""
@@ -836,7 +858,7 @@ def terminal_catalysts():
             tool.execute(ticker=t)
         except Exception:
             continue
-    events = db.get_catalysts(tickers=tickers, days_ahead=days)
+    events = _dedupe_terminal_catalysts(db.get_catalysts(tickers=tickers + ["MARKET"], days_ahead=days))
     return jsonify({"items": events, "count": len(events), "days": days})
 
 

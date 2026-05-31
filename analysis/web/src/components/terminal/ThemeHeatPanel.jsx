@@ -20,6 +20,8 @@ function HeatBar({ pct }) {
 
 export default function ThemeHeatPanel({ onSelectTicker, area = 'theme-heat' }) {
     const [themes, setThemes] = useState([]);
+    const [payload, setPayload] = useState(null);
+    const [confidence, setConfidence] = useState('high');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [universe, setUniverse] = useState('themes');
@@ -29,6 +31,8 @@ export default function ThemeHeatPanel({ onSelectTicker, area = 'theme-heat' }) 
         setError(null);
         try {
             const res = await getThemeHeat(universe);
+            setPayload(res.data || null);
+            setConfidence(res.confidence || 'high');
             setThemes(res.data?.themes || []);
             if (res.error && !(res.data?.themes?.length)) setError(res.error);
         } catch (e) {
@@ -64,6 +68,11 @@ export default function ThemeHeatPanel({ onSelectTicker, area = 'theme-heat' }) 
             error={error}
             actions={toggle}
         >
+            {confidence === 'low' && payload?.confidence_warning && (
+                <div className="alert alert-warning" style={{ fontSize: '0.72rem', padding: '6px 10px', marginBottom: 12, borderLeft: '3px solid var(--accent-yellow)' }}>
+                    {payload.confidence_warning}
+                </div>
+            )}
             {themes.length === 0 && !loading && (
                 <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>No themes defined.</div>
             )}

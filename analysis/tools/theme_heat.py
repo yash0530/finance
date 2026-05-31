@@ -10,10 +10,10 @@ from __future__ import annotations
 
 from datetime import datetime
 from statistics import median
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from tools import Source, Tool, ToolResult, register
-from db import get_tool_cache, save_tool_cache
+from db import get_tool_cache, get_tool_cache_stale, save_tool_cache
 
 
 def _theme_packs() -> List[Dict[str, Any]]:
@@ -88,6 +88,14 @@ class ThemeHeatTool(Tool):
             )
 
         quotes = fetch_quotes(all_tickers)
+        if not quotes:
+            stale = _stale_payload(self.name, cache_key, "Live quote provider returned no theme constituents.")
+            if stale:
+                return ToolResult(
+                    tool_name=self.name, data=stale,
+                    sources=_build_sources(stale, cached=True),
+                    confidence="low", cached=True,
+                )
 
         themes_out: List[Dict[str, Any]] = []
         for pack in packs:
@@ -118,7 +126,32 @@ class ThemeHeatTool(Tool):
             reverse=True,
         )
 
-        data = {"themes": themes_out, "universe": universe, "as_of": datetime.now().isoformat()}
+        resolved_total = sum(int(t.get("resolved") or 0) for t in themes_out)
+        data = {
+            "themes": themes_out,
+            "universe": universe,
+            "resolved_count": resolved_total,
+            "requested_count": len(all_tickers),
+            "as_of": datetime.now().isoformat(),
+        }
+        if resolved_total < len(all_tickers) * 0.5:
+            stale = _stale_payload(self.name, cache_key, "Live quote provider returned sparse theme data.")
+            if stale and int(stale.get("resolved_count") or 0) > resolved_total:
+                stale["live_resolved"] = resolved_total
+                stale["live_requested_count"] = len(all_tickers)
+                return ToolResult(
+                    tool_name=self.name, data=stale,
+                    sources=_build_sources(stale, cached=True),
+                    confidence="low", cached=True,
+                )
+            data["cache_status"] = "live_sparse"
+            data["confidence_warning"] = "Sparse market data detected. Theme heat may be incomplete."
+            return ToolResult(
+                tool_name=self.name, data=data,
+                sources=_build_sources(data, cached=False),
+                confidence="low",
+            )
+
         save_tool_cache(self.name, cache_key, data)
         return ToolResult(
             tool_name=self.name, data=data,
@@ -127,9 +160,24 @@ class ThemeHeatTool(Tool):
         )
 
 
+def _stale_payload(tool_name: str, cache_key: str, reason: str) -> Optional[Dict[str, Any]]:
+    stale = get_tool_cache_stale(tool_name, cache_key)
+    if not stale:
+        return None
+    stale = dict(stale)
+    stale["stale"] = True
+    stale["cache_status"] = "stale"
+    stale["confidence_warning"] = f"{reason} Showing last successful snapshot."
+    stale["stale_reason"] = reason
+    return stale
+
+
 def _build_sources(data: Dict, cached: bool) -> List[Source]:
     now = datetime.now().isoformat()
-    note = "yfinance fast_info via theme packs" + (" (cached)" if cached else "")
+    if data.get("stale"):
+        note = "yfinance fast_info via theme packs (stale cache)"
+    else:
+        note = "yfinance fast_info via theme packs" + (" (cached)" if cached else "")
     return [Source(tool="theme_heat", field="themes", fetched_at=now, url=None, note=note)]
 
 

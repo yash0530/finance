@@ -25,9 +25,10 @@ export default function FlowPanel({ area = 'flow', ticker = '' }) {
     }, [ticker]);
 
     useEffect(() => {
+        if (!ticker) return undefined;
         const id = window.setTimeout(load, 0);
         return () => window.clearTimeout(id);
-    }, [load]);
+    }, [load, ticker]);
 
     const degraded = payload?.degraded;
 
@@ -41,6 +42,12 @@ export default function FlowPanel({ area = 'flow', ticker = '' }) {
             loading={loading}
             error={error}
         >
+            {!ticker && !payload && (
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                    <div>Flow is on demand to protect provider quotas.</div>
+                    <div style={{ fontSize: '0.7rem', marginTop: 4 }}>Open a ticker in Stock View, or refresh here to check provider availability.</div>
+                </div>
+            )}
             {degraded && (
                 <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
                     <div style={{ marginBottom: 6 }}>{payload.reason}</div>

@@ -1297,6 +1297,28 @@ def get_tool_cache(tool_name: str, cache_key: str, max_age_seconds: int) -> Opti
         conn.close()
 
 
+def get_tool_cache_stale(tool_name: str, cache_key: str) -> Optional[Dict]:
+    """Return the latest cached tool result regardless of age.
+
+    Use this only as a graceful degradation path when a live provider fails.
+    Callers should mark the returned payload stale before exposing it.
+    """
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT result_json, fetched_at FROM tool_result_cache WHERE tool_name = ? AND cache_key = ?",
+            (tool_name, cache_key),
+        ).fetchone()
+        if not row:
+            return None
+        data = json.loads(row["result_json"])
+        if isinstance(data, dict):
+            data["_cache_fetched_at"] = row["fetched_at"]
+        return data
+    finally:
+        conn.close()
+
+
 def save_tool_cache(tool_name: str, cache_key: str, result: Dict) -> None:
     conn = get_connection()
     try:

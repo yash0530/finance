@@ -6,6 +6,7 @@ The underlying yfinance / news fetchers are monkeypatched so no network is hit.
 from __future__ import annotations
 
 import sys
+from datetime import date, timedelta
 from types import SimpleNamespace
 
 import pandas as pd
@@ -27,7 +28,7 @@ def client():
 def _wipe():
     conn = db.get_connection()
     try:
-        for tbl in ("tool_result_cache", "watchlist"):
+        for tbl in ("tool_result_cache", "watchlist", "catalysts"):
             conn.execute(f"DELETE FROM {tbl}")
         conn.commit()
     finally:
@@ -164,6 +165,27 @@ def test_flow_endpoint_degrades_without_uw_key(client, monkeypatch):
     body = res.get_json()
     assert body["degraded"] is True
     assert "reason" in body
+
+
+def test_catalysts_endpoint_dedupes_market_wide_events(client, monkeypatch, _seed_theme):
+    import tools
+
+    class _NoopTool:
+        def execute(self, **kwargs):
+            return SimpleNamespace()
+
+    monkeypatch.setattr(tools, "get_tool", lambda name: _NoopTool())
+    event_date = (date.today() + timedelta(days=2)).isoformat()
+    for ticker in ("NVDA", "AMD", "MARKET"):
+        db.upsert_catalyst(ticker, "NFP", event_date, "Payrolls", "static_calendar")
+
+    res = client.get("/api/terminal/catalysts?days=7")
+    assert res.status_code == 200
+    body = res.get_json()
+    rows = [r for r in body["items"] if r["event_type"] == "NFP"]
+    assert len(rows) == 1
+    assert rows[0]["ticker"] == "MARKET"
+    assert rows[0]["market_wide"] is True
 
 
 def test_hypothesis_endpoint_requires_ticker(client):

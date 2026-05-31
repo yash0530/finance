@@ -53,10 +53,16 @@ export default function CatalystsPanel({ onSelectTicker, area = 'catalysts' }) {
                             <span className={`badge ${TYPE_COLOR[c.event_type] || 'badge-gray'}`} style={{ fontSize: '0.62rem' }}>
                                 {c.event_type}
                             </span>
-                            <button onClick={() => onSelectTicker(c.ticker)}
-                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-primary)', fontFamily: 'var(--font-mono, monospace)', fontWeight: 600 }}>
-                                {c.ticker}
-                            </button>
+                            {c.market_wide ? (
+                                <span style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono, monospace)', fontWeight: 600 }}>
+                                    MARKET
+                                </span>
+                            ) : (
+                                <button onClick={() => onSelectTicker(c.ticker)}
+                                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-primary)', fontFamily: 'var(--font-mono, monospace)', fontWeight: 600 }}>
+                                    {c.ticker}
+                                </button>
+                            )}
                         </span>
                         <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>{c.event_date}</span>
                     </li>

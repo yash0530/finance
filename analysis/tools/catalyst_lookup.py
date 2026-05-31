@@ -15,6 +15,8 @@ from typing import Any, Dict, List, Optional
 from tools import Source, Tool, ToolResult, register
 from db import get_tool_cache, save_tool_cache, upsert_catalyst
 
+MARKET_WIDE_TICKER = "MARKET"
+
 
 # ── Static market-wide calendar (2026) ───────────────────────────────────
 # A representative, conservative set.  If you want to disable it for a run,
@@ -188,7 +190,7 @@ class CatalystLookupTool(Tool):
         for ev in market_wide:
             try:
                 upsert_catalyst(
-                    ticker=ticker, event_type=ev["type"], event_date=ev["date"],
+                    ticker=MARKET_WIDE_TICKER, event_type=ev["type"], event_date=ev["date"],
                     description=ev["description"], source="static_calendar",
                 )
             except Exception as e:

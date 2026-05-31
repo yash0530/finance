@@ -6,6 +6,7 @@ yfinance is mocked; themes are seeded directly into the test DB.
 from __future__ import annotations
 
 import sys
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -90,6 +91,38 @@ def test_theme_heat_handles_unresolved_theme(monkeypatch):
         assert t["resolved"] == 0
         assert t["median_change_pct"] is None
         assert t["leader"] is None
+
+
+def test_theme_heat_uses_stale_cache_when_live_quotes_fail(monkeypatch):
+    quotes = {
+        "NVDA": _FastInfo(110, 100),
+        "AMD": _FastInfo(102, 100),
+        "AVGO": _FastInfo(94, 100),
+        "MU": _FastInfo(105, 100),
+    }
+    monkeypatch.setitem(sys.modules, "yfinance", _fake_yf(quotes))
+    from tools.theme_heat import ThemeHeatTool
+    first = ThemeHeatTool().execute()
+    assert first.is_ok()
+
+    stale_at = (datetime.now() - timedelta(hours=2)).isoformat()
+    conn = db.get_connection()
+    try:
+        conn.execute(
+            "UPDATE tool_result_cache SET fetched_at = ? WHERE tool_name = ?",
+            (stale_at, "theme_heat"),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    monkeypatch.setitem(sys.modules, "yfinance", _fake_yf({}))
+    second = ThemeHeatTool().execute()
+    assert second.error is None
+    assert second.cached is True
+    assert second.confidence == "low"
+    assert second.data["stale"] is True
+    assert second.data["themes"][0]["slug"] == "mem"
 
 
 def test_theme_heat_sp500_sectors(monkeypatch):
