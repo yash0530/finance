@@ -185,6 +185,18 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_recs_created
                 ON recommendations(created_at);
 
+            -- Position sizing for a recommendation (sibling table: never alter
+            -- the legacy `recommendations` table; join on rec_id). judge_size_pct
+            -- is the Judge agent's raw size; governed_size_pct is the
+            -- calibration-governed cap (filled by the sizing governor, may be NULL).
+            CREATE TABLE IF NOT EXISTS recommendation_sizing (
+                rec_id            INTEGER PRIMARY KEY,
+                judge_size_pct    REAL,
+                governed_size_pct REAL,
+                governor_reason   TEXT,
+                created_at        TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS catalysts (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 ticker      TEXT NOT NULL,
@@ -884,6 +896,48 @@ def save_recommendation(
         )
         conn.commit()
         return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def save_recommendation_sizing(
+    rec_id: int,
+    judge_size_pct: Optional[float] = None,
+    governed_size_pct: Optional[float] = None,
+    governor_reason: str = "",
+) -> None:
+    """Upsert position sizing for a recommendation. Sibling to `recommendations`.
+
+    judge_size_pct is the Judge agent's raw size; governed_size_pct is the
+    calibration-governed cap (NULL until the sizing governor fills it).
+    """
+    conn = get_connection()
+    try:
+        conn.execute(
+            """INSERT INTO recommendation_sizing
+                 (rec_id, judge_size_pct, governed_size_pct, governor_reason, created_at)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(rec_id) DO UPDATE SET
+                 judge_size_pct    = COALESCE(excluded.judge_size_pct, judge_size_pct),
+                 governed_size_pct = COALESCE(excluded.governed_size_pct, governed_size_pct),
+                 governor_reason   = COALESCE(NULLIF(excluded.governor_reason, ''), governor_reason)""",
+            (
+                rec_id, judge_size_pct, governed_size_pct, governor_reason,
+                datetime.now().isoformat(),
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_recommendation_sizing(rec_id: int) -> Optional[Dict]:
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM recommendation_sizing WHERE rec_id = ?", (rec_id,),
+        ).fetchone()
+        return dict(row) if row else None
     finally:
         conn.close()
 

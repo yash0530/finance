@@ -4,19 +4,34 @@ import TargetLadder from './TargetLadder';
 /**
  * Trade plan card: entry/stop/target ladder + sizing.
  */
-export default function TradePlanCard({ plan, currentPrice }) {
+export default function TradePlanCard({ plan, currentPrice, sizing }) {
     if (!plan || !Object.keys(plan).length) return null;
+
+    // The sizing governor may cap the Judge's raw size until the conviction tier
+    // has an earned, favorable track record. Prefer the governed number.
+    const judgeSize = sizing?.judge_size_pct ?? plan.position_size_pct;
+    const governedSize = sizing?.governed_size_pct;
+    const capped = sizing?.governor_reason && governedSize != null && judgeSize != null && governedSize < judgeSize;
+    const displaySize = governedSize ?? plan.position_size_pct;
 
     return (
         <div className="glass-card fade-in" style={{ borderColor: 'rgba(45, 126, 247, 0.3)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
                 <h3 style={{ fontSize: '0.9rem', margin: 0, color: 'var(--text-primary)' }}>Trade Plan</h3>
-                {plan.position_size_pct != null && (
-                    <span className="badge badge-blue" style={{ fontSize: '0.75rem' }}>
-                        {plan.position_size_pct.toFixed(1)}% of capital
+                {displaySize != null && (
+                    <span className={`badge ${capped ? 'badge-yellow' : 'badge-blue'}`} style={{ fontSize: '0.75rem' }}>
+                        {displaySize.toFixed(1)}% of capital
+                        {capped && <s style={{ marginLeft: 6, opacity: 0.7 }}>{judgeSize.toFixed(1)}%</s>}
                     </span>
                 )}
             </div>
+
+            {capped && (
+                <div style={{ padding: '8px 12px', marginBottom: 'var(--spacing-md)', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 'var(--radius-md)', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    <strong style={{ color: 'var(--accent-yellow, #f59e0b)' }}>Sizing governor: </strong>
+                    {sizing.governor_reason}
+                </div>
+            )}
 
             <div className="grid grid-2" style={{ gap: 'var(--spacing-lg)' }}>
                 {/* Left: Target Ladder */}

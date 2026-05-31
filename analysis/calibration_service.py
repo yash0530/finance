@@ -23,6 +23,13 @@ HORIZONS: Tuple[Tuple[str, int, str], ...] = (
     ("1y", 12, "outcome_1y_return_pct"),
 )
 
+# Sizing governor — enforces the house rule "conservative sizing until
+# calibration is earned" in code, not just docs. The Judge's raw size is only
+# trusted once a conviction tier has a real, favorable resolved track record.
+GOVERNOR_CONSERVATIVE_CAP_PCT = 2.0   # ceiling while a tier is unproven
+GOVERNOR_MIN_RESOLVED = 5             # resolved calls needed before size is "earned"
+GOVERNOR_FAVORABLE_THRESHOLD = 0.5    # favorable rate needed to lift the cap
+
 
 def list_recommendations(
     ticker: Optional[str] = None,
@@ -51,9 +58,13 @@ def list_recommendations(
             rr.llm_model,
             rr.total_cost_usd,
             rr.wall_clock_sec,
-            rr.generated_at AS report_generated_at
+            rr.generated_at AS report_generated_at,
+            s.judge_size_pct,
+            s.governed_size_pct,
+            s.governor_reason
         FROM recommendations r
         LEFT JOIN research_reports rr ON rr.id = r.report_id
+        LEFT JOIN recommendation_sizing s ON s.rec_id = r.id
     """
     if where:
         sql += " WHERE " + " AND ".join(where)
@@ -84,6 +95,51 @@ def get_dashboard(ticker: Optional[str] = None, limit: int = 500) -> Dict[str, A
         "horizons": [h[0] for h in HORIZONS],
         "generated_at": datetime.now().isoformat(),
     }
+
+
+def govern_size(
+    conviction: str,
+    judge_size_pct: Optional[float],
+    recs: Optional[Sequence[Dict[str, Any]]] = None,
+) -> Tuple[Optional[float], str]:
+    """Cap the Judge's position size by the earned track record at this conviction.
+
+    Returns (governed_size_pct, reason). Reason is empty when nothing is capped.
+    The rule: a conviction tier earns its raw size only after
+    GOVERNOR_MIN_RESOLVED resolved calls AND a favorable rate at/above
+    GOVERNOR_FAVORABLE_THRESHOLD. Until then size is capped to
+    GOVERNOR_CONSERVATIVE_CAP_PCT. Sizes already at/under the cap pass through.
+    """
+    if judge_size_pct is None:
+        return None, ""
+    if judge_size_pct <= GOVERNOR_CONSERVATIVE_CAP_PCT:
+        return judge_size_pct, ""
+
+    tier = (conviction or "").upper() or "LOW"
+    if recs is None:
+        recs = list_recommendations(limit=1000)
+    resolved = [
+        r for r in recs
+        if (r.get("conviction") or "").upper() == tier and r.get("favorable") is not None
+    ]
+    n = len(resolved)
+    cap = GOVERNOR_CONSERVATIVE_CAP_PCT
+
+    if n < GOVERNOR_MIN_RESOLVED:
+        return cap, (
+            f"Only {n} resolved {tier} call(s); capped to {cap:.0f}% "
+            f"until calibration is earned ({GOVERNOR_MIN_RESOLVED} needed)."
+        )
+
+    favorable_rate = sum(1 for r in resolved if r.get("favorable")) / n
+    if favorable_rate < GOVERNOR_FAVORABLE_THRESHOLD:
+        return cap, (
+            f"{tier} calls favorable only {favorable_rate * 100:.0f}% over {n} resolved; "
+            f"capped to {cap:.0f}% until edge is demonstrated."
+        )
+
+    # Edge demonstrated — trust the Judge's size.
+    return judge_size_pct, ""
 
 
 def update_outcome(

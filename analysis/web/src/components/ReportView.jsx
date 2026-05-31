@@ -104,7 +104,7 @@ export default function ReportView({ report, mode = 'live', drift, telemetry }) 
             </div>
 
             {/* ── TRADE PLAN ── */}
-            <TradePlanCard plan={tradePlan} currentPrice={currentPrice} />
+            <TradePlanCard plan={tradePlan} currentPrice={currentPrice} sizing={report.sizing} />
 
             {/* ── THESIS AT A GLANCE ── */}
             <ThesisGlance bullCase={verdict.bull_case} bearCase={verdict.bear_case} />

@@ -5,9 +5,35 @@ import {
     refreshCalibrationOutcomes,
     updateRecommendationOutcome,
 } from '../utils/api';
+import ResearchLink from '../components/ResearchLink';
+
+function TickerCell({ ticker, onSelectTicker, onRunResearch }) {
+    return (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <button
+                type="button"
+                className="ticker-badge"
+                style={{ background: 'transparent', border: 'none', cursor: onSelectTicker ? 'pointer' : 'default', padding: 0 }}
+                onClick={() => onSelectTicker?.(ticker)}
+            >{ticker}</button>
+            <ResearchLink ticker={ticker} onRunResearch={onRunResearch} />
+        </span>
+    );
+}
 
 function fmt(value) {
     return value == null ? 'N/A' : formatPercent(value, true);
+}
+
+function fmtSize(rec) {
+    const governed = rec.governed_size_pct;
+    const judge = rec.judge_size_pct;
+    if (governed != null && judge != null && governed < judge) {
+        // Governor capped it — show the cap and the raw Judge size struck through.
+        return <span title={rec.governor_reason || 'capped by sizing governor'}>{governed.toFixed(1)}% <s style={{ color: 'var(--text-muted)' }}>{judge.toFixed(1)}%</s></span>;
+    }
+    const val = governed ?? judge;
+    return val == null ? 'N/A' : `${val.toFixed(1)}%`;
 }
 
 function badgeFor(status) {
@@ -62,7 +88,7 @@ function GroupTable({ title, rows }) {
     );
 }
 
-export default function CalibrationPage() {
+export default function CalibrationPage({ onSelectTicker, onRunResearch }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -188,6 +214,7 @@ export default function CalibrationPage() {
                                     <th>Ticker</th>
                                     <th>Call</th>
                                     <th>Conviction</th>
+                                    <th>Size</th>
                                     <th>Age</th>
                                     <th>1m</th>
                                     <th>3m</th>
@@ -196,13 +223,14 @@ export default function CalibrationPage() {
                             </thead>
                             <tbody>
                                 {queue.length === 0 && (
-                                    <tr><td colSpan="7" style={{ color: 'var(--text-muted)' }}>No due reviews</td></tr>
+                                    <tr><td colSpan="8" style={{ color: 'var(--text-muted)' }}>No due reviews</td></tr>
                                 )}
                                 {queue.map(rec => (
                                     <tr key={rec.id}>
-                                        <td><span className="ticker-badge">{rec.ticker}</span></td>
+                                        <td><TickerCell ticker={rec.ticker} onSelectTicker={onSelectTicker} onRunResearch={onRunResearch} /></td>
                                         <td>{rec.recommendation}</td>
                                         <td>{rec.conviction}</td>
+                                        <td>{fmtSize(rec)}</td>
                                         <td>{rec.created_at_days_old ?? 'N/A'}d</td>
                                         <td>{fmt(rec.outcome_1m_return_pct)}</td>
                                         <td>{fmt(rec.outcome_3m_return_pct)}</td>
@@ -224,6 +252,15 @@ export default function CalibrationPage() {
                     {!selected && <p style={{ color: 'var(--text-muted)', fontSize: '0.825rem' }}>No selection</p>}
                     {selected && (
                         <div style={{ display: 'grid', gap: 10 }}>
+                            {selected.what_would_change_mind && (
+                                <div style={{ padding: '8px 12px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', fontSize: '0.75rem' }}>
+                                    <div style={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '0.65rem', marginBottom: 4 }}>What would change my mind</div>
+                                    {selected.what_would_change_mind.split('\n').filter(Boolean).map((line, i) => (
+                                        <div key={i} style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>• {line}</div>
+                                    ))}
+                                    <div style={{ color: 'var(--text-muted)', marginTop: 6, fontStyle: 'italic' }}>Did any of these fire? Mark "Thesis falsified" below.</div>
+                                </div>
+                            )}
                             {['outcome_1m_return_pct', 'outcome_3m_return_pct', 'outcome_6m_return_pct', 'outcome_1y_return_pct'].map(field => (
                                 <label className="input-group" key={field}>
                                     <span className="input-label">{field.replace('outcome_', '').replace('_return_pct', '').toUpperCase()} return %</span>
@@ -279,6 +316,7 @@ export default function CalibrationPage() {
                                 <th>Ticker</th>
                                 <th>Call</th>
                                 <th>Conviction</th>
+                                <th>Size</th>
                                 <th>Status</th>
                                 <th>Model</th>
                                 <th>1m</th>
@@ -289,9 +327,10 @@ export default function CalibrationPage() {
                         <tbody>
                             {recent.map(rec => (
                                 <tr key={rec.id}>
-                                    <td><span className="ticker-badge">{rec.ticker}</span></td>
+                                    <td><TickerCell ticker={rec.ticker} onSelectTicker={onSelectTicker} onRunResearch={onRunResearch} /></td>
                                     <td>{rec.recommendation}</td>
                                     <td>{rec.conviction}</td>
+                                    <td>{fmtSize(rec)}</td>
                                     <td><span className={`badge ${badgeFor(rec.review_status)}`}>{rec.review_status}</span></td>
                                     <td>{rec.model_key}</td>
                                     <td>{fmt(rec.outcome_1m_return_pct)}</td>
@@ -300,7 +339,7 @@ export default function CalibrationPage() {
                                 </tr>
                             ))}
                             {!loading && recent.length === 0 && (
-                                <tr><td colSpan="8" style={{ color: 'var(--text-muted)' }}>No tracked recommendations</td></tr>
+                                <tr><td colSpan="9" style={{ color: 'var(--text-muted)' }}>No tracked recommendations</td></tr>
                             )}
                         </tbody>
                     </table>

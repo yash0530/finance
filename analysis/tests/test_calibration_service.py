@@ -12,7 +12,7 @@ import db
 def clean_tables():
     conn = db.get_connection()
     try:
-        for table in ("recommendations", "research_reports", "tool_result_cache"):
+        for table in ("recommendations", "recommendation_sizing", "research_reports", "tool_result_cache"):
             conn.execute(f"DELETE FROM {table}")
         conn.commit()
     finally:
@@ -133,3 +133,73 @@ def test_calibration_dashboard_endpoint(client):
     dashboard = client.get("/api/calibration/dashboard?ticker=NVDA").get_json()
     assert dashboard["ticker"] == "NVDA"
     assert dashboard["summary"]["reviewed"] == 1
+
+
+def test_sizing_round_trips_and_surfaces_in_recommendations():
+    rec_id = db.save_recommendation("rep-1", "NVDA", "BUY", "HIGH", 100.0)
+    db.save_recommendation_sizing(rec_id=rec_id, judge_size_pct=4.5)
+
+    stored = db.get_recommendation_sizing(rec_id)
+    assert stored["judge_size_pct"] == 4.5
+    assert stored["governed_size_pct"] is None
+
+    [rec] = svc.list_recommendations(recommendation_ids=[rec_id], limit=1)
+    assert rec["judge_size_pct"] == 4.5
+    assert rec["governed_size_pct"] is None
+
+
+def _resolved_recs(conviction, n, favorable):
+    """Build n resolved recs at a conviction with a given favorable/unfavorable
+    3m outcome (BUY → positive return is favorable)."""
+    return [
+        {"conviction": conviction, "recommendation": "BUY",
+         "outcome_3m_return_pct": 5.0 if favorable else -5.0, "favorable": favorable}
+        for _ in range(n)
+    ]
+
+
+def test_governor_passes_small_sizes_untouched():
+    # Size already at/under the conservative cap needs no governance.
+    assert svc.govern_size("HIGH", 1.5, recs=[]) == (1.5, "")
+
+
+def test_governor_caps_unproven_tier():
+    governed, reason = svc.govern_size("HIGH", 8.0, recs=[])
+    assert governed == svc.GOVERNOR_CONSERVATIVE_CAP_PCT
+    assert "0 resolved HIGH" in reason
+
+
+def test_governor_caps_tier_without_demonstrated_edge():
+    recs = _resolved_recs("HIGH", svc.GOVERNOR_MIN_RESOLVED, favorable=False)
+    governed, reason = svc.govern_size("HIGH", 8.0, recs=recs)
+    assert governed == svc.GOVERNOR_CONSERVATIVE_CAP_PCT
+    assert "favorable only 0%" in reason
+
+
+def test_governor_trusts_judge_once_edge_is_earned():
+    recs = _resolved_recs("HIGH", svc.GOVERNOR_MIN_RESOLVED, favorable=True)
+    governed, reason = svc.govern_size("HIGH", 8.0, recs=recs)
+    assert governed == 8.0
+    assert reason == ""
+
+
+def test_governor_segregates_by_conviction_tier():
+    # A proven HIGH tier must not lift the cap on an unproven LOW call.
+    recs = _resolved_recs("HIGH", svc.GOVERNOR_MIN_RESOLVED, favorable=True)
+    governed, reason = svc.govern_size("LOW", 8.0, recs=recs)
+    assert governed == svc.GOVERNOR_CONSERVATIVE_CAP_PCT
+    assert "0 resolved LOW" in reason
+
+
+def test_sizing_upsert_preserves_judge_size_when_governor_caps():
+    rec_id = db.save_recommendation("rep-1", "NVDA", "BUY", "HIGH", 100.0)
+    db.save_recommendation_sizing(rec_id=rec_id, judge_size_pct=8.0)
+    # Governor later caps without re-supplying the Judge's raw size.
+    db.save_recommendation_sizing(
+        rec_id=rec_id, governed_size_pct=2.0, governor_reason="only 1 resolved HIGH call",
+    )
+
+    stored = db.get_recommendation_sizing(rec_id)
+    assert stored["judge_size_pct"] == 8.0
+    assert stored["governed_size_pct"] == 2.0
+    assert stored["governor_reason"] == "only 1 resolved HIGH call"

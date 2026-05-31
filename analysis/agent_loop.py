@@ -258,7 +258,8 @@ def stream_deep_research(
     """
     from agents import planner, bull, bear, judge, self_critique, bull_rebuttal
     from db import (
-        log_tool_call, save_research_report, save_recommendation, get_llm_settings,
+        log_tool_call, save_research_report, save_recommendation,
+        save_recommendation_sizing, get_llm_settings,
     )
     from llm_service import LLMCallSession
 
@@ -467,6 +468,7 @@ def stream_deep_research(
     # local-model verdicts don't pollute the track record. See _LOCAL_PROVIDERS.
     rec_id = None
     tracked = False
+    sizing = None
     try:
         provider_now = (get_llm_settings() or {}).get("provider", "")
         tracked = _provider_is_tracked(provider_now)
@@ -482,6 +484,25 @@ def stream_deep_research(
                 thesis_summary=verdict.get("summary", ""),
                 what_would_change_mind="\n".join(verdict.get("what_would_change_mind", [])),
             )
+            # Persist the Judge's position size into the track record (it was
+            # previously dropped) and apply the sizing governor: the raw size is
+            # only trusted once this conviction tier has earned it.
+            judge_size = (verdict.get("trade_plan") or {}).get("position_size_pct")
+            if rec_id is not None and isinstance(judge_size, (int, float)):
+                from calibration_service import govern_size
+                judge_size = float(judge_size)
+                governed_size, governor_reason = govern_size(
+                    verdict.get("conviction", "LOW"), judge_size,
+                )
+                save_recommendation_sizing(
+                    rec_id=rec_id, judge_size_pct=judge_size,
+                    governed_size_pct=governed_size, governor_reason=governor_reason,
+                )
+                sizing = {
+                    "judge_size_pct": judge_size,
+                    "governed_size_pct": governed_size,
+                    "governor_reason": governor_reason,
+                }
         else:
             logger.info(
                 f"Verdict for {ticker} NOT persisted to recommendations: "
@@ -508,6 +529,7 @@ def stream_deep_research(
         "memo_delta": memo_delta,
         "recommendation_id": rec_id,
         "tracked_for_calibration": tracked,
+        "sizing": sizing,
         "price_at_report": current_price,
     }
 
