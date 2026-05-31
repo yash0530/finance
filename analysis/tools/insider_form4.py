@@ -27,7 +27,7 @@ from db import get_connection, get_tool_cache, save_tool_cache
 logger = logging.getLogger(__name__)
 
 # SEC requires an identifying User-Agent on every request.
-SEC_USER_AGENT = "PortfolioIntelligence research@example.com"
+SEC_USER_AGENT = "EdgeTerminal research@example.com"
 SEC_HEADERS = {"User-Agent": SEC_USER_AGENT, "Accept-Encoding": "gzip, deflate"}
 REQUEST_DELAY_SEC = 0.15  # SEC tolerates up to ~10 req/sec; we use ~6.
 

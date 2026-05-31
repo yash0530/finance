@@ -55,6 +55,31 @@ def _fake_yf(df, capture=None):
     return SimpleNamespace(Ticker=_Ticker)
 
 
+def _fake_yf_error(message="Too Many Requests. Rate limited. Try after a while."):
+    class _Ticker:
+        def __init__(self, t):
+            pass
+
+        def history(self, period="1y", interval="1d", auto_adjust=True):
+            raise RuntimeError(message)
+
+    return SimpleNamespace(Ticker=_Ticker)
+
+
+def _chart_bars(n=30):
+    return [
+        {
+            "time": f"2026-05-{day:02d}T00:00:00",
+            "open": 100 + day,
+            "high": 102 + day,
+            "low": 98 + day,
+            "close": 101 + day,
+            "volume": 1_000_000 + day,
+        }
+        for day in range(1, n + 1)
+    ]
+
+
 def test_price_history_returns_bars(monkeypatch):
     monkeypatch.setitem(sys.modules, "yfinance", _fake_yf(_ohlc(30)))
     from tools.price_history import PriceHistoryTool
@@ -111,7 +136,7 @@ def test_price_history_includes_overlays(monkeypatch):
     result = PriceHistoryTool().execute(ticker="NVDA", range="1y")
     assert result.is_ok()
     overlays = result.data["overlays"]
-    assert set(overlays.keys()) == {"ma20", "ma50", "bb_upper", "bb_lower", "vwap", "rsi", "macd"}
+    assert set(overlays.keys()) == {"ma20", "ma50", "ma200", "bb_upper", "bb_lower", "vwap", "rsi", "macd"}
     # ma20 should be None for the first 19 bars, populated after.
     assert overlays["ma20"][0] is None
     assert overlays["ma20"][19] is not None
@@ -120,3 +145,49 @@ def test_price_history_includes_overlays(monkeypatch):
     assert overlays["vwap"][0] is not None
     # Bollinger upper >= lower where both populated.
     assert overlays["bb_upper"][25] >= overlays["bb_lower"][25]
+
+
+def test_price_history_yahoo_chart_fallback_is_success(monkeypatch):
+    monkeypatch.setitem(sys.modules, "yfinance", _fake_yf_error())
+    monkeypatch.setattr("tools.price_history._fetch_yahoo_chart", lambda *args: _chart_bars(30))
+    from tools.price_history import PriceHistoryTool
+
+    result = PriceHistoryTool().execute(ticker="NVDA", range="1y")
+
+    assert result.is_ok()
+    assert result.error is None
+    assert result.data["fallback"] == "yahoo_chart_api"
+    assert len(result.data["bars"]) == 30
+
+
+def test_price_history_stale_cache_is_success_when_live_fetch_fails(monkeypatch):
+    from tools.price_history import PriceHistoryTool, _CACHE_VERSION
+
+    cache_key = f"{_CACHE_VERSION}|NVDA|1y|1d"
+    db.save_tool_cache("price_history", cache_key, {
+        "ticker": "NVDA",
+        "range": "1y",
+        "interval": "1d",
+        "bars": _chart_bars(30),
+        "overlays": {},
+    })
+    conn = db.get_connection()
+    try:
+        conn.execute(
+            "UPDATE tool_result_cache SET fetched_at = ? WHERE tool_name = ? AND cache_key = ?",
+            ("2020-01-01T00:00:00", "price_history", cache_key),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    monkeypatch.setitem(sys.modules, "yfinance", _fake_yf_error())
+    monkeypatch.setattr("tools.price_history._fetch_yahoo_chart", lambda *args: (_ for _ in ()).throw(RuntimeError("429")))
+
+    result = PriceHistoryTool().execute(ticker="NVDA", range="1y")
+
+    assert result.is_ok()
+    assert result.error is None
+    assert result.cached is True
+    assert result.data["stale"] is True
+    assert result.data["warning"] == "Live price refresh failed; showing cached chart."

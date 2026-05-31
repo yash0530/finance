@@ -23,7 +23,21 @@ from tools.movers import fetch_quotes
 
 _CACHE_PATH = Path(__file__).parent.parent / ".cache" / "sp500_data.json"
 _CONSTITUENTS_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
-_USER_AGENT = "PortfolioIntelligence/1.0"
+_USER_AGENT = "EdgeTerminal/1.0"
+DEFAULT_MAX_WORKERS = 4
+DEFAULT_MAX_INFO_REQUESTS = 25
+_ENRICHMENT_FIELDS = (
+    "forward_pe",
+    "trailing_pe",
+    "profit_margin",
+    "revenue_growth",
+    "year_change",
+    "fifty_two_week_high",
+    "fifty_two_week_low",
+    "beta",
+    "eps",
+)
+_MIN_ENRICHMENT_SCORE = 5
 
 
 def _clean_number(value: Any) -> Optional[float]:
@@ -40,6 +54,16 @@ def _clean_number(value: Any) -> Optional[float]:
 
 def _safe_info(info: Dict[str, Any], key: str) -> Optional[float]:
     return _clean_number(info.get(key))
+
+
+def _has_value(value: Any) -> bool:
+    return _clean_number(value) is not None if isinstance(value, (int, float)) else value not in (None, "", "N/A")
+
+
+def _enrichment_score(row: Optional[Dict[str, Any]]) -> int:
+    if not row:
+        return 0
+    return sum(1 for field in _ENRICHMENT_FIELDS if _has_value(row.get(field)))
 
 
 def _fmt_currency(value: Optional[float]) -> str:
@@ -64,6 +88,54 @@ def _fmt_percent(value: Optional[float]) -> str:
 
 def _fmt_multiple(value: Optional[float]) -> str:
     return "N/A" if value is None else f"{value:.2f}x"
+
+
+def _finalize_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Recompute derived/display fields after new data is merged with cache."""
+    current_price = _clean_number(row.get("current_price"))
+    market_cap = _clean_number(row.get("market_cap"))
+    forward_pe = _clean_number(row.get("forward_pe"))
+    trailing_pe = _clean_number(row.get("trailing_pe"))
+    high = _clean_number(row.get("fifty_two_week_high"))
+    volume = _clean_number(row.get("volume"))
+    average_volume = _clean_number(row.get("average_volume"))
+
+    pe_ratio = _clean_number(row.get("pe_ratio"))
+    if pe_ratio is None and trailing_pe is not None and forward_pe not in (None, 0):
+        pe_ratio = round(trailing_pe / forward_pe, 12)
+    row["pe_ratio"] = pe_ratio
+
+    if current_price is not None and high:
+        row["pct_from_high"] = (current_price - high) / high
+
+    if volume is not None:
+        row["volume"] = int(volume)
+    if average_volume is not None:
+        row["average_volume"] = int(average_volume)
+    if volume is not None and average_volume:
+        row["volume_ratio"] = round(volume / average_volume, 4)
+
+    if market_cap is not None:
+        row["market_cap"] = int(market_cap)
+    for key in ("total_revenue", "net_income"):
+        value = _clean_number(row.get(key))
+        if value is not None:
+            row[key] = int(value)
+
+    row["current_price_fmt"] = _fmt_currency(current_price)
+    row["market_cap_fmt"] = _fmt_large(market_cap)
+    row["pe_ratio_fmt"] = _fmt_multiple(row.get("pe_ratio"))
+    row["total_revenue_fmt"] = _fmt_large(_clean_number(row.get("total_revenue")))
+    row["net_income_fmt"] = _fmt_large(_clean_number(row.get("net_income")))
+    row["profit_margin_fmt"] = _fmt_percent(_clean_number(row.get("profit_margin")))
+    row["operating_margin_fmt"] = _fmt_percent(_clean_number(row.get("operating_margin")))
+    row["dividend_yield_fmt"] = _fmt_percent(_clean_number(row.get("dividend_yield")))
+    row["revenue_growth_fmt"] = _fmt_percent(_clean_number(row.get("revenue_growth")))
+    row["year_change_fmt"] = _fmt_percent(_clean_number(row.get("year_change")))
+    day_change = _clean_number(row.get("day_change_percent"))
+    row["day_change_percent_fmt"] = "N/A" if day_change is None else f"{day_change:.2f}%"
+    row["volume_ratio_fmt"] = _fmt_multiple(_clean_number(row.get("volume_ratio")))
+    return row
 
 
 def _read_payload(cache_path: Optional[Path] = None) -> Dict[str, Any]:
@@ -196,53 +268,41 @@ def _build_row(
     volume_ratio = round(volume / average_volume, 4) if volume is not None and average_volume else None
     pct_from_high = ((current_price - high) / high) if current_price is not None and high else None
 
-    return {
+    return _finalize_row({
         "current_price": current_price,
-        "current_price_fmt": _fmt_currency(current_price),
-        "market_cap": int(market_cap) if market_cap is not None else None,
-        "market_cap_fmt": _fmt_large(market_cap),
+        "market_cap": market_cap,
         "forward_pe": forward_pe,
         "trailing_pe": trailing_pe,
         "pe_ratio": pe_ratio,
-        "pe_ratio_fmt": _fmt_multiple(pe_ratio),
         "peg_ratio": _safe_info(info, "pegRatio"),
         "price_to_sales": _safe_info(info, "priceToSalesTrailing12Months"),
         "price_to_book": _safe_info(info, "priceToBook"),
         "ev_to_revenue": _safe_info(info, "enterpriseToRevenue"),
         "ev_to_ebitda": _safe_info(info, "enterpriseToEbitda"),
-        "total_revenue": int(_safe_info(info, "totalRevenue")) if _safe_info(info, "totalRevenue") is not None else None,
-        "total_revenue_fmt": _fmt_large(_safe_info(info, "totalRevenue")),
-        "net_income": int(_safe_info(info, "netIncomeToCommon")) if _safe_info(info, "netIncomeToCommon") is not None else None,
-        "net_income_fmt": _fmt_large(_safe_info(info, "netIncomeToCommon")),
+        "total_revenue": _safe_info(info, "totalRevenue"),
+        "net_income": _safe_info(info, "netIncomeToCommon"),
         "profit_margin": _safe_info(info, "profitMargins"),
-        "profit_margin_fmt": _fmt_percent(_safe_info(info, "profitMargins")),
         "operating_margin": _safe_info(info, "operatingMargins"),
-        "operating_margin_fmt": _fmt_percent(_safe_info(info, "operatingMargins")),
         "gross_margin": _safe_info(info, "grossMargins"),
         "dividend_yield": _safe_info(info, "dividendYield"),
-        "dividend_yield_fmt": _fmt_percent(_safe_info(info, "dividendYield")),
         "beta": _safe_info(info, "beta"),
         "eps": _safe_info(info, "trailingEps"),
         "revenue_growth": _safe_info(info, "revenueGrowth"),
-        "revenue_growth_fmt": _fmt_percent(_safe_info(info, "revenueGrowth")),
         "year_change": year_change,
-        "year_change_fmt": _fmt_percent(year_change),
         "fifty_two_week_high": high,
         "fifty_two_week_low": low,
         "day_change_percent": day_change,
-        "day_change_percent_fmt": "N/A" if day_change is None else f"{day_change:.2f}%",
-        "volume": int(volume) if volume is not None else None,
-        "average_volume": int(average_volume) if average_volume is not None else None,
+        "volume": volume,
+        "average_volume": average_volume,
         "volume_ratio": volume_ratio,
-        "volume_ratio_fmt": _fmt_multiple(volume_ratio),
         "fifty_day_average": _safe_info(info, "fiftyDayAverage"),
         "two_hundred_day_average": _safe_info(info, "twoHundredDayAverage"),
         "pct_from_high": pct_from_high,
         "ticker": ticker,
         "company_name": info.get("longName") or info.get("shortName") or metadata.get("company_name") or ticker,
-        "sector": info.get("sector") or metadata.get("sector") or "Unknown",
-        "industry": info.get("industry") or metadata.get("industry") or "",
-    }
+        "sector": metadata.get("sector") or info.get("sector") or "Unknown",
+        "industry": metadata.get("industry") or info.get("industry") or "",
+    })
 
 
 def _write_snapshot(rows: List[Dict[str, Any]], cache_path: Optional[Path] = None) -> Dict[str, Any]:
@@ -258,9 +318,61 @@ def _write_snapshot(rows: List[Dict[str, Any]], cache_path: Optional[Path] = Non
     return payload
 
 
+def _prior_snapshot_rows(cache_path: Optional[Path] = None) -> Dict[str, Dict[str, Any]]:
+    return {
+        _normalize_ticker(row.get("ticker")): dict(row)
+        for row in (_read_payload(cache_path).get("data") or [])
+        if row.get("ticker")
+    }
+
+
+def _merge_with_previous(
+    new_row: Dict[str, Any],
+    previous_row: Optional[Dict[str, Any]],
+    metadata: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Overlay non-empty fresh fields onto the prior row.
+
+    Yahoo's full `.info` endpoint can return an empty/sparse payload when it is
+    rate-limited. Preserve prior fundamentals in that case while still taking
+    fresh fast-quote fields from `new_row`.
+    """
+    if not previous_row:
+        row = dict(new_row)
+    else:
+        row = dict(previous_row)
+        for key, value in new_row.items():
+            if key.endswith("_fmt"):
+                continue
+            if key in {"ticker", "company_name", "sector", "industry"} or _has_value(value):
+                row[key] = value
+
+    row["ticker"] = new_row.get("ticker") or row.get("ticker")
+    if metadata:
+        row["company_name"] = metadata.get("company_name") or row.get("company_name") or row["ticker"]
+        row["sector"] = metadata.get("sector") or row.get("sector") or "Unknown"
+        row["industry"] = metadata.get("industry") or row.get("industry") or ""
+    else:
+        row["company_name"] = row.get("company_name") or row["ticker"]
+        row["sector"] = row.get("sector") or "Unknown"
+        row["industry"] = row.get("industry") or ""
+    return _finalize_row(row)
+
+
+def _fallback_row(
+    ticker: str,
+    previous_rows: Dict[str, Dict[str, Any]],
+    metadata: Optional[Dict[str, Any]],
+    quote: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    quote_row = _build_row(ticker, {}, quote, metadata)
+    return _merge_with_previous(quote_row, previous_rows.get(ticker), metadata)
+
+
 def rebuild_snapshot(
     tickers: Optional[Iterable[str]] = None,
-    max_workers: int = 8,
+    max_workers: int = DEFAULT_MAX_WORKERS,
+    max_info_requests: int = DEFAULT_MAX_INFO_REQUESTS,
     cache_path: Optional[Path] = None,
 ) -> Dict[str, Any]:
     """Fetch yfinance data and atomically write a fresh S&P 500 snapshot."""
@@ -270,32 +382,61 @@ def rebuild_snapshot(
     else:
         seed_rows = [{"ticker": _normalize_ticker(t)} for t in tickers]
     metadata_by_ticker = {r["ticker"]: r for r in seed_rows if r.get("ticker")}
-    universe = sorted(metadata_by_ticker)
+    previous_rows = _prior_snapshot_rows(cache_path)
+    universe = sorted(
+        metadata_by_ticker,
+        key=lambda ticker: (_enrichment_score(previous_rows.get(ticker)), ticker),
+    )
     if not universe:
         raise ValueError("No S&P 500 tickers available to refresh")
     try:
         worker_count = max(1, int(max_workers or 1))
     except (TypeError, ValueError):
-        worker_count = 8
+        worker_count = DEFAULT_MAX_WORKERS
 
     import yfinance as yf
 
     quotes = fetch_quotes(universe, max_workers=worker_count)
+    incomplete = {
+        ticker
+        for ticker in universe
+        if _enrichment_score(previous_rows.get(ticker)) < _MIN_ENRICHMENT_SCORE
+    }
+    info_candidates = [ticker for ticker in universe if ticker in incomplete] if incomplete else list(universe)
+    try:
+        info_request_limit = max(1, int(max_info_requests or DEFAULT_MAX_INFO_REQUESTS))
+    except (TypeError, ValueError):
+        info_request_limit = DEFAULT_MAX_INFO_REQUESTS
+    if tickers is None and len(info_candidates) > info_request_limit:
+        info_candidates = info_candidates[:info_request_limit]
+    info_tickers = set(info_candidates)
+    info_deferred_count = max(0, len(incomplete or universe) - len(info_tickers))
 
     def _one(ticker: str):
+        metadata = metadata_by_ticker.get(ticker)
+        quote_row = _build_row(ticker, {}, quotes.get(ticker), metadata)
+        if ticker not in info_tickers:
+            return ticker, _merge_with_previous(quote_row, previous_rows.get(ticker), metadata), None
         try:
             info = yf.Ticker(ticker).info or {}
-            return ticker, _build_row(ticker, info, quotes.get(ticker), metadata_by_ticker.get(ticker)), None
+            new_row = _build_row(ticker, info, quotes.get(ticker), metadata)
+            row = _merge_with_previous(new_row, previous_rows.get(ticker), metadata)
+            if _enrichment_score(new_row) == 0:
+                return ticker, row, "Sparse yfinance info payload; preserved cached fundamentals where available"
+            return ticker, row, None
         except Exception as exc:
-            row = _build_row(ticker, {}, quotes.get(ticker), metadata_by_ticker.get(ticker))
+            row = _fallback_row(ticker, previous_rows, metadata, quotes.get(ticker))
             return ticker, row, f"{type(exc).__name__}: {exc}"
 
     rows: List[Dict[str, Any]] = []
     failures: Dict[str, str] = {}
+    preserved_count = 0
     with ThreadPoolExecutor(max_workers=worker_count) as pool:
         for ticker, row, error in pool.map(_one, universe):
             if row:
                 rows.append(row)
+                if _enrichment_score(previous_rows.get(ticker)) > _enrichment_score(_build_row(ticker, {}, quotes.get(ticker), metadata_by_ticker.get(ticker))):
+                    preserved_count += 1
             if error:
                 failures[ticker] = error
 
@@ -303,6 +444,7 @@ def rebuild_snapshot(
         raise RuntimeError("No S&P 500 rows resolved from yfinance")
 
     rows.sort(key=lambda r: r["ticker"])
+    enriched_count = sum(1 for row in rows if _enrichment_score(row) >= _MIN_ENRICHMENT_SCORE)
     payload = _write_snapshot(rows, cache_path)
     return {
         "timestamp": payload["timestamp"],
@@ -311,6 +453,11 @@ def rebuild_snapshot(
         "resolved_count": len(rows) - len(failures),
         "failed_count": len(failures),
         "failures": failures,
+        "enriched_count": enriched_count,
+        "partial_count": len(rows) - enriched_count,
+        "info_requested_count": len(info_tickers),
+        "info_deferred_count": info_deferred_count,
+        "preserved_count": preserved_count,
         "cache_path": str(cache_path),
         "sample_tickers": [r["ticker"] for r in rows[:5]],
     }
@@ -332,11 +479,15 @@ class SP500RefreshTool(Tool):
                 "tickers": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Optional explicit ticker list; defaults to cached S&P 500 constituents.",
+                    "description": "Optional explicit ticker list; defaults to the current S&P 500 constituent seed.",
                 },
                 "max_workers": {
                     "type": "integer",
-                    "description": "Parallel yfinance request count, default 8.",
+                    "description": f"Parallel yfinance request count, default {DEFAULT_MAX_WORKERS}.",
+                },
+                "max_info_requests": {
+                    "type": "integer",
+                    "description": f"Maximum full yfinance info lookups per broad refresh, default {DEFAULT_MAX_INFO_REQUESTS}.",
                 },
             },
             "required": [],
@@ -345,8 +496,14 @@ class SP500RefreshTool(Tool):
     def estimate_cost(self, **args) -> float:
         return 0.0
 
-    def _execute(self, tickers: Optional[List[str]] = None, max_workers: int = 8, **kwargs) -> ToolResult:
-        data = rebuild_snapshot(tickers=tickers, max_workers=max_workers)
+    def _execute(
+        self,
+        tickers: Optional[List[str]] = None,
+        max_workers: int = DEFAULT_MAX_WORKERS,
+        max_info_requests: int = DEFAULT_MAX_INFO_REQUESTS,
+        **kwargs,
+    ) -> ToolResult:
+        data = rebuild_snapshot(tickers=tickers, max_workers=max_workers, max_info_requests=max_info_requests)
         now = datetime.now().isoformat()
         confidence = "high" if data["resolved_count"] >= max(1, data["requested_count"] * 0.9) else "medium"
         return ToolResult(

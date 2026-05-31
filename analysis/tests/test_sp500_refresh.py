@@ -164,3 +164,157 @@ def test_rebuild_keeps_constituent_row_when_yfinance_info_fails(tmp_path, monkey
     assert payload["data"][0]["ticker"] == "MU"
     assert payload["data"][0]["company_name"] == "Micron Technology"
     assert payload["data"][0]["sector"] == "Information Technology"
+
+
+def test_rebuild_preserves_cached_metrics_when_yfinance_rate_limited(tmp_path, monkeypatch):
+    cache_path = tmp_path / "sp500_data.json"
+    cache_path.write_text(json.dumps({
+        "timestamp": "2026-01-01T00:00:00",
+        "data": [{
+            "ticker": "MU",
+            "company_name": "Micron Technology",
+            "sector": "Information Technology",
+            "industry": "Semiconductors",
+            "forward_pe": 12.5,
+        }],
+    }))
+    monkeypatch.setitem(sys.modules, "yfinance", SimpleNamespace(Ticker=_Ticker))
+
+    import tools.sp500_refresh as refresh
+
+    monkeypatch.setattr(refresh, "_CACHE_PATH", cache_path)
+    monkeypatch.setattr(refresh, "_fetch_constituent_rows", lambda: [
+        {"ticker": "MU", "company_name": "Micron Technology", "sector": "Information Technology", "industry": "Semiconductors"},
+    ])
+
+    result = refresh.SP500RefreshTool().execute(max_workers=1)
+
+    assert result.error is None
+    assert result.data["failed_count"] == 1
+    payload = json.loads(cache_path.read_text())
+    assert payload["data"][0]["forward_pe"] == 12.5
+
+
+def test_rebuild_preserves_cached_metrics_when_yfinance_info_is_sparse(tmp_path, monkeypatch):
+    cache_path = tmp_path / "sp500_data.json"
+    cache_path.write_text(json.dumps({
+        "timestamp": "2026-01-01T00:00:00",
+        "data": [{
+            "ticker": "CFG",
+            "company_name": "Citizens Financial Group, Inc.",
+            "sector": "Financials",
+            "industry": "Regional Banks",
+            "current_price": 44.0,
+            "market_cap": 20000000000,
+            "forward_pe": 11.2,
+            "trailing_pe": 12.1,
+            "profit_margin": 0.18,
+            "revenue_growth": 0.04,
+            "year_change": 0.22,
+            "fifty_two_week_high": 50.0,
+            "fifty_two_week_low": 30.0,
+            "beta": 1.3,
+            "eps": 3.6,
+        }],
+    }))
+
+    class SparseTicker:
+        def __init__(self, ticker):
+            self.ticker = ticker
+
+        @property
+        def info(self):
+            return {}
+
+        @property
+        def fast_info(self):
+            return {
+                "last_price": 45.0,
+                "previous_close": 44.0,
+                "last_volume": 1000,
+                "market_cap": 21000000000,
+            }
+
+    monkeypatch.setitem(sys.modules, "yfinance", SimpleNamespace(Ticker=SparseTicker))
+
+    import tools.sp500_refresh as refresh
+
+    monkeypatch.setattr(refresh, "_CACHE_PATH", cache_path)
+    monkeypatch.setattr(refresh, "_fetch_constituent_rows", lambda: [
+        {"ticker": "CFG", "company_name": "Citizens Financial Group, Inc.", "sector": "Financials", "industry": "Regional Banks"},
+    ])
+
+    result = refresh.SP500RefreshTool().execute(max_workers=1)
+
+    assert result.error is None
+    assert result.data["row_count"] == 1
+    assert result.data["failed_count"] == 1
+    assert result.data["preserved_count"] == 1
+    payload = json.loads(cache_path.read_text())
+    row = payload["data"][0]
+    assert row["current_price"] == 45.0
+    assert row["market_cap"] == 21000000000
+    assert row["forward_pe"] == 11.2
+    assert row["trailing_pe"] == 12.1
+    assert row["profit_margin_fmt"] == "18.00%"
+    assert row["revenue_growth_fmt"] == "4.00%"
+    assert row["pct_from_high"] == -0.1
+
+
+def test_broad_refresh_caps_full_info_requests(tmp_path, monkeypatch):
+    cache_path = tmp_path / "sp500_data.json"
+
+    class CountingTicker:
+        info_calls = []
+
+        def __init__(self, ticker):
+            self.ticker = ticker
+
+        @property
+        def info(self):
+            CountingTicker.info_calls.append(self.ticker)
+            return {
+                "longName": self.ticker,
+                "forwardPE": 10.0,
+                "trailingPE": 12.0,
+                "profitMargins": 0.1,
+                "revenueGrowth": 0.05,
+                "52WeekChange": 0.2,
+                "fiftyTwoWeekHigh": 20.0,
+                "fiftyTwoWeekLow": 10.0,
+                "beta": 1.0,
+                "trailingEps": 2.0,
+            }
+
+        @property
+        def fast_info(self):
+            return {
+                "last_price": 15.0,
+                "previous_close": 14.0,
+                "last_volume": 1000,
+                "market_cap": 1000000000,
+            }
+
+    monkeypatch.setitem(sys.modules, "yfinance", SimpleNamespace(Ticker=CountingTicker))
+
+    import tools.sp500_refresh as refresh
+
+    monkeypatch.setattr(refresh, "_CACHE_PATH", cache_path)
+    monkeypatch.setattr(refresh, "_fetch_constituent_rows", lambda: [
+        {"ticker": "AAA", "company_name": "AAA", "sector": "Industrials", "industry": ""},
+        {"ticker": "BBB", "company_name": "BBB", "sector": "Industrials", "industry": ""},
+        {"ticker": "CCC", "company_name": "CCC", "sector": "Industrials", "industry": ""},
+    ])
+
+    result = refresh.SP500RefreshTool().execute(max_workers=1, max_info_requests=2)
+
+    assert result.error is None
+    assert result.data["info_requested_count"] == 2
+    assert result.data["info_deferred_count"] == 1
+    assert CountingTicker.info_calls == ["AAA", "BBB"]
+    payload = json.loads(cache_path.read_text())
+    by_ticker = {row["ticker"]: row for row in payload["data"]}
+    assert by_ticker["AAA"]["forward_pe"] == 10.0
+    assert by_ticker["BBB"]["forward_pe"] == 10.0
+    assert by_ticker["CCC"]["forward_pe"] is None
+    assert by_ticker["CCC"]["market_cap"] == 1000000000

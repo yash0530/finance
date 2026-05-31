@@ -17,7 +17,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Tuple
 
 from tools import Source, Tool, ToolResult, register
-from db import get_tool_cache, save_tool_cache
+from db import get_connection, get_tool_cache, save_tool_cache
 
 
 RANGE_TO_YF: Dict[str, Tuple[str, str]] = {
@@ -62,6 +62,90 @@ def _bars_from_history(hist) -> List[Dict[str, Any]]:
     return bars
 
 
+def _fetch_yahoo_chart(ticker: str, period: str, interval: str) -> List[Dict[str, Any]]:
+    """Fallback to Yahoo's chart endpoint when yfinance is rate-limited."""
+    import requests
+
+    urls = [
+        f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}",
+        f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}",
+    ]
+    params = {
+        "range": period,
+        "interval": interval,
+        "events": "history",
+        "includeAdjustedClose": "true",
+    }
+    last_error = None
+    payload = {}
+    for url in urls:
+        try:
+            res = requests.get(
+                url,
+                params=params,
+                timeout=12,
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
+            res.raise_for_status()
+            payload = res.json()
+            chart_error = (payload.get("chart") or {}).get("error")
+            if chart_error:
+                raise RuntimeError(chart_error.get("description") or chart_error.get("code") or "Yahoo chart error")
+            break
+        except Exception as exc:
+            last_error = exc
+    else:
+        raise RuntimeError(str(last_error or "Yahoo chart API unavailable"))
+
+    result = ((payload.get("chart") or {}).get("result") or [None])[0]
+    if not result:
+        return []
+    timestamps = result.get("timestamp") or []
+    quote = (((result.get("indicators") or {}).get("quote") or [{}])[0]) or {}
+    opens = quote.get("open") or []
+    highs = quote.get("high") or []
+    lows = quote.get("low") or []
+    closes = quote.get("close") or []
+    volumes = quote.get("volume") or []
+
+    bars: List[Dict[str, Any]] = []
+    for i, ts in enumerate(timestamps):
+        try:
+            close = closes[i]
+            if close is None:
+                continue
+            bars.append({
+                "time": datetime.fromtimestamp(int(ts)).isoformat(),
+                "open": round(float(opens[i] if opens[i] is not None else close), 4),
+                "high": round(float(highs[i] if highs[i] is not None else close), 4),
+                "low": round(float(lows[i] if lows[i] is not None else close), 4),
+                "close": round(float(close), 4),
+                "volume": int(volumes[i]) if i < len(volumes) and volumes[i] is not None else None,
+            })
+        except (IndexError, TypeError, ValueError):
+            continue
+    return bars
+
+
+def _get_stale_cache(cache_key: str) -> Dict[str, Any]:
+    """Return the latest cache row regardless of TTL for graceful UI fallback."""
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            """SELECT result_json FROM tool_result_cache
+               WHERE tool_name = ? AND cache_key = ?""",
+            ("price_history", cache_key),
+        ).fetchone()
+        if not row:
+            return {}
+        import json
+        data = json.loads(row["result_json"])
+        data["stale"] = True
+        return data
+    finally:
+        conn.close()
+
+
 def _compute_overlays(bars: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Server-computed overlay series aligned to bars: MA20, MA50, Bollinger, VWAP, RSI, MACD.
 
@@ -74,7 +158,7 @@ def _compute_overlays(bars: List[Dict[str, Any]]) -> Dict[str, Any]:
     n = len(bars)
     if n == 0:
         return {
-            "ma20": [], "ma50": [],
+            "ma20": [], "ma50": [], "ma200": [],
             "bb_upper": [], "bb_lower": [],
             "vwap": [], "rsi": [],
             "macd": {"line": [], "signal": [], "histogram": []}
@@ -88,6 +172,7 @@ def _compute_overlays(bars: List[Dict[str, Any]]) -> Dict[str, Any]:
     # Moving averages
     ma20 = closes.rolling(20).mean()
     ma50 = closes.rolling(50).mean()
+    ma200 = closes.rolling(200).mean()
 
     # Bollinger Bands
     std20 = closes.rolling(20).std()
@@ -128,6 +213,7 @@ def _compute_overlays(bars: List[Dict[str, Any]]) -> Dict[str, Any]:
     return {
         "ma20": sanitize(ma20),
         "ma50": sanitize(ma50),
+        "ma200": sanitize(ma200),
         "bb_upper": sanitize(bb_upper),
         "bb_lower": sanitize(bb_lower),
         "vwap": sanitize(vwap),
@@ -192,20 +278,48 @@ class PriceHistoryTool(Tool):
                 confidence="high", cached=True,
             )
 
+        fetch_error = None
         try:
             import yfinance as yf
             hist = yf.Ticker(ticker).history(period=yf_period, interval=yf_interval, auto_adjust=True)
         except Exception as e:
-            return ToolResult(
-                tool_name=self.name, data={"bars": []},
-                error=str(e), confidence="low",
-            )
+            hist = None
+            fetch_error = e
 
         if hist is None or hist.empty:
+            try:
+                bars = _fetch_yahoo_chart(ticker, yf_period, yf_interval)
+                if bars:
+                    data = {
+                        "ticker": ticker,
+                        "range": rng,
+                        "interval": yf_interval,
+                        "bars": bars,
+                        "overlays": _compute_overlays(bars),
+                        "as_of": datetime.now().isoformat(),
+                        "fallback": "yahoo_chart_api",
+                    }
+                    save_tool_cache(self.name, cache_key, data)
+                    return ToolResult(
+                        tool_name=self.name, data=data,
+                        sources=_build_sources(ticker, cached=False, fallback=True),
+                        confidence="medium" if len(bars) >= 20 else "low",
+                    )
+            except Exception as fallback_error:
+                fetch_error = fetch_error or fallback_error
+
+            stale = _get_stale_cache(cache_key)
+            if stale.get("bars"):
+                stale.setdefault("warning", "Live price refresh failed; showing cached chart.")
+                return ToolResult(
+                    tool_name=self.name, data=stale,
+                    sources=_build_sources(ticker, cached=True),
+                    confidence="medium", cached=True,
+                )
             return ToolResult(
                 tool_name=self.name, data={"bars": [], "ticker": ticker, "range": rng},
                 sources=[], confidence="low",
-                error="No price history available",
+                error=str(fetch_error or "No price history available"),
             )
 
         bars = _bars_from_history(hist)
@@ -225,13 +339,16 @@ class PriceHistoryTool(Tool):
         )
 
 
-def _build_sources(ticker: str, cached: bool) -> List[Source]:
+def _build_sources(ticker: str, cached: bool, fallback: bool = False) -> List[Source]:
     now = datetime.now().isoformat()
     return [Source(
         tool="price_history", field="bars",
         fetched_at=now,
         url=f"https://finance.yahoo.com/quote/{ticker}/history",
-        note="yfinance history" + (" (cached)" if cached else ""),
+        note=(
+            "Yahoo Finance chart API fallback" if fallback else
+            "yfinance history" + (" (cached)" if cached else "")
+        ),
     )]
 
 

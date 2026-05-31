@@ -76,7 +76,7 @@ def _persist_holders(ticker: str, quarter: str, holders: List[Dict[str, Any]]) -
         conn.executemany(
             """INSERT INTO institutional_holdings_cache
                (ticker, quarter, holder_name, shares, value_usd,
-                pct_of_holder_portfolio, qoq_delta_shares, fetched_at)
+                pct_of_holder_assets, qoq_delta_shares, fetched_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             [
                 (
