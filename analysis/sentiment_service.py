@@ -239,7 +239,7 @@ def get_reddit_sentiment(ticker: str, days_back: int = 3) -> Dict:
 
     client_id = os.environ.get("REDDIT_CLIENT_ID", "").strip()
     client_secret = os.environ.get("REDDIT_CLIENT_SECRET", "").strip()
-    user_agent = os.environ.get("REDDIT_USER_AGENT", "PortfolioIntelligence/1.0")
+    user_agent = os.environ.get("REDDIT_USER_AGENT", "EdgeTerminal/1.0")
 
     if not client_id or not client_secret:
         logger.debug("Reddit credentials not set — skipping Reddit sentiment")

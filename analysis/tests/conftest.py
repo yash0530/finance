@@ -1,6 +1,6 @@
 """
 Test configuration. Points the DB at a temporary location so tests don't
-touch the user's real `~/.portfolio_intelligence/finance.db`.
+touch the user's real `~/.edge_terminal/finance.db`.
 
 Sets the env var BEFORE importing db, so the `_find_db_dir` candidate list
 prefers the override path.

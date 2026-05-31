@@ -7,7 +7,7 @@
 
 ## What this is
 
-Deep Research is the core decision-support engine of Portfolio Intelligence. Given a ticker, it runs a multi-source investigation, debates the thesis adversarially, distills what it learned into a per-ticker **Living Memo**, and produces a structured verdict with a concrete trade plan.
+Deep Research is the core decision-support engine of Edge. Given a ticker, it runs a multi-source investigation, debates the thesis adversarially, distills what it learned into a per-ticker **Living Memo**, and produces a structured verdict with a concrete trade plan.
 
 It is built on one premise: **a tool that helps you put real money to work has to earn your trust, not assume it.** Everything in this guide is in service of that.
 
@@ -280,7 +280,7 @@ Usually multiple targets with `size_to_take_off_pct` at each. Standard pattern: 
 "If thesis hasn't started playing out by [date], reassess." Prevents thesis drift — you bought it for a reason, that reason has a timeline.
 
 ### Position size
-Computed via Half-Kelly with portfolio-level vol budget and per-position caps. Specific dollar amount given your portfolio value. **Use this as a ceiling, not a floor.** Until calibration earns trust, size at 25-50% of the recommendation.
+Computed via Half-Kelly with a conservative volatility budget and per-position caps. Treat the percentage as a ceiling, not a floor. Until calibration earns trust, size at 25-50% of the recommendation.
 
 ---
 
@@ -376,7 +376,7 @@ You research NVDA for the first time.
    - Bear attacks: gross margin only sustainable if no real competition emerges (no evidence yet for or against); customer concentration top-4 = 60% (transcripts); valuation 42x fwd P/E vs sector 28x (peer_compare); QoE shows accelerating SBC dilution (`qoe_forensics`).
    - Judge: recommendation BUY, conviction MEDIUM. Falsifiability: *"if any of top-4 hyperscalers signals capex deceleration"*, *"if gross margin drops below 70% in any quarter"*, *"if insider selling exceeds buying 2:1 for 2 quarters"*.
 6. **Memo synth**: proposes a full first draft of all 10 sections.
-7. **Trade plan**: entry $850-875, stop $792 (1.5x ATR + below 50DMA), targets $980 (50%) / $1100 (25%) / runner, time stop 90 days, size 4% of $10K portfolio = $400.
+7. **Trade plan**: entry $850-875, stop $792 (1.5x ATR + below 50DMA), targets $980 (50%) / $1100 (25%) / runner, time stop 90 days, size 4% of planned capital.
 
 You skim the diff, accept with one edit (you don't believe the moat is as durable as proposed; downgrade *Moat → "moderate, evidence mixed"*). Memo v1 saved.
 

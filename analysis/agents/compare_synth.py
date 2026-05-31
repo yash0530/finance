@@ -17,7 +17,7 @@ from typing import Any, Dict, List
 logger = logging.getLogger(__name__)
 
 
-COMPARE_SYSTEM = """You are a portfolio manager ranking competing investment candidates.
+COMPARE_SYSTEM = """You are an investment analyst ranking competing investment candidates.
 
 You receive each candidate's verdict (recommendation, conviction, summary, key
 catalysts, target range). Produce a decisive ranking grounded ONLY in what the

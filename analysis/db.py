@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
-db.py — SQLite database layer for the Next-Gen Portfolio Intelligence Tool.
+db.py — SQLite database layer for the Edge Personal Markets Terminal.
 
 Tables:
-  - portfolio_holdings  : Robinhood/manual holdings
   - watchlist           : User-tracked tickers
   - research_cache      : Cached AI research reports
   - llm_settings        : LLM provider configuration
@@ -23,10 +22,10 @@ _ANALYSIS_DIR = Path(__file__).resolve().parent
 # so we fall back gracefully to the system temp directory.
 def _find_db_dir() -> Path:
     candidates = [
-        Path.home() / ".portfolio_intelligence",
-        Path.home() / "Library" / "Application Support" / "PortfolioIntelligence",
+        Path.home() / ".edge_terminal",
+        Path.home() / "Library" / "Application Support" / "EdgeTerminal",
         # System temp — always writable, stable across restarts per user session
-        Path(__import__("tempfile").gettempdir()) / "portfolio_intelligence",
+        Path(__import__("tempfile").gettempdir()) / "edge_terminal",
     ]
     import sqlite3 as _sq
     for p in candidates:
@@ -60,15 +59,6 @@ def init_db() -> None:
     conn = get_connection()
     try:
         conn.executescript("""
-            CREATE TABLE IF NOT EXISTS portfolio_holdings (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                ticker      TEXT NOT NULL,
-                shares      REAL NOT NULL,
-                avg_cost    REAL,
-                source      TEXT DEFAULT 'manual',  -- 'robinhood' | 'manual'
-                synced_at   TEXT NOT NULL
-            );
-
             CREATE TABLE IF NOT EXISTS watchlist (
                 id        INTEGER PRIMARY KEY AUTOINCREMENT,
                 ticker    TEXT NOT NULL UNIQUE,
@@ -89,7 +79,6 @@ def init_db() -> None:
                 provider    TEXT DEFAULT 'ollama',   -- 'claude' | 'gemini' | 'ollama'
                 model_fast  TEXT DEFAULT 'llama3.2', -- cheap/fast model name
                 model_deep  TEXT DEFAULT 'llama3.2', -- best/slowest model name
-                api_key     TEXT DEFAULT '',
                 base_url    TEXT DEFAULT 'http://localhost:11434', -- for Ollama
                 updated_at  TEXT NOT NULL
             );
@@ -245,7 +234,7 @@ def init_db() -> None:
                 holder_name              TEXT NOT NULL,
                 shares                   REAL,
                 value_usd                REAL,
-                pct_of_holder_portfolio  REAL,
+                pct_of_holder_assets     REAL,
                 qoq_delta_shares         REAL,
                 fetched_at               TEXT NOT NULL
             );
@@ -383,63 +372,6 @@ def init_db() -> None:
 
 
 # ============================================================================
-# Portfolio Holdings
-# ============================================================================
-
-def upsert_holdings(holdings: List[Dict]) -> None:
-    """Replace all holdings with a fresh sync result.
-
-    Args:
-        holdings: List of dicts with keys: ticker, shares, avg_cost, source
-    """
-    conn = get_connection()
-    try:
-        conn.execute("DELETE FROM portfolio_holdings")
-        now = datetime.now().isoformat()
-        conn.executemany(
-            "INSERT INTO portfolio_holdings (ticker, shares, avg_cost, source, synced_at) "
-            "VALUES (:ticker, :shares, :avg_cost, :source, :synced_at)",
-            [{**h, "synced_at": now} for h in holdings]
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def get_holdings() -> List[Dict]:
-    """Return all portfolio holdings as a list of dicts."""
-    conn = get_connection()
-    try:
-        rows = conn.execute(
-            "SELECT ticker, shares, avg_cost, source, synced_at FROM portfolio_holdings ORDER BY ticker"
-        ).fetchall()
-        return [dict(r) for r in rows]
-    finally:
-        conn.close()
-
-
-def clear_holdings() -> None:
-    """Remove all holdings (e.g., on disconnect)."""
-    conn = get_connection()
-    try:
-        conn.execute("DELETE FROM portfolio_holdings")
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def clear_robinhood_holdings() -> None:
-    """Remove only Robinhood holdings (e.g., on session expiration)."""
-    conn = get_connection()
-    try:
-        conn.execute("DELETE FROM portfolio_holdings WHERE source = 'robinhood'")
-        conn.commit()
-    finally:
-        conn.close()
-
-
-
-# ============================================================================
 # Research Cache
 # ============================================================================
 
@@ -504,20 +436,8 @@ def get_llm_settings() -> Dict:
     try:
         row = conn.execute("SELECT * FROM llm_settings WHERE id = 1").fetchone()
         if row:
-            d = dict(row)
-            d.pop("api_key", None)  # Never return the raw key over API
-            return d
+            return dict(row)
         return {}
-    finally:
-        conn.close()
-
-
-def get_llm_api_key() -> str:
-    """Return the raw API key (only used internally by llm_service)."""
-    conn = get_connection()
-    try:
-        row = conn.execute("SELECT api_key FROM llm_settings WHERE id = 1").fetchone()
-        return row["api_key"] if row else ""
     finally:
         conn.close()
 
@@ -526,26 +446,19 @@ def save_llm_settings(
     provider: str,
     model_fast: str,
     model_deep: str,
-    api_key: str = "",
     base_url: str = "http://localhost:11434"
 ) -> Dict:
-    """Update LLM provider settings."""
+    """Update non-secret LLM provider settings."""
     conn = get_connection()
     try:
         now = datetime.now().isoformat()
-        
-        # If api_key is empty, keep the existing one
-        if not api_key:
-            row = conn.execute("SELECT api_key FROM llm_settings WHERE id = 1").fetchone()
-            if row:
-                api_key = row["api_key"]
-                
+
         conn.execute(
             """UPDATE llm_settings SET
                  provider = ?, model_fast = ?, model_deep = ?,
-                 api_key = ?, base_url = ?, updated_at = ?
+                 base_url = ?, updated_at = ?
                WHERE id = 1""",
-            (provider, model_fast, model_deep, api_key, base_url, now)
+            (provider, model_fast, model_deep, base_url, now)
         )
         conn.commit()
         return get_llm_settings()

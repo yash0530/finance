@@ -32,7 +32,7 @@ def test_real_research_produces_verdict(ticker, expected_sector):
     """Run the full deep research stream on a real ticker and assert structural sanity."""
     from agent_loop import run_deep_research
 
-    report = run_deep_research(ticker, portfolio_context=None, budget_profile="normal")
+    report = run_deep_research(ticker, budget_profile="normal")
 
     assert isinstance(report, dict) and report, f"{ticker}: empty report"
 

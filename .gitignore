@@ -1,4 +1,4 @@
-# Local environment variables (contains API keys)
+# Local environment variables
 analysis/.env
 
 # Python caching

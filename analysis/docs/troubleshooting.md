@@ -19,7 +19,7 @@ Check:
 1. Python version: `python3 --version` should be 3.9+.
 2. Dependencies: `cd analysis && pip install -r requirements.txt`.
 3. Port 5001: `lsof -i :5001`.
-4. SQLite directory: `ls -ld ~/.portfolio_intelligence`.
+4. SQLite directory: `ls -ld ~/.edge_terminal`.
 
 The backend runs from `analysis/app.py` on port 5001.
 

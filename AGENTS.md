@@ -1,4 +1,4 @@
-# Portfolio Intelligence — Repo Guide for Codex
+# Edge Personal Markets Terminal — Repo Guide for Codex
 
 > Read this first. Architecture details: `analysis/docs/next_gen_tool.md`. User behavior: `analysis/docs/deep_research_guide.md`.
 
@@ -6,7 +6,7 @@
 Single-investor research and decision-support tool. The owner is deploying $10K of personal capital against Deep Research output — quality and honest calibration matter more than feature breadth or surface polish.
 
 ## Stack one-liners
-- **Backend**: Flask on `:5001` (`analysis/app.py`). SQLite at `~/.portfolio_intelligence/finance.db` (WAL mode). LLM abstraction in `analysis/llm_service.py` (Codex / Gemini / Ollama).
+- **Backend**: Flask on `:5001` (`analysis/app.py`). SQLite at `~/.edge_terminal/finance.db` (WAL mode). LLM abstraction in `analysis/llm_service.py` (Codex / Gemini / Ollama).
 - **Frontend**: React 18 + Vite (`analysis/web/`). All API calls go through `src/utils/api.js`. Pages are lazy-loaded from `src/pages/`.
 - **Run**: `analysis/start.sh` boots backend and frontend. Tests: `cd analysis && python3 -m pytest tests/`.
 

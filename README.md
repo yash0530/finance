@@ -39,7 +39,7 @@ The terminal is structured as a streamlined, dark-theme single-page cockpit with
 │  │  Bull ──► Bear ──► Judge ──► Self-Critique              │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │  │  DATA LAYER                                             │   │
-│  │  SQLite (WAL mode) at ~/.portfolio_intelligence/        │   │
+│  │  SQLite (WAL mode) at ~/.edge_terminal/                 │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └──────────────────────────┬──────────────────────────────────────┘
                            │
@@ -116,26 +116,11 @@ cd web
 npm install
 ```
 
-### 2. Configuration (`.env`)
+### 2. Configuration
 
-Configure your keys in `analysis/.env`:
-
-```env
-# Anthropic API Key (Claude)
-ANTHROPIC_API_KEY=sk-ant-...
-
-# Google Gemini API Key
-GOOGLE_API_KEY=AIza...
-
-# Local Ollama URL
-OLLAMA_BASE_URL=http://localhost:11434
-
-# Optional Paid Integrations
-FINNHUB_API_KEY=...
-FMP_API_KEY=...
-UNUSUAL_WHALES_API_KEY=...
-POLYGON_API_KEY=...
-```
+Do not store secrets in project files. If you use remote providers or paid data
+tiers, export credentials in the shell or your process manager before launch.
+The app never persists API keys in SQLite.
 
 ### 3. Launching
 

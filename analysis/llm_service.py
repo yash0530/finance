@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-llm_service.py — Multi-provider LLM abstraction for the Portfolio Intelligence Tool.
+llm_service.py — Multi-provider LLM abstraction for the Edge terminal.
 
 Supports:
   - Anthropic Claude  (claude-3-5-haiku, claude-opus-4, etc.)
@@ -16,6 +16,7 @@ Cost-optimized routing:
 """
 
 import json
+import os
 import re
 import logging
 import time
@@ -26,7 +27,7 @@ from contextvars import ContextVar
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from db import get_llm_settings, get_llm_api_key
+from db import get_llm_settings
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +86,7 @@ def get_active_session() -> Optional[LLMCallSession]:
 # ============================================================================
 
 FAST_TASKS = {"sentiment", "explanation", "summary", "quick", "monitor"}
-DEEP_TASKS = {"analysis", "thesis", "edgar", "rebalance", "compare"}
+DEEP_TASKS = {"analysis", "thesis", "edgar", "compare"}
 
 
 def _route_model(task_type: str, settings: Dict) -> str:
@@ -240,18 +241,31 @@ class OllamaProvider(BaseLLMProvider):
 # Provider Factory
 # ============================================================================
 
+def _provider_api_key(settings: Dict) -> str:
+    """Read provider credentials from environment only.
+
+    Keys are never read from or written to SQLite/plaintext project files.
+    """
+    provider = settings.get("provider", "ollama")
+    if provider == "claude":
+        return os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if provider == "gemini":
+        return os.environ.get("GOOGLE_API_KEY", "").strip()
+    return ""
+
+
 def _build_provider(settings: Dict, api_key: str) -> BaseLLMProvider:
     """Instantiate the correct provider based on current settings."""
     provider = settings.get("provider", "ollama")
 
     if provider == "claude":
         if not api_key:
-            raise ValueError("Claude selected but no API key configured. Go to Settings.")
+            raise ValueError("Claude selected but ANTHROPIC_API_KEY is not set in the process environment.")
         return ClaudeProvider(api_key)
 
     elif provider == "gemini":
         if not api_key:
-            raise ValueError("Gemini selected but no API key configured. Go to Settings.")
+            raise ValueError("Gemini selected but GOOGLE_API_KEY is not set in the process environment.")
         return GeminiProvider(api_key)
 
     elif provider == "ollama":
@@ -338,7 +352,7 @@ def _get_provider_and_model(task_type: str, role: str = "unknown"):
     The `role` parameter tags calls for attribution (planner/bull/bear/judge/etc).
     """
     settings = get_llm_settings()
-    api_key = get_llm_api_key()
+    api_key = _provider_api_key(settings)
     provider = _build_provider(settings, api_key)
     model = _route_model(task_type, settings)
     provider_name = settings.get("provider", "ollama")
@@ -396,7 +410,7 @@ def generate_thesis(context_bundle: Dict, on_progress=None) -> Dict:
     # Pass 3: Final Synthesis
     if on_progress:
         on_progress("synthesis", "Synthesizing final balanced thesis...")
-    synth_prompt = f"""You are a senior portfolio manager. Review the Bull Case and the Bear Case.
+    synth_prompt = f"""You are a senior investment analyst. Review the Bull Case and the Bear Case.
     Weigh both arguments against the raw data context, and provide a final verdict.
 
     BULL CASE:
@@ -420,7 +434,7 @@ def generate_thesis(context_bundle: Dict, on_progress=None) -> Dict:
       "action_items": ["<specific actionable step>"]
     }}"""
     
-    result = provider.complete_json("You are an objective, data-driven portfolio manager.", synth_prompt, model)
+    result = provider.complete_json("You are an objective, data-driven investment analyst.", synth_prompt, model)
     
     # Attach intermediate passes for logging/transparency if desired
     result["_raw_bull_pass"] = bull_thesis
@@ -489,33 +503,6 @@ Be concise, factual, and investor-focused. Extract only the most material inform
 Provide 4-5 concise bullet points capturing the most investor-relevant information.
 Focus on: business model, competitive position, key risks, financial outlook.
 Return plain text bullet points only (no JSON, no markdown headers)."""
-
-    return provider.complete(system_prompt, user_prompt, model)
-
-
-def generate_rebalance_narrative(analysis: Dict) -> str:
-    """Generate a plain-English rebalancing recommendation narrative.
-
-    Args:
-        analysis: Output from rebalancing_engine.analyze_portfolio()
-
-    Returns:
-        3-5 paragraph narrative with specific recommendations.
-    """
-    provider, model = _get_provider_and_model("rebalance")
-
-    system_prompt = """You are a portfolio manager giving actionable rebalancing advice.
-Be direct, specific, and data-driven. Avoid generic financial advice disclaimers."""
-
-    user_prompt = f"""Based on this portfolio analysis, write a rebalancing recommendation:
-
-{json.dumps(analysis, indent=2, default=str)}
-
-Write 3-4 paragraphs:
-1. Current state of the portfolio (key observations)
-2. Positions to trim or exit (with specific reasoning)
-3. Positions to add or increase (with specific reasoning)
-4. Overall strategic advice and priority order"""
 
     return provider.complete(system_prompt, user_prompt, model)
 
@@ -792,14 +779,6 @@ def _format_context_bundle(ctx: Dict) -> str:
             lines.append("  Top Headlines:")
             for h in sent["top_headlines"][:3]:
                 lines.append(f"    • {h}")
-        lines.append("")
-
-    port = ctx.get("portfolio_context")
-    if port:
-        lines.append("PORTFOLIO CONTEXT:")
-        lines.append(f"  Current Weight: {port.get('weight_pct', 'N/A')}%")
-        lines.append(f"  Avg Cost Basis: ${port.get('avg_cost', 'N/A')}")
-        lines.append(f"  Unrealized P&L: {port.get('unrealized_pnl_pct', 'N/A')}%")
         lines.append("")
 
     return "\n".join(lines)

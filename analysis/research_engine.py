@@ -565,7 +565,7 @@ def get_peer_valuation(ticker: str, sector: str) -> Dict:
 # Position Sizing & Risk Management
 # ============================================================================
 
-def compute_position_sizing(ticker: str, fundamentals: Dict, technicals: Dict, valuation: Dict, portfolio_value: float = 10000.0) -> Dict:
+def compute_position_sizing(ticker: str, fundamentals: Dict, technicals: Dict, valuation: Dict, capital_value: float = 10000.0) -> Dict:
     """Compute risk-managed position size using Half-Kelly Criterion and volatility scaling.
     
     Args:
@@ -573,7 +573,7 @@ def compute_position_sizing(ticker: str, fundamentals: Dict, technicals: Dict, v
         fundamentals: Output of fetch_fundamentals
         technicals: Output of fetch_technicals
         valuation: Output of compute_intrinsic_value
-        portfolio_value: Total portfolio value in dollars (default $10K)
+        capital_value: Deployable capital value in dollars (default $10K)
         
     Returns:
         Dict with recommended sizing, stop-loss, and take-profit levels.
@@ -640,11 +640,11 @@ def compute_position_sizing(ticker: str, fundamentals: Dict, technicals: Dict, v
     vol_scalar = 0.15 / volatility if volatility > 0 else 1.0
     adjusted_kelly_pct = half_kelly_pct * vol_scalar
 
-    # Boundaries: Never recommend shorting here, and cap at 15% max portfolio weight
+    # Boundaries: never recommend shorting here, and cap at 15% max single-name weight.
     recommended_weight = max(0.0, min(0.15, adjusted_kelly_pct))
     
     # Dollar amount and shares
-    position_dollars = portfolio_value * recommended_weight
+    position_dollars = capital_value * recommended_weight
     shares_to_buy = position_dollars / current_price if current_price > 0 else 0
     
     # Calculate Risk Amount ($)
@@ -662,7 +662,7 @@ def compute_position_sizing(ticker: str, fundamentals: Dict, technicals: Dict, v
             "take_profit_price": round(take_profit_price, 2),
             "take_profit_pct": round(take_profit_pct * 100, 1),
             "dollars_at_risk": round(risk_dollars, 2),
-            "portfolio_value_used": portfolio_value
+            "capital_value_used": capital_value
         }
     }
 
@@ -946,7 +946,6 @@ def fetch_etf_data(ticker: str, fundamentals: Dict) -> Dict:
 
 def run_full_research(
     ticker: str,
-    portfolio_context: Optional[Dict] = None,
     force_refresh: bool = False,
     include_edgar: bool = True,
 ) -> Dict:
@@ -963,7 +962,6 @@ def run_full_research(
 
     Args:
         ticker: Stock symbol (e.g. 'NVDA')
-        portfolio_context: Optional dict with weight_pct, avg_cost, unrealized_pnl_pct
         force_refresh: Skip cache and regenerate
         include_edgar: Include SEC filing analysis (adds ~10-15s)
 
@@ -981,8 +979,6 @@ def run_full_research(
         cached = get_research_cache(ticker, max_age_hours=_REPORT_CACHE_HOURS)
         if cached:
             logger.info(f"Research cache hit for {ticker}")
-            if portfolio_context:
-                cached["portfolio_context"] = portfolio_context
             return cached
 
     logger.info(f"Running full research pipeline for {ticker}")
@@ -1033,11 +1029,7 @@ def run_full_research(
             edgar_summary = {"available": False, "error": str(e)}
     report["edgar_summary"] = edgar_summary
 
-    # 6. Portfolio context (optional)
-    if portfolio_context:
-        report["portfolio_context"] = portfolio_context
-
-    # 7. LLM thesis
+    # 6. LLM thesis
     logger.info(f"[{ticker}] Generating LLM thesis...")
     try:
         context_bundle = _build_context_bundle(report)
@@ -1056,7 +1048,7 @@ def run_full_research(
     report["thesis"] = thesis
     report["status"] = "complete"
 
-    # 8. Cache
+    # 7. Cache
     try:
         from db import get_llm_settings
         provider = get_llm_settings().get("provider", "unknown")
@@ -1122,7 +1114,6 @@ def _build_context_bundle(report: Dict) -> Dict:
             "risks": edgar.get("risks", ""),
             "mda": edgar.get("mda", ""),
         },
-        "portfolio_context": report.get("portfolio_context"),
     }
 
 
@@ -1130,12 +1121,11 @@ def _build_context_bundle(report: Dict) -> Dict:
 # Multi-ticker Comparison
 # ============================================================================
 
-def compare_tickers(tickers: List[str], portfolio_holdings: Optional[List[Dict]] = None) -> Dict:
+def compare_tickers(tickers: List[str]) -> Dict:
     """Run research on multiple tickers and generate a comparative analysis.
 
     Args:
         tickers: List of ticker symbols (max 4)
-        portfolio_holdings: Optional list of holdings from portfolio_service
 
     Returns:
         Comparison report with per-ticker reports + LLM comparison
@@ -1144,24 +1134,12 @@ def compare_tickers(tickers: List[str], portfolio_holdings: Optional[List[Dict]]
 
     tickers = [t.upper() for t in tickers[:4]]  # Cap at 4
 
-    # Build portfolio context map if holdings provided
-    context_map = {}
-    if portfolio_holdings:
-        for h in portfolio_holdings:
-            if h["ticker"] in tickers:
-                context_map[h["ticker"]] = {
-                    "weight_pct": h.get("weight_pct"),
-                    "avg_cost": h.get("avg_cost"),
-                    "unrealized_pnl_pct": h.get("unrealized_pnl_pct"),
-                }
-
     # Run research for each ticker (no EDGAR to keep it fast)
     reports = []
     for ticker in tickers:
         logger.info(f"Comparing: running research for {ticker}")
         report = run_full_research(
             ticker,
-            portfolio_context=context_map.get(ticker),
             include_edgar=False  # Skip EDGAR for comparison speed
         )
         reports.append(report)

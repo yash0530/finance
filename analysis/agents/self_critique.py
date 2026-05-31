@@ -13,7 +13,7 @@ from typing import Any, Dict, List
 logger = logging.getLogger(__name__)
 
 
-CRITIQUE_SYSTEM = """You are a senior risk officer reviewing a portfolio manager's verdict.
+CRITIQUE_SYSTEM = """You are a senior risk officer reviewing an investment analyst's verdict.
 
 Your job: find the 3 weakest claims in the verdict, identify what evidence would
 falsify each, and assess whether the falsifying evidence is available in the

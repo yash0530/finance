@@ -3,26 +3,19 @@
 Edge — Personal Markets Terminal · Flask backend API.
 
 Routes: market snapshot, terminal panels, stock view, chart, console (slash
-commands), themes, screener, manual portfolio, library, deep-research SSE +
-memo/report CRUD, settings, docs. Background scanner and broker sync routes
-remain removed; the revived S&P 500 market surface is pull-based over the
+commands), themes, screener, library, deep-research SSE + memo/report CRUD,
+settings, docs. The revived S&P 500 market surface is pull-based over the
 snapshot.
 """
 
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 import json
+import math
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import pandas as pd
 import numpy as np
-
-# Load .env file if present
-try:
-    from dotenv import load_dotenv
-    load_dotenv(Path(__file__).parent / ".env")
-except ImportError:
-    pass
 
 # Core service modules
 try:
@@ -204,77 +197,12 @@ def version():
 
 
 # ============================================================================
-# Manual Portfolio Routes (pull-based, no broker sync)
-# ============================================================================
-
-def _portfolio_service():
-    import portfolio_manual_service
-    return portfolio_manual_service
-
-
-@app.route('/api/portfolio/holdings', methods=['GET'])
-def portfolio_holdings_list():
-    service = _portfolio_service()
-    return jsonify({"holdings": service.list_holdings()})
-
-
-@app.route('/api/portfolio/holdings', methods=['POST'])
-def portfolio_holdings_create():
-    service = _portfolio_service()
-    body = request.get_json(silent=True) or {}
-    try:
-        holding = service.create_holding(body)
-    except service.PortfolioValidationError as e:
-        return jsonify({"error": str(e)}), 400
-    return jsonify({"ok": True, "holding": holding})
-
-
-@app.route('/api/portfolio/holdings/<int:holding_id>', methods=['PUT'])
-def portfolio_holdings_update(holding_id):
-    service = _portfolio_service()
-    body = request.get_json(silent=True) or {}
-    try:
-        holding = service.update_holding(holding_id, body)
-    except service.PortfolioValidationError as e:
-        return jsonify({"error": str(e)}), 400
-    if not holding:
-        return jsonify({"error": "holding not found"}), 404
-    return jsonify({"ok": True, "holding": holding})
-
-
-@app.route('/api/portfolio/holdings/<int:holding_id>', methods=['DELETE'])
-def portfolio_holdings_delete(holding_id):
-    service = _portfolio_service()
-    if not service.delete_holding(holding_id):
-        return jsonify({"error": "holding not found"}), 404
-    return jsonify({"ok": True, "id": holding_id})
-
-
-@app.route('/api/portfolio/import', methods=['POST'])
-def portfolio_import():
-    service = _portfolio_service()
-    body = request.get_json(silent=True) or {}
-    csv_text = body.get("csv") or body.get("csv_text") or ""
-    replace_manual = bool(body.get("replace_manual", False))
-    try:
-        result = service.import_csv(csv_text, replace_manual=replace_manual)
-    except service.PortfolioValidationError as e:
-        return jsonify({"error": str(e)}), 400
-    return jsonify(result), (200 if result.get("ok") else 400)
-
-
-@app.route('/api/portfolio/summary', methods=['GET'])
-def portfolio_summary():
-    service = _portfolio_service()
-    include_quotes = request.args.get("quotes", "true").lower() not in ("0", "false", "no")
-    return jsonify(service.summary(include_quotes=include_quotes))
-# ============================================================================
 # LLM Settings Routes
 # ============================================================================
 
 @app.route('/api/settings/llm', methods=['GET'])
 def get_llm_settings():
-    """Return current LLM provider settings (API key is masked)."""
+    """Return current non-secret LLM provider settings."""
     if not SERVICES_ENABLED:
         return _services_unavailable()
     settings = db.get_llm_settings()
@@ -289,9 +217,11 @@ def save_llm_settings():
         "provider": "claude" | "gemini" | "ollama",
         "model_fast": "claude-3-5-haiku-20241022",
         "model_deep": "claude-opus-4-5",
-        "api_key": "sk-ant-...",
         "base_url": "http://localhost:11434"  // Ollama only
     }
+
+    API keys are intentionally not accepted or persisted. Remote provider keys
+    must be supplied through the process environment.
     """
     if not SERVICES_ENABLED:
         return _services_unavailable()
@@ -306,7 +236,6 @@ def save_llm_settings():
         provider=provider,
         model_fast=body.get('model_fast', 'llama3.2'),
         model_deep=body.get('model_deep', 'llama3.2'),
-        api_key=body.get('api_key', ''),
         base_url=body.get('base_url', 'http://localhost:11434')
     )
     return jsonify({'success': True, 'settings': settings})
@@ -553,13 +482,9 @@ def research_v2_stream(ticker):
     profile = request.args.get('budget', 'deep')
     force = request.args.get('refresh', 'false').lower() == 'true'
 
-    # Portfolio context retired in v3 (portfolio management is out of scope).
-    portfolio_context = None
-
     return Response(
         stream_deep_research(
             ticker=ticker.upper().strip(),
-            portfolio_context=portfolio_context,
             budget_profile=profile,
             force_refresh=force,
         ),
@@ -1342,12 +1267,124 @@ def themes_by_ticker(ticker):
 # Stock View — single-ticker cockpit sections (lazy-fetched in parallel)
 # ============================================================================
 
+def _stock_snapshot_fallback(ticker: str) -> Dict[str, Any]:
+    df = _sp500_df()
+    if df.empty:
+        return {}
+    company_df = df[df["ticker"].str.upper() == ticker.upper()]
+    if company_df.empty:
+        return {}
+    row = _rows(company_df)[0]
+    if row.get("total_revenue") is not None and row.get("revenue") is None:
+        row["revenue"] = row.get("total_revenue")
+    if row.get("fifty_two_week_high") is not None and row.get("week_52_high") is None:
+        row["week_52_high"] = row.get("fifty_two_week_high")
+    if row.get("fifty_two_week_low") is not None and row.get("week_52_low") is None:
+        row["week_52_low"] = row.get("fifty_two_week_low")
+    return row
+
+
+def _with_stock_snapshot_fallback(tool_payload: Dict[str, Any], ticker: str) -> Dict[str, Any]:
+    fallback = _stock_snapshot_fallback(ticker)
+    if not fallback:
+        return tool_payload
+
+    live_data = tool_payload.get("data") or {}
+    merged = dict(fallback)
+    for key, value in live_data.items():
+        if value is not None:
+            merged[key] = value
+    tool_payload["data"] = merged
+    if not live_data:
+        tool_payload["fallback"] = "sp500_snapshot"
+        tool_payload["confidence"] = "medium"
+    return tool_payload
+
+
+def _last_number(values: List[Any]) -> Optional[float]:
+    for value in reversed(values or []):
+        try:
+            if value is not None:
+                return float(value)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _chart_technical_fallback(chart_data: Dict[str, Any]) -> Dict[str, Any]:
+    bars = chart_data.get("bars") or []
+    overlays = chart_data.get("overlays") or {}
+    if not bars:
+        return {}
+
+    closes = [float(b["close"]) for b in bars if b.get("close") is not None]
+    if not closes:
+        return {}
+
+    current = closes[-1]
+    ma50 = _last_number(overlays.get("ma50") or [])
+    ma200 = _last_number(overlays.get("ma200") or [])
+    ma20 = _last_number(overlays.get("ma20") or [])
+    bb_upper = _last_number(overlays.get("bb_upper") or [])
+    bb_lower = _last_number(overlays.get("bb_lower") or [])
+    rsi = _last_number(overlays.get("rsi") or [])
+    macd_overlay = overlays.get("macd") or {}
+    macd_line = _last_number(macd_overlay.get("line") or [])
+    macd_signal = _last_number(macd_overlay.get("signal") or [])
+    macd_hist = _last_number(macd_overlay.get("histogram") or [])
+
+    returns = []
+    for prev, cur in zip(closes, closes[1:]):
+        if prev:
+            returns.append((cur - prev) / prev)
+    volatility = None
+    if len(returns) > 2:
+        volatility = float(np.std(returns) * math.sqrt(252) * 100)
+
+    year_return = ((current - closes[0]) / closes[0] * 100) if closes[0] else None
+    bb_position = (
+        (current - bb_lower) / (bb_upper - bb_lower)
+        if bb_upper is not None and bb_lower is not None and bb_upper != bb_lower
+        else None
+    )
+
+    return {
+        "current_price": current,
+        "rsi": rsi,
+        "macd": {
+            "macd": macd_line,
+            "signal": macd_signal,
+            "histogram": macd_hist,
+            "signal_label": (
+                "bullish" if macd_hist is not None and macd_hist >= 0 else
+                "bearish" if macd_hist is not None else None
+            ),
+        },
+        "bollinger": {
+            "upper": bb_upper,
+            "middle": ma20,
+            "lower": bb_lower,
+            "position": bb_position,
+        },
+        "golden_cross": (
+            current >= ma50 if ma50 is not None and ma200 is None else
+            ma50 >= ma200 if ma50 is not None and ma200 is not None else None
+        ),
+        "year_return_pct": year_return,
+        "annualized_volatility_pct": volatility,
+        "relative_strength_vs_spy": None,
+        "patterns": [],
+        "fallback": "price_history",
+    }
+
+
 @app.route('/api/stock/<ticker>/header', methods=['GET'])
 def stock_header(ticker):
     """Price/mcap/fundamentals snapshot for the Stock View header."""
     from tools import get_tool
-    result = get_tool('fundamentals').execute(ticker=ticker.upper().strip())
-    return jsonify(result.to_dict())
+    t = ticker.upper().strip()
+    result = get_tool('fundamentals').execute(ticker=t)
+    return jsonify(convert_numpy_types(_with_stock_snapshot_fallback(result.to_dict(), t)))
 
 
 @app.route('/api/stock/<ticker>/fundamentals', methods=['GET'])
@@ -1358,7 +1395,7 @@ def stock_fundamentals(ticker):
     fundamentals = get_tool('fundamentals').execute(ticker=t)
     trends = get_tool('financial_trends').execute(ticker=t)
     return jsonify({
-        "fundamentals": fundamentals.to_dict(),
+        "fundamentals": convert_numpy_types(_with_stock_snapshot_fallback(fundamentals.to_dict(), t)),
         "trends": trends.to_dict(),
     })
 
@@ -1367,8 +1404,19 @@ def stock_fundamentals(ticker):
 def stock_technicals(ticker):
     """Technical indicators incl. relative_strength_vs_spy for the chart overlays."""
     from tools import get_tool
-    result = get_tool('technicals').execute(ticker=ticker.upper().strip())
-    return jsonify(result.to_dict())
+    t = ticker.upper().strip()
+    result = get_tool('technicals').execute(ticker=t)
+    payload = result.to_dict()
+    if payload.get("data"):
+        return jsonify(payload)
+
+    chart_result = get_tool('price_history').execute(ticker=t, range="1y")
+    fallback = _chart_technical_fallback((chart_result.to_dict().get("data") or {}))
+    if fallback:
+        payload["data"] = fallback
+        payload["fallback"] = "price_history"
+        payload["confidence"] = "medium"
+    return jsonify(convert_numpy_types(payload))
 
 
 @app.route('/api/stock/<ticker>/ownership', methods=['GET'])
@@ -1573,6 +1621,8 @@ def market_refresh_sp500():
         args["tickers"] = body.get("tickers")
     if body.get("max_workers"):
         args["max_workers"] = body.get("max_workers")
+    if body.get("max_info_requests"):
+        args["max_info_requests"] = body.get("max_info_requests")
     result = get_tool("sp500_refresh").execute(**args)
     status = 200 if result.error is None else 502
     return jsonify({"ok": result.error is None, "result": result.to_dict()}), status
@@ -1595,7 +1645,7 @@ def dashboard_layout_save():
 
 if __name__ == '__main__':
     print("\n" + "=" * 60)
-    print("   Portfolio Intelligence Tool — API Server")
+    print("   Edge Personal Markets Terminal — API Server")
     print("   Running on http://localhost:5001")
     print("=" * 60 + "\n")
     app.run(debug=True, host='0.0.0.0', port=5001, use_reloader=False)

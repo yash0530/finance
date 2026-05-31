@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 # SEC EDGAR requires a descriptive User-Agent or requests get throttled/blocked
 _EDGAR_USER_AGENT = os.environ.get(
     "EDGAR_USER_AGENT",
-    "PortfolioIntelligenceTool research@portfolio.local"
+    "EdgeTerminal research@example.com"
 )
 _HEADERS = {
     "User-Agent": _EDGAR_USER_AGENT,

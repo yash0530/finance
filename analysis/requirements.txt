@@ -5,9 +5,6 @@ yfinance>=0.2.0
 flask>=3.0.0
 flask-cors>=4.0.0
 
-# Portfolio & Brokerage
-robin_stocks>=2.0.0
-
 # LLM Providers (install only what you use)
 anthropic>=0.25.0
 google-generativeai>=0.5.0
@@ -15,6 +12,3 @@ google-generativeai>=0.5.0
 
 # Sentiment & News
 praw>=7.7.0          # Reddit API client
-
-# Utilities
-python-dotenv>=1.0.0 # .env loading

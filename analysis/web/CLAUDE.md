@@ -36,7 +36,7 @@ Every displayed numeric value sourced from a `ToolResult` should eventually rend
 ## State
 
 - Local state via `useState` is the default
-- For cross-page state (e.g. portfolio connection), poll in `App.jsx` and prop-drill
+- For cross-page state, poll in `App.jsx` and prop-drill
 - No Redux / Zustand / MobX — keep dependency footprint minimal
 
 ## Testing

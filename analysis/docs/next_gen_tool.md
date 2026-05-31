@@ -1,963 +1,120 @@
-# Edge Personal Markets Terminal (v3) — Architecture & Specification
+# Edge Personal Markets Terminal — Architecture
 
-> **Status**: v3.0 fully shipped (Edge Personal Markets Terminal)
+> **Status**: v3.1 security cleanup
 > **Last updated**: 2026-05-30
-> **Audience**: Engineers and contributors. For a power-user guide, see [`deep_research_guide.md`](./deep_research_guide.md).
+> **Audience**: Engineers and contributors. For user behavior, see [`deep_research_guide.md`](./deep_research_guide.md).
 
----
+## Intent
 
-## v3 Terminal Shift & Architecture
+Edge is a pull-based research terminal for a single investor. It focuses on
+market scanning, ticker inspection, cited Deep Research, Living Memo history,
+and calibration. It does not ingest private positions, account data, or local
+secret files.
 
-Edge v3 moves the platform from a vector search RAG pipeline or broker-synced portfolio tool into a Bloomberg-style, pull-based personal trading terminal.
+## Navigation
 
-Key v3 paradigms:
-1. **Reconciled Navigation**: `Market` (default S&P 500 snapshot cockpit) · `Stock View` (candlestick chart with MA20/MA50/BB/VWAP/RSI/MACD overlays, StockTechnicals metrics card, fundamentals, ownership, filings) · `Research` (form-driven Deep Research) · `Daily Scan` (movers, watchlists, catalysts, news, hypotheses) · `Console` (command runner with `/thesis`, `/dossier`, `/why`, `/theme`, `/compare`) · `Library` (memos, saved reports, telemetry) · `Screener` (partial-variable rule matching) · `Settings` (Ollama/Claude/Gemini provider selection, data-tier badges, themes).
-2. **On-Demand Command Engine**: The command runner parses and streams on-demand debates and quick research ticks under tight session budgets.
-3. **Additive sqlite Schema**: Keeps a full audit trail of Living Memos and telemetry across deep research runs.
+`Market` (default S&P 500 cockpit) · `Stock View` · `Research` · `Daily Scan` ·
+`Console` · `Library` · `Screener` · `Review` · `Patterns` · `Settings` · `Docs`.
 
+## Backend
 
----
+- Flask app: `analysis/app.py` on `:5001`
+- SQLite: `~/.edge_terminal/finance.db` with WAL enabled
+- Deep Research: `analysis/agent_loop.py`
+- Console dispatcher: `analysis/console_orchestrator.py`
+- Data tools: `analysis/tools/`
+- Living Memo: `analysis/living_memo.py`
+- Settings: provider/model/base URL only; API keys are never stored in SQLite
 
-# Part I — Foundation (v1.0, shipped)
+## Frontend
 
-## 1. Vision
+- React 18 + Vite in `analysis/web/`
+- Route shell: `src/App.jsx`
+- Navigation: `src/components/Sidebar.jsx`
+- API client: `src/utils/api.js`
+- Pages are lazy-loaded from `src/pages/`
 
-The original tool was a passive S&P 500 viewer. v1 explored broker/manual portfolio context, multi-layer AI research on any US ticker, and structured investment theses with concrete actions. Edge v3 keeps the research brain and drops broker sync.
+## Secret Handling
 
-## 2. Shipped capabilities
+Secrets must be supplied through the parent process environment, not project
+files and not SQLite. The app intentionally does not load `analysis/.env`, and
+the settings API rejects key persistence.
 
-### 2.1 Legacy portfolio ingestion
-This v1 area was removed in Edge v3. The current app focuses on research, watchlists, themes, and pull-triggered screens.
+Remote LLM providers read:
 
-### 2.2 Deep Research pipeline (v1)
-Fixed stages, streamed via SSE:
+- `ANTHROPIC_API_KEY`
+- `GOOGLE_API_KEY`
 
-| Stage | Source | Output |
-|---|---|---|
-| Fundamentals | yfinance `.info` | P/E, margins, growth, balance sheet |
-| Financial trends | yfinance quarterly | 8-12 quarter trajectory + signals |
-| Valuation | computed | DCF base/bull/bear + peer comp |
-| Technicals | yfinance prices | RSI, MACD, BB, MAs, 11 patterns |
-| Risk management | computed | Half-Kelly sizing, stop, target |
-| Sentiment | Finnhub + Reddit (praw) + yfinance | Weighted composite score |
-| EDGAR | SEC | 10-K/10-Q sections, LLM-summarized |
-| Thesis | LLM | 3-pass bull → bear → synthesis JSON |
+Optional data integrations read their own environment variables at call time and
+must degrade gracefully when absent. Endpoints may report whether a tier is live,
+but must never return secret values.
 
-### 2.3 Legacy allocation analysis
-This v1 area was removed in Edge v3. Current sizing guidance is emitted by the Judge inside Deep Research.
+## SQLite Schema
 
-### 2.4 Watchlist
-Watchlist: notes + one-click research.
+Core tables:
 
-### 2.5 S&P 500 scanner (legacy)
-Sector tables, market stats, technical pattern hunting, spotlight categories.
-
-## 3. v1 Architecture
-
-```
-┌─────────── UI (React 18 SPA, Vite) ───────────────────┐
-│ Sidebar → 8 lazy pages                                │
-└────────────────────────┬──────────────────────────────┘
-                         │ REST + SSE
-┌────────────────────────▼──────────────────────────────┐
-│           Flask backend (app.py, 43 routes)           │
-│                                                       │
-│  research_stream.py  ── legacy SSE pipeline           │
-│  research_engine.py  ── stage implementations         │
-│  sentiment_service   ── Finnhub + Reddit + yf         │
-│  edgar_service       ── SEC 10-K/10-Q                 │
-│  llm_service         ── Claude / Gemini / Ollama      │
-│  db.py               ── SQLite (WAL)                  │
-└───────────────────────────────────────────────────────┘
-```
-
-## 4. v1 Data sources
-
-| Source | Data | Cost |
-|---|---|---|
-| `yfinance` | prices, fundamentals, quarterly | free |
-| Finnhub | news, analyst ratings | free tier |
-| `praw` (Reddit) | WSB + r/investing | free tier |
-| SEC EDGAR | 10-K / 10-Q | free |
-| LLM (Claude / Gemini / Ollama) | synthesis | provider-dependent |
-
-## 5. v1 Endpoints (research surface)
-
-| Endpoint | Notes |
-|---|---|
-| `GET /api/research/<ticker>` | Full report (cached 24h) |
-| `GET /api/research/<ticker>/stream` | SSE — 8 stages |
-| `GET /api/research/<ticker>/thesis` | Cached thesis only |
-| `POST /api/research/compare` | 2-4 ticker side-by-side |
-| `GET /api/research/sector/<sector>` | Sector summary |
-| `GET /api/research/etf/<ticker>` | ETF-aware (skips EDGAR) |
-
-## 6. v1 DB schema
-
-```
-portfolio_holdings  (id, ticker, shares, avg_cost, source, synced_at)
-watchlist           (id, ticker, added_at, notes)
-research_cache      (id, ticker UNIQUE, report_json, llm_provider, generated_at)
-research_reports    (id UUID, ticker, full JSON, llm_conversations, generated_at)
-llm_settings        (id singleton, provider, model_fast, model_deep, api_key, base_url)
+```text
+watchlist
+research_cache
+llm_settings
+research_reports
+living_memo
+living_memo_versions
+living_memo_staged
+tool_call_log
+recommendations
+catalysts
+transcripts_cache
+insider_trades_cache
+institutional_holdings_cache
+options_metrics_cache
+tool_result_cache
+sector_classification_cache
+monitoring_digest
+monitoring_enabled
+themes
+theme_tickers
+hypotheses_cache
+screener_saved
+dashboard_layout
 ```
 
-## 7. v1 LLM design
+Do not store raw API credentials, private positions, account credentials, or
+copied `.env` content in any table.
 
-User configures provider + fast/deep model pair. Routing in `llm_service.py`:
-- `task='sentiment'` → fast model
-- `task='thesis' | 'edgar'` → deep model
+## Deep Research Flow
 
-Thesis output strict JSON:
-```json
-{ "summary", "bull_case", "bear_case", "key_catalysts",
-  "recommendation": "BUY|HOLD|TRIM|AVOID",
-  "conviction": "HIGH|MEDIUM|LOW",
-  "target_price_range": {...},
-  "action_items": [...] }
-```
+1. Load Living Memo and sector profile.
+2. Planner selects Tools using open questions and required sector evidence.
+3. Tool calls run under budget and record sources into the evidence ledger.
+4. Bull, Bear, Bull Rebuttal, Judge, and Self-Critique synthesize a verdict.
+5. Memo Synth proposes a staged Living Memo update.
+6. Report, tool log, and calibration row are persisted when allowed.
 
-The existing 3-pass implementation in `research_stream.py` already runs bull-draft → bear-attack → synthesizer. v2 formalizes and extends this.
+Every LLM-emitted claim must cite `evidence_refs`; validators should stay strict.
 
----
+## Pull-Based Rule
 
-# Part II — Living Analyst (v2.0, in design)
+All refreshes are user-triggered. Do not add background workers, cron jobs,
+queues, push notifications, or silent sync loops.
 
-## 8. Motivation: what v1 cannot do
+## Tool Contract
 
-v1 is a **report generator**. v2 is a **research analyst**. Three structural gaps drive v2:
+Each Tool returns a `ToolResult` with:
 
-1. **Fixed pipeline ≠ adaptive investigation.** v1 runs the same 8 stages whether the ticker is a pre-revenue biotech, a regional bank, or a hyperscaler. A real analyst chooses what to investigate based on the question.
+- `data`: JSON-serializable dict
+- `sources`: one or more `Source` entries for cited fields
+- `confidence`: `high`, `medium`, or `low`
+- `cost_usd`: actual spend
+- `cached`: whether the result came from cache
 
-2. **Stateless ≠ compounding knowledge.** v1 starts fresh every call. A real analyst maintains an evolving file on each name — what we've learned, what management has promised vs delivered, what's still unknown.
+New data fetches belong in `analysis/tools/<name>.py` and must register through
+`tools/__init__.py`.
 
-3. **Single-pass thesis ≠ adversarial reasoning.** v1's 3-pass bull/bear/synth is a good start but bull-evidence and bear-evidence are not separately *cited* and there is no falsifiability check.
+## Testing
 
-v2 addresses all three.
-
-## 9. Design principles
-
-1. **Tools first.** Every data fetch is a Tool with citation metadata. The LLM has no privileged access — it sees only what tools return.
-2. **Distill, don't retrieve.** The Living Memo is the long-term store. Raw documents only enter when a Tool fetches a specific span on demand.
-3. **Debate, don't single-shot.** Bull, Bear, Judge run as separate agents with separate prompts and separate evidence threads.
-4. **Cite everything.** No claim without a source. Frontend renders citations as click-throughs.
-5. **Calibrate, then trust.** Every recommendation is logged with price/date; outcomes auto-tracked. Trust is earned, not asserted.
-6. **Stream progressively.** Even an agentic loop emits SSE per tool call so the UI feels live.
-7. **Additive, not destructive.** v1 endpoints unchanged; v2 lives in parallel until proven.
-
-## 10. v2 architecture overview
-
-```
-┌──── UI: Deep Research v2 ─────────────────────────────────────┐
-│  Live stream │ Memo viewer │ Source viewer │ Chat │ Calib.    │
-└───────────────────────────────┬───────────────────────────────┘
-                                │ SSE + REST
-┌───────────────────────────────▼───────────────────────────────┐
-│                      Agent Loop (agent_loop.py)               │
-│                                                               │
-│   load_memo → planner → tool_executor → observer ──┐          │
-│        ▲                                            │          │
-│        └──── re-plan until done or budget hit ─────┘          │
-│                                                               │
-│   → bull_agent  ─┐                                            │
-│   → bear_agent  ─┼─→ judge_agent ─→ self_critique ─→ memo_synth│
-│   → evidence    ─┘                                            │
-└───────────────────────────────┬───────────────────────────────┘
-                                │
-        ┌───────────────────────┼───────────────────────┐
-        ▼                       ▼                       ▼
-   ┌─────────┐           ┌─────────┐             ┌──────────┐
-   │  Tools  │           │ Memory  │             │  Output  │
-   │registry │           │         │             │          │
-   └────┬────┘           └────┬────┘             └────┬─────┘
-        │                     │                       │
-  fundamentals          living_memo            recommendations
-  transcripts           memo_versions          trade_plans
-  insider_form4         tool_call_log          catalysts
-  institutional_13f
-  options_flow
-  qoe_forensics
-  macro_context
-  alt_data
-  edgar_filings
-  peer_compare
-  correlation_w_portfolio
-  catalyst_lookup
-  ...
-```
-
-## 11. The Agent Loop
-
-`analysis/agent_loop.py` runs a budget-bounded loop:
-
-```python
-def run_deep_research(ticker, user_portfolio, budget):
-    memo = LivingMemo.load(ticker)              # may be empty
-    sector_profile = SectorRouter.classify(ticker)
-    evidence = EvidenceLedger()                 # citation-tagged store
-
-    plan = Planner.initial_plan(ticker, memo, sector_profile, user_portfolio)
-
-    while not plan.done and budget.remaining():
-        results = ToolExecutor.run_parallel(plan.next_calls, budget)
-        evidence.add_all(results)              # each carries source + confidence
-        plan = Planner.replan(memo, evidence, plan)
-
-    bull = BullAgent.argue(evidence)            # cites only from evidence
-    bear = BearAgent.argue(evidence)
-    verdict = Judge.synthesize(bull, bear, evidence)
-    verdict = SelfCritique.attack(verdict, evidence)
-
-    memo_delta = MemoSynthesizer.diff(memo, evidence, verdict)
-    trade_plan = TradePlanner.from_verdict(verdict, user_portfolio)
-
-    return Report(memo_delta, verdict, trade_plan, evidence, audit_log)
-```
-
-**Budget** — a dollar amount and a wall-clock limit. The planner gets `budget.remaining()` and chooses tools accordingly. A `quick` profile may spend $0.10; a `deep` profile up to $2.
-
-**Planner prompt** — receives: (a) memo's *Open Questions* section, (b) sector profile's required KPIs, (c) evidence gathered so far, (d) user portfolio context. Returns a JSON plan: `{next_calls: [{tool, args, reason}], done: bool, confidence: float}`.
-
-## 12. Tool registry
-
-Each tool lives in `analysis/tools/<name>.py` and implements:
-
-```python
-class Tool:
-    name: str
-    description: str                # for LLM tool-use schemas
-    cost_estimate: Callable[[args], float]    # USD
-    schema: dict                    # JSON schema for args
-    cache_policy: CachePolicy       # TTL or content-hash
-
-    def execute(self, **args) -> ToolResult: ...
-
-@dataclass
-class ToolResult:
-    data: dict
-    sources: list[Source]           # {tool, field, url?, fetched_at}
-    confidence: Literal['high','medium','low']
-    cost_actual: float
-    latency_ms: int
-```
-
-### 12.1 Existing-data tools (refactored from v1)
-
-| Tool | Replaces | Notes |
-|---|---|---|
-| `fundamentals` | `fetch_fundamentals` | yfinance `.info` |
-| `financial_trends` | `fetch_financial_trends` | quarterly trajectory |
-| `technicals` | `fetch_technicals` | RSI/MACD/BB/MA/patterns |
-| `dcf_valuation` | `compute_intrinsic_value` | base/bull/bear |
-| `peer_compare` | `get_peer_valuation` | extended with real peers (v1 mocks) |
-| `sentiment` | `sentiment_service` | Finnhub + Reddit + yf |
-| `edgar_filings` | `edgar_service` | now per-section retrieval, not full summary |
-
-### 12.2 New data-depth tools
-
-| Tool | What it pulls | Source | Why it matters |
-|---|---|---|---|
-| `transcripts` | last 8 earnings call transcripts; guidance walk; KPI mention cadence | Financial Modeling Prep API or Seeking Alpha scrape | Tone shifts predict numbers; guidance track record assesses mgmt credibility |
-| `insider_form4` | SEC Form 4: exec buys/sells with role, $ amount, % of holdings | SEC EDGAR Form 4 RSS + XBRL | Clustered insider buying is strongest single bullish signal in lit |
-| `institutional_13f` | quarterly holdings of named institutions (Berkshire, Citadel, Druckenmiller, etc.); Q/Q delta | SEC EDGAR 13F-HR | Smart-money positioning, conviction sizing |
-| `options_flow` | IV rank, IV percentile, P/C ratio, skew, unusual blocks | Tradier API (free dev tier) or yfinance `.option_chain` | Real positioning data; entry-timing |
-| `qoe_forensics` | Beneish M-score, Altman Z, Piotroski F, accrual ratio, SBC/revenue, DSO trend | computed from existing financials | Catches earnings manipulation, bankruptcy risk, low quality |
-| `macro_context` | yield curve slope, DXY, VIX term structure, HY credit spreads, sector RS, breadth | FRED API + yfinance | Same stock, different macro = different bet |
-| `alt_data` | Google Trends product searches, LinkedIn job postings delta, Glassdoor sentiment trend, app rank | pytrends + scrapers/APIs | Cheap leading indicators |
-| `catalyst_lookup` | upcoming earnings, FDA PDUFA, FOMC, OPEC, lockup expiries, conferences | yfinance + RSS feeds | Don't get blindsided / time entries |
-| `competitor_compare` | peer financials in same trend window, ranked on each KPI | yfinance + sector cohort | Relative strength is what matters |
-| `news_timeline` | recent news events annotated on price chart with causality scoring | Finnhub + LLM tagger | Separates real catalysts from noise |
-
-### 12.3 Decision tools
-
-| Tool | What |
-|---|---|
-| `position_sizing` | extends v1's `compute_position_sizing` with portfolio-level vol budget + concentration caps |
-| `correlation_analysis` | correlation with user's existing holdings, factor overlap |
-| `stress_test` | historical scenario performance: '08, COVID, '22 rate shock, dot-com |
-
-### 12.4 Meta tools
-
-| Tool | What |
-|---|---|
-| `memo_read` | fetch current Living Memo for a ticker |
-| `memo_section_read` | fetch a specific memo section |
-| `calibration_lookup` | this tool's past calls on this ticker + outcomes |
-| `sector_peers_lookup` | sector-specific peer cohort |
-
-## 13. The Living Memo
-
-**File**: `analysis/living_memo.py`
-**Storage**: `living_memo` and `living_memo_versions` tables.
-
-A Living Memo is the agent's persistent knowledge of one ticker. It is stored as both human-readable markdown and structured JSON for programmatic access.
-
-### 13.1 Sections
-
-| Section | Purpose | Updated by |
-|---|---|---|
-| `identity` | Business model, segments, geographies | Rare changes |
-| `moat` | Competitive durability, evidence, trajectory | Every research |
-| `long_term_thesis` | Secular drivers we believe / don't believe | When verdict shifts |
-| `current_state` | Latest fundamentals snapshot, valuation context | Every research |
-| `management_track_record` | Guidance promised vs delivered, hit rate over N quarters | Quarterly (after earnings) |
-| `risk_register` | Known risks × {severity, probability, mitigants, monitoring trigger} | Every research |
-| `open_questions` | What we don't know yet; what to watch | Every research; planner uses this as input |
-| `recent_observations` | Timeline of notable events with our interpretation | Every research |
-| `past_verdicts` | Every recommendation + price + outcome | Calibration job |
-| `anti_thesis` | The strongest bear case we acknowledge as legitimate | Judge agent |
-
-Each section carries:
-```json
-{ "content_md": "...",
-  "structured": {...},
-  "last_updated": "2026-05-17T...",
-  "evidence_refs": ["evidence_id_1", "evidence_id_2"],
-  "confidence": "high|medium|low" }
-```
-
-### 13.2 The distillation cycle
-
-1. **Read**: Planner loads memo as starting context. Open Questions seeds the investigation plan.
-2. **Research**: Agent loop runs, evidence accumulated.
-3. **Diff proposal**: `MemoSynthesizer` LLM call: input = (old memo + new evidence + verdict). Output = proposed updated memo + a `delta_summary` listing what changed and *why*.
-4. **Surface**: UI shows the diff (red strikethroughs, green additions, "newly confirmed", "newly falsified" annotations).
-5. **Accept / edit / reject**: User reviews. Accepted memo becomes new version. History preserved in `living_memo_versions`.
-
-The memo is **the single source of truth for what we know about this ticker**. Subsequent researches don't redo everything from scratch — they look at the memo's Open Questions and Risk Register and decide what's worth investigating now.
-
-### 13.3 Memo viewer UI (`MemoPage.jsx`)
-
-Sections collapsible. Each section shows last-updated, confidence, evidence chips. Version dropdown to compare any two versions. Manual edit toggle.
-
-## 14. Multi-agent debate
-
-Files: `analysis/agents/bull.py`, `bear.py`, `judge.py`, `self_critique.py`.
-
-Each agent is a separate LLM call with separate system prompt and separate evidence view.
-
-### 14.1 Bull agent
-- System: "Long-only fundamental analyst. Build the strongest bullish case using *only* evidence in the ledger."
-- Input: full `EvidenceLedger`
-- Output: `{thesis_md, key_drivers: [{claim, evidence_refs, confidence}], price_target_methodology}`
-- Constraint: every claim must cite ≥1 evidence ref. Uncited claims get rejected by validator.
-
-### 14.2 Bear agent
-- System: "Short-seller. (a) Attack the Bull Case for logical / evidentiary weakness. (b) Build an independent Bear Case from the same evidence."
-- Input: ledger + bull thesis
-- Output: `{attack_md, independent_bear_md, key_risks: [...], price_target_downside}`
-
-### 14.3 Judge agent
-- System: "Portfolio manager allocating real capital. Weigh both sides. Identify *what would change my mind* (falsifiable conditions)."
-- Input: ledger + bull + bear
-- Output: structured verdict:
-  ```json
-  { "summary", "recommendation", "conviction",
-    "bull_case", "bear_case",
-    "what_would_change_mind": ["if revenue growth drops below X%", ...],
-    "key_catalysts", "target_price_range",
-    "trade_plan": { "entry_zone", "stop_methodology", "targets", "time_stop" } }
-  ```
-
-### 14.4 Self-critique
-- System: "Find the 3 weakest claims in this verdict. What evidence would falsify each? Is that evidence available but missed?"
-- May trigger another planner round if it surfaces gaps.
-
-The full debate transcript surfaces in the UI under a "Debate" tab so the user can read the reasoning.
-
-## 15. Sector specialization
-
-`analysis/sector_router.py` classifies each ticker into a sector profile, which determines:
-- Required KPIs (which tools to call, which fields to extract)
-- Peer cohort (who to compare against)
-- Prompt template variants for Bull/Bear/Judge
-
-```python
-SECTOR_ANALYZERS = {
-    "saas":     SaaSAnalyzer,      # ARR, NRR, Rule of 40, magic#, CAC payback
-    "banks":    BankAnalyzer,      # NIM, efficiency, NPL, deposit beta, T1 cap
-    "reits":    REITAnalyzer,      # FFO, AFFO, occupancy, WALT, cap-rate spread
-    "biotech":  BiotechAnalyzer,   # pipeline, PDUFA, cash runway, trial readouts
-    "energy":   EnergyAnalyzer,    # reserves, breakeven, F&D, production growth
-    "semis":    SemisAnalyzer,     # wafer pricing, capex cycle, customer concentration
-    "consumer": ConsumerAnalyzer,  # comp sales, inventory turn, brand strength
-    "default":  GenericAnalyzer,
-}
-```
-
-Classification uses GICS sub-industry, business description, and an LLM fallback for edge cases.
-
-## 16. Personalization layer
-
-### 16.1 Portfolio-aware research
-`tools/correlation_analysis.py`: correlation matrix vs current holdings, sector concentration impact, factor overlap. Surfaces in verdict: *"Adding NVDA brings AI concentration to 31%; correlation w/ existing book = 0.78."*
-
-### 16.2 Personal sizing
-Extends v1's Half-Kelly with:
-- Portfolio-level vol budget (target portfolio vol = 15-20%)
-- Per-position cap (e.g., 10% max single)
-- Per-sector cap (e.g., 35% max)
-- Tax-lot awareness (if existing position underwater → wash sale window)
-
-### 16.3 Recommendation log
-
-Recommendations are still logged when the agent loop emits a verdict, but Edge v3 does not automate outcome backfill. Any future outcome review must be user-triggered and preserve the pull-based rule.
-
-Every saved verdict records:
-- Recommendation + conviction
-- Price at recommendation
-- Stop + targets
-- Thesis summary
-- Falsifiability criteria
-
-## 17. Catalysts on demand
-
-Upcoming catalysts are surfaced through the `catalyst_lookup` Tool and the Terminal's Catalysts panel (`GET /api/terminal/catalysts`). The panel refreshes only when the user opens or refreshes it.
-
-`catalyst_lookup` covers:
-- Earnings and dividend dates from yfinance
-- FOMC, CPI, and jobs-report dates from static market calendars
-- Company-specific events where the source resolves cleanly
-
-## 18. Conversational follow-up
-
-`POST /api/research/<ticker>/chat` accepts `{messages: [...]}`. The LLM has:
-- Full report context (loaded into system prompt with caching)
-- Living Memo (loaded into system prompt with caching)
-- Tool registry (can call any tool mid-conversation)
-
-So you can ask: *"Why do you think margins compress?"* and the model can call `transcripts` to cite specific management commentary, or *"What if AI capex flatlines?"* and call `dcf_valuation` with different assumptions.
-
-## 19. New DB schema (v2)
-
-```sql
--- Per-ticker evolving memory
-CREATE TABLE living_memo (
-    ticker          TEXT PRIMARY KEY,
-    current_version INTEGER NOT NULL,
-    content_md      TEXT NOT NULL,
-    content_json    TEXT NOT NULL,     -- structured sections
-    updated_at      TEXT NOT NULL
-);
-
-CREATE TABLE living_memo_versions (
-    id              INTEGER PRIMARY KEY,
-    ticker          TEXT NOT NULL,
-    version         INTEGER NOT NULL,
-    content_md      TEXT NOT NULL,
-    content_json    TEXT NOT NULL,
-    delta_summary   TEXT,
-    source_report_id TEXT,
-    created_at      TEXT NOT NULL,
-    UNIQUE(ticker, version)
-);
-
--- Audit log: every tool call in a research session
-CREATE TABLE tool_call_log (
-    id              INTEGER PRIMARY KEY,
-    report_id       TEXT NOT NULL,
-    tool_name       TEXT NOT NULL,
-    args_json       TEXT NOT NULL,
-    result_summary  TEXT,
-    sources_json    TEXT,
-    confidence      TEXT,
-    cost_usd        REAL,
-    latency_ms      INTEGER,
-    called_at       TEXT NOT NULL
-);
-
--- Recommendation calibration
-CREATE TABLE recommendations (
-    id                      INTEGER PRIMARY KEY,
-    report_id               TEXT NOT NULL,
-    ticker                  TEXT NOT NULL,
-    recommendation          TEXT NOT NULL,    -- BUY|HOLD|TRIM|AVOID
-    conviction              TEXT NOT NULL,
-    price_at_recommendation REAL NOT NULL,
-    target_low              REAL,
-    target_high             REAL,
-    stop_loss               REAL,
-    thesis_summary          TEXT,
-    what_would_change_mind  TEXT,
-    created_at              TEXT NOT NULL,
-    outcome_1m_return_pct   REAL,
-    outcome_3m_return_pct   REAL,
-    outcome_6m_return_pct   REAL,
-    outcome_1y_return_pct   REAL,
-    outcome_thesis_falsified INTEGER,
-    outcome_updated_at      TEXT,
-    outcome_notes           TEXT
-);
-
-CREATE TABLE catalysts (
-    id          INTEGER PRIMARY KEY,
-    ticker      TEXT NOT NULL,
-    event_type  TEXT NOT NULL,
-    event_date  TEXT NOT NULL,
-    description TEXT,
-    source      TEXT,
-    created_at  TEXT NOT NULL,
-    UNIQUE(ticker, event_type, event_date)
-);
-
--- Tool-specific caches (one table per heavy tool to allow targeted invalidation)
-CREATE TABLE transcripts_cache (
-    id                       INTEGER PRIMARY KEY,
-    ticker                   TEXT NOT NULL,
-    quarter                  TEXT NOT NULL,        -- "2025Q1"
-    transcript_text          TEXT NOT NULL,
-    guidance_extracted_json  TEXT,
-    kpi_mentions_json        TEXT,
-    fetched_at               TEXT NOT NULL,
-    UNIQUE(ticker, quarter)
-);
-
-CREATE TABLE insider_trades_cache (
-    id                INTEGER PRIMARY KEY,
-    ticker            TEXT NOT NULL,
-    filing_date       TEXT NOT NULL,
-    insider_name      TEXT,
-    insider_role      TEXT,
-    transaction_type  TEXT,    -- buy|sell
-    shares            REAL,
-    price             REAL,
-    total_value       REAL,
-    raw_filing_url    TEXT,
-    fetched_at        TEXT NOT NULL
-);
-
-CREATE TABLE institutional_holdings_cache (
-    id                       INTEGER PRIMARY KEY,
-    ticker                   TEXT NOT NULL,
-    quarter                  TEXT NOT NULL,
-    holder_name              TEXT NOT NULL,
-    shares                   REAL,
-    value_usd                REAL,
-    pct_of_holder_portfolio  REAL,
-    qoq_delta_shares         REAL,
-    fetched_at               TEXT NOT NULL
-);
-
-CREATE TABLE options_metrics_cache (
-    id              INTEGER PRIMARY KEY,
-    ticker          TEXT NOT NULL,
-    snapshot_date   TEXT NOT NULL,
-    iv_rank         REAL,
-    iv_percentile   REAL,
-    put_call_ratio  REAL,
-    skew            REAL,
-    unusual_json    TEXT,
-    fetched_at      TEXT NOT NULL,
-    UNIQUE(ticker, snapshot_date)
-);
-```
-
-v1 tables remain untouched.
-
-## 20. New API endpoints (v2)
-
-| Endpoint | Method | Purpose |
-|---|---|---|
-| `/api/research/<ticker>/v2/stream` | GET | Agentic SSE stream |
-| `/api/research/<ticker>/v2/refresh` | POST | Force fresh agent run |
-| `/api/research/<ticker>/memo` | GET | Current Living Memo |
-| `/api/research/<ticker>/memo` | PUT | Manual edit |
-| `/api/research/<ticker>/memo/history` | GET | Version list |
-| `/api/research/<ticker>/memo/diff?from=N&to=M` | GET | Section-level diff |
-| `/api/research/<ticker>/memo/accept` | POST | Accept proposed delta |
-| `/api/research/<ticker>/chat` | POST | Conversational follow-up |
-| `/api/research/<ticker>/tool-log` | GET | Full audit trail of a report |
-| `/api/research/<ticker>/calibration` | GET | Past calls + outcomes for this ticker |
-| `/api/calibration/dashboard` | GET | Global hit rate, by conviction/sector |
-| `/api/catalysts` | GET | Upcoming events (filter by owned/watchlist) |
-| `/api/research/<ticker>/monitor` | POST | Toggle daily-digest monitoring |
-| `/api/research/<ticker>/debate` | GET | Bull/Bear/Judge transcripts for last report |
-
-SSE event types added in v2:
-- `agent_plan` — planner emitted a new plan
-- `tool_call_start` / `tool_call_complete` / `tool_call_error`
-- `evidence_added`
-- `debate_start` / `debate_turn` (one per agent) / `debate_complete`
-- `self_critique`
-- `memo_delta_proposed`
-- `verdict_complete`
-
-## 21. Cost model
-
-Per full v2 deep research with prompt caching on Claude Sonnet 4.6 ($3/MTok in, $15/MTok out, cache reads $0.30/MTok):
-
-| Component | Calls | Est. tokens | Cost |
-|---|---|---|---|
-| Planner iterations | 5-10 | ~3k each | $0.05 |
-| Tool-internal LLM (transcripts, filings extraction) | 5-10 | ~8k each | $0.25 |
-| Bull / Bear / Judge debate | 3 | ~15k each | $0.20 |
-| Self-critique | 1 | ~10k | $0.04 |
-| Memo synthesis | 1 | ~20k | $0.06 |
-| **Total** | | | **~$0.60** |
-
-On Opus 4.7 (~5× cost): ~$3.00 per research. For ~50 researches/year, $30-150 total.
-
-`budget` config in settings:
-```
-budget_quick:  $0.10  (fundamentals + sentiment + cached memo read)
-budget_normal: $0.60  (full v2 default)
-budget_deep:   $2.00  (full + transcript deep-dives + extra debate rounds)
-```
-
-## 22. Implementation phasing
-
-| Phase | Duration | Deliverable |
-|---|---|---|
-| 0 | 1 wk | `tools/` package, `ToolResult`/`Source`/`EvidenceLedger`, v2 DB migrations, refactor v1 stages into Tool interface (keep v1 endpoint working) |
-| 1 | 2 wks | Data-depth tools: transcripts, insider_form4, institutional_13f, options_flow, qoe_forensics, macro_context, alt_data |
-| 2 | 1 wk | `agent_loop.py` + planner; formal `bull.py`/`bear.py`/`judge.py`/`self_critique.py`; v2 SSE endpoint |
-| 3 | 1.5 wks | Living Memo: schema, synthesizer, diff, viewer UI, edit/accept flow |
-| 4 | 1 wk | Sector router + 5-7 sector analyzers + sector peer cohorts |
-| 5 | 1 wk | Personal sizing, recommendation log, and pull-triggered review hooks |
-| 6 | 1 wk | Catalyst lookup, terminal panels, chat endpoint + UI |
-| 7 | 1 wk | Polish: research log UI, source viewer modal, confidence visualization |
-
-Each phase is independently shippable behind a UI toggle. v2 becomes default once Phase 3 is stable.
-
-## 23. Open design questions
-
-1. **Transcript source.** FMP API ($14/mo) is cleanest. Alternatives: scrape Seeking Alpha (ToS risk), Whisper-transcribe YouTube earnings calls (slow, audio rights). *Recommendation*: FMP for the first build.
-2. **Prompt-cache strategy.** Living Memo + sector prompt template should be cached (large, stable per session). Evidence ledger varies per call → no cache.
-3. **Concurrency model.** Tools are I/O-bound (HTTP); use `asyncio` in the executor. Run independent tools in parallel within each planner round.
-4. **User edits vs auto-update conflict.** If user has manually edited a memo section, should auto-sync touch it? *Proposal*: respect user edits unless they accept the proposed delta.
-5. **Anti-thesis seeding.** Should the bear agent be allowed to fetch *new* tools that weren't in the bull's evidence? *Proposal*: yes, with a small extra budget.
-6. **Reddit weight.** Current sentiment weights Reddit 15%. WSB is famously a *contrarian* indicator at extremes. Should we add a "Reddit extreme = inverse signal" rule? *Open*.
-7. **Sector classifier robustness.** GICS sub-industry covers ~80% cleanly; the rest needs LLM classification. *Proposal*: cache classification per ticker; admin override available.
-
-## 24. Out of scope for v2
-
-- Auto-execution of trades
-- Voice interface
-- Mobile native apps
-- Multi-user/permissions (single-user tool)
-- Fine-tuning on personal history (revisit after ≥100 calibrated recommendations)
-
----
-
-## Appendix A — Module layout (v2)
-
-```
-analysis/
-├── app.py                       # Flask routes (v1 + v2)
-├── agent_loop.py                # NEW: planner/executor/observer
-├── living_memo.py               # NEW: read/write/diff/version
-├── sector_router.py             # NEW: ticker → sector profile
-├── catalyst_calendar.py         # NEW: event aggregation
-│
-├── agents/
-│   ├── bull.py                  # NEW
-│   ├── bear.py                  # NEW
-│   ├── judge.py                 # NEW
-│   ├── self_critique.py         # NEW
-│   ├── memo_synth.py            # NEW
-│   └── planner.py               # NEW
-│
-├── tools/                       # NEW: tool registry
-│   ├── __init__.py              # registry + Tool base class
-│   ├── fundamentals.py
-│   ├── financial_trends.py
-│   ├── technicals.py
-│   ├── dcf_valuation.py
-│   ├── peer_compare.py
-│   ├── sentiment.py
-│   ├── edgar_filings.py
-│   ├── transcripts.py           # NEW
-│   ├── insider_form4.py         # NEW
-│   ├── institutional_13f.py     # NEW
-│   ├── options_flow.py          # NEW
-│   ├── qoe_forensics.py         # NEW
-│   ├── macro_context.py         # NEW
-│   ├── alt_data.py              # NEW
-│   ├── catalyst_lookup.py       # NEW
-│   ├── competitor_compare.py    # NEW
-│   ├── news_timeline.py         # NEW
-│   ├── position_sizing.py
-│   ├── correlation_analysis.py  # NEW
-│   ├── stress_test.py           # NEW
-│   ├── memo_read.py             # NEW
-│   └── memo_read.py             # NEW
-│
-├── analyzers/                   # NEW: sector specialists
-│   ├── saas.py
-│   ├── banks.py
-│   ├── reits.py
-│   ├── biotech.py
-│   ├── energy.py
-│   ├── semis.py
-│   ├── consumer.py
-│   └── generic.py
-│
-├── research_stream.py           # v1 — preserved
-├── research_engine.py           # v1 — preserved, gradually deprecated
-├── db.py
-├── llm_service.py
-├── sentiment_service.py
-├── edgar_service.py
-└── companies.py
-```
-
-## Appendix B — Glossary
-
-- **Living Memo** — per-ticker versioned knowledge document maintained by the agent across research sessions.
-- **Evidence Ledger** — in-memory store of all `ToolResult`s gathered during a single research session, with citations.
-- **Tool** — a callable data-fetch/computation with schema, cost estimate, and citation-tagged output.
-- **Verdict** — the Judge agent's structured output: recommendation, conviction, falsifiable conditions, trade plan.
-- **Delta** — the proposed change to a Living Memo after a research session (subject to user accept/edit).
-- **Calibration** — measured accuracy of the tool's recommendations over time, by conviction and sector.
-- **Falsifiability** — explicit "what would change my mind" conditions attached to every verdict.
-- **Edge** — the v3 pull-based terminal frontend wrapping the v2 brain.
-- **Theme pack** — a named cohort of tickers (e.g. `ai-infra`) used to scope movers, news, and screening.
-
----
-
-# Part III — Edge: Personal Markets Terminal (v3.0)
-
-## 25. From report generator to pull-based terminal
-
-v2 produces deep dives on demand. v3 ("Edge") reframes the product as a
-Bloomberg-style **pull-based personal terminal**: open it, scan movers + theme
-heat + catalysts + hypotheses, click into a Stock View, and initiate on-demand
-thesis reports via a command bar. The v2 brain is preserved verbatim — the agent
-loop, all 18 tools, all 7 agents, the Living Memo, the sector analyzers. v3
-changes the *frontend pages, navigation, panel set*, and adds a command-bar
-**Console** in front of the existing deep-research engine.
-
-Out of scope in v3: broker sync, holdings management, allocation dashboards,
-automated outcome tracking, daemon-style monitors, and any background scanner.
-The S&P 500 UI is retained as a pull-based snapshot cockpit over the existing
-`sp500_lookup`/`sp500_refresh` snapshot data.
-
-### Non-negotiables (all phases)
-
-1. **Citation contract unchanged.** Every Tool returns `ToolResult` with `data`,
-   `sources`, `confidence`, `cost_usd`.
-2. **Pull-based only.** No background workers, scheduled jobs, queues, alerts, or push.
-   Every panel refreshes manually.
-3. **Additive-only DB.** Never alter/drop existing tables. New columns → new
-   sibling table. Always `CREATE TABLE IF NOT EXISTS`.
-4. **Budget guardrail.** Every new LLM call flows through `agent_loop`'s Budget.
-5. **Graceful degradation.** Paid-API tools gate on `os.environ.get(KEY)` inside
-   `_execute`; the free tier always works.
-
-## 26. Navigation (reconciled pages)
-
-| Page | Route | Purpose |
-|---|---|---|
-| Market | `#market` (default) | S&P 500 cockpit: spotlight categories, market stats, sector cards, sector charts, searchable/sortable company table |
-| Stock View | `#stock?t=NVDA` | Single-ticker cockpit: chart, fundamentals, ownership, filings/news, memo + report CTAs |
-| Research | `#research?t=NVDA` | Form-driven Deep Research stream using the preserved agent loop |
-| Daily Scan | `#terminal` | Movers, theme heat, hypotheses, watchlist, catalysts, flow, news |
-| Console | `#console` | Slash-command bar + SSE stream + run-history rail |
-| Library | `#library` | Saved reports + Living Memos browser |
-| Screener | `#screener` | Rule-based technical/fundamental screener with saved configs |
-| Settings | `#settings` | LLM provider/keys, data-tier badges, themes editor |
-
-Docs moved to a footer link in the sidebar. Routing is hash-based
-(`src/hooks/useHashRoute.js`) — no router dependency. `#stock?t=<T>` carries the
-ticker; the primary Stock View thesis CTA opens `#research?t=<T>`, while quick
-why/dossier actions can still deep-link to `#console` with a command pre-filled.
-
-## 27. Phase 1 — Sparse Terminal + nav reshape (shipped)
-
-**Backend tools (new):**
-
-| Tool | Source | Notes |
-|---|---|---|
-| `movers` | yfinance `fast_info`, batched in a thread pool | Top N gainers/losers by intraday % across a universe. Cached 15m. |
-| `news_tape` | Finnhub `/company-news`, yfinance `.news` fallback | Merged, de-duplicated, newest-first headlines. Cached 15m. |
-| `price_history` | yfinance `history(period, interval)` | OHLCV bars for the chart endpoint. Ranges 1d/5d/1m/3m/1y/5y. Cached by range. |
-
-**Backend endpoints (new, in `app.py`):**
-
-- `GET /api/terminal/movers?universe=themes|watchlist` → `movers` tool over
-  watchlist ∪ `movers.DEFAULT_UNIVERSE`.
-- `GET /api/terminal/news?theme=all&limit=50` → `news_tape` tool.
-- `GET /api/terminal/watchlist` → watchlist rows enriched with day change from
-  `movers.fetch_quotes`.
-- `POST /api/terminal/watchlist` `{ticker, notes?}` / `DELETE /api/terminal/watchlist/<T>`.
-- `GET /api/chart/<T>?range=&interval=` → `price_history` tool.
-
-**DB (additive):** `db.py` gains watchlist CRUD (`get_watchlist`,
-`add_watchlist`, `remove_watchlist`) over the existing `watchlist` table. No
-schema changes in Phase 1.
-
-**Frontend:** initial 6-page `Sidebar.jsx` + hash router in `App.jsx`. `TerminalPage`
-renders Movers + Watchlist + News Tape (remaining panels land in Phase 2).
-`StockViewPage` ships header + chart + CTA bar (full sections in Phase 3).
-`ConsolePage` parses `/thesis` and `/dossier` and dispatches to the existing
-`/api/research/<T>/v2/stream` (full command set in Phase 4). The Phase 1 chart
-uses `recharts` (already a dependency); `lightweight-charts` arrives in Phase 3.
-
-Dashboard mounts with manual refresh per panel and $0 LLM spend.
-
-## 28. Phase 2 — Themes + remaining Terminal panels (shipped)
-
-**DB (additive):** three new tables in `init_db()` — `themes`, `theme_tickers`,
-`hypotheses_cache` — plus CRUD helpers in `db.py`. `seed_themes.py` runs once on
-boot from `init_db()` with the AI/semis default pack (6 themes, ~52 tickers).
-Seeding is idempotent and matched by slug, so user edits survive every boot.
-
-**Services/tools (new):**
-
-| Module | Role |
-|---|---|
-| `themes_service.py` | Theme membership queries, `scan_universe(extra=)` (theme tickers ∪ watchlist) |
-| `tools/theme_heat.py` | Per-theme median % move + leader/laggard, batched via `movers.fetch_quotes`. Cached 15m. |
-| `agents/quick_take.py` | Single-LLM-call `/why`: 3 cited sentences from a small ledger (news + trends + technicals + sentiment) |
-| `agent_loop.run_quick_take` | Budget-enforced orchestration of the quick take inside an `LLMCallSession` (charges the `quick` budget) |
-
-**Endpoints (new):**
-
-- `GET /api/terminal/theme-heat` → `theme_heat` tool.
-- `GET /api/terminal/catalysts?days=7` → refreshes `catalyst_lookup` over the
-  scan universe, returns `db.get_catalysts`.
-- `GET /api/terminal/flow?ticker=` → `{degraded:true}` without
-  `UNUSUAL_WHALES_API_KEY`; `options_flow` payload with a ticker when keyed.
-- `POST /api/terminal/hypothesis` `{ticker, refresh?}` → cached quick take
-  (TTL 4h, ~$0.05/uncached call) via `run_quick_take` + `hypotheses_cache`.
-- `GET/POST /api/themes`, `DELETE /api/themes/<slug>`,
-  `GET/POST /api/themes/<slug>/tickers`, `DELETE /api/themes/<slug>/tickers/<T>`,
-  `GET /api/themes/by-ticker/<T>`.
-
-**Frontend:** `TerminalPage` now renders the full 7-panel grid
-(Movers, Theme Heat, Watchlist, Hypotheses, Catalysts, News Tape, Flow) per the
-PRD `grid-template-areas`. New panels: `ThemeHeatPanel`, `HypothesesPanel`
-(per-ticker on-demand Generate), `CatalystsPanel`, `FlowPanel` (renders the
-degraded state on the free tier). The only LLM spend on the Terminal is an
-explicit Hypotheses Generate click.
-
-**Budget guardrail:** the quick take is the first new LLM call in v3. It flows
-through `run_quick_take`, which wraps the agent call in an `LLMCallSession` and
-charges the `quick` Budget profile — no standalone `provider.complete(...)`.
-
-## 29. Phase 3 — Stock View full build (shipped)
-
-**Charting:** `lightweight-charts` added to `package.json`.
-`tools/price_history.py` now returns server-computed `overlays` aligned to bars
-(`ma20`, `ma50`, `bb_upper`, `bb_lower`, `vwap`). `StockChart.jsx` renders a
-candlestick series and toggles overlay line series on the existing chart
-instance — toggling never re-fetches.
-
-**Relative strength:** `research_engine.fetch_technicals` now computes
-`relative_strength_vs_spy` (ticker normalized return ÷ SPY normalized return
-over the lookback; >1.0 = outperformance). Best-effort, `None` for SPY itself or
-when history is supplied directly, surfaced through the `technicals` tool.
-
-**EDGAR:** `edgar_service.list_recent_filings(ticker, limit)` returns recent
-filing metadata (form, date, URL) with no document download or LLM — keeping the
-Stock View filings timeline at $0 LLM spend.
-
-**Endpoints (new, lazy-fetched in parallel by the page):**
-
-- `GET /api/stock/<T>/header` → fundamentals snapshot.
-- `GET /api/stock/<T>/fundamentals` → fundamentals + financial_trends.
-- `GET /api/stock/<T>/technicals` → technicals incl. relative_strength_vs_spy.
-- `GET /api/stock/<T>/ownership` → institutional_13f + insider_form4.
-- `GET /api/stock/<T>/filings` → `list_recent_filings` (free metadata).
-- `GET /api/themes/by-ticker/<T>` (from Phase 2) backs the theme context.
-
-**Frontend sections:** `StockHeader`, `StockChart` (candles + overlays),
-`FundamentalsCard`, `OwnershipStrip`, `FilingsNewsTimeline` (merges SEC filings +
-news), `ThemeContext` (theme-pack membership), `StockCTABar` (deep-links to
-Console). Each section mounts its shell immediately and fails independently, so
-a slow SEC/yfinance fetch never blanks the page.
-
-## 30. Phase 4 — Console v2 with all commands (shipped)
-
-**`console_orchestrator.py`** parses a command string and returns an SSE
-generator. All LLM work routes through `agent_loop`; the orchestrator never
-calls a provider directly.
-
-| Command | Dispatch | Cost |
-|---|---|---|
-| `/thesis <T>` | `stream_deep_research(T, budget='normal')` | ~$0.60 |
-| `/dossier <T>` | `stream_deep_research(T, budget='deep')` | ~$2-15 |
-| `/why <T>` | `run_quick_take(T)`, cached in `hypotheses_cache` (4h) | ~$0.05 |
-| `/theme <slug>` | per-constituent evidence (fundamentals + news + technicals) → `bull`/`bear`/`judge` with a theme prompt prefix | ~$0.60 |
-| `/compare <A> <B>…` | parallel `run_deep_research(quick)` per ticker → `agents/compare_synth` ranking | ~$0.40 |
-
-`/theme` and `/compare` wrap their LLM calls in an `LLMCallSession` and charge a
-fresh Budget. The theme/compare orchestrations gather evidence with the free
-tools only before the debate, keeping cost bounded.
-
-**`agents/compare_synth.py`** — one LLM call that ranks candidates from their
-per-ticker verdicts (rank + reason, head-to-head, winner). Degrades to a naive
-ranking on LLM failure.
-
-**Endpoints:** `POST /api/console/run {command}` (SSE), `GET /api/library/memos`
-(memo index). `db.get_all_living_memos()` backs the Library Memos tab.
-
-**Frontend:** `ConsolePage` dispatches every command through `streamConsole`
-(a POST-based SSE reader, since `EventSource` is GET-only) and renders the
-unified `StreamView` (tool calls, debate, verdict, quick take, theme verdict,
-compare ranking). `LibraryPage` adds Reports/Memos tabs; `MemosTab` lists every
-Living Memo and opens a section-by-section read-only view.
-
-## 31. Phase 5 — Screener (shipped)
-
-**`screener_engine.py`** evaluates a rules-JSON spec against a ticker universe.
-For each ticker it pulls the cached `fundamentals`, `technicals`, and
-`financial_trends` tools, flattens their fields into one namespace, and walks the
-rules. No LLM; no new network beyond the tools' own (cached) fetches.
-
-- Universes: `themes` (theme-pack union), `watchlist`, `sp500` (cached S&P 500
-  snapshot), or an explicit list.
-- Fields are an explicit allow-list (`available_fields()`) spanning technicals
-  (rsi, MAs, golden cross, RS-vs-SPY, returns), fundamentals (P/E, margin,
-  growth, market cap), and trends (yoy_revenue_growth, quarter_count).
-- Operators: `> >= < <= = != `. `AND` requires every evaluable rule to pass;
-  `OR` requires any. Tickers with no evaluable rule are dropped (unknown fields
-  never silently pass).
-
-**DB (additive):** `screener_saved` and `dashboard_layout` tables + CRUD.
-
-**Endpoints:** `POST /api/screener/run`, `GET /api/screener/fields`,
-`GET/POST /api/screener/saved`, `DELETE /api/screener/saved/<id>`.
-
-**Frontend:** `ScreenerPage` with `RulesBuilder` (universe + combine + add/remove
-typed rule rows; boolean fields get a true/false select) and `ResultsTable`
-(matched tickers with the evaluated field values; ticker links open Stock View).
-Saved screens persist the full spec and reload into the builder.
-
-## 32. Phase 6 — Cleanup + data-tier toggles (shipped)
-
-**Deletions.** Removed the legacy portfolio, background scanner, spotlight, and
-pattern HTTP routes from `app.py` (3337 → ~1100 lines) plus `companies.py`,
-`portfolio_service.py`, and duplicate/dead frontend surfaces.
-
-**Recovery addendum.** The rich S&P 500 discovery UI and form-driven Deep
-Research page were restored because they remained core to the user's workflow.
-They now use pull-based snapshot routes (`/api/market/sp500/*`) over
-`analysis/.cache/sp500_data.json`; the old background refresh/scanner behavior
-was not restored.
-
-**Deviation from the plan (flagged):** the plan listed `research_engine.py` for
-deletion as "legacy v1 pipeline dead." It is NOT dead — five preserved tools
-(`fundamentals`, `technicals`, `financial_trends`, `dcf_valuation`,
-`peer_compare`) call its fetch helpers, and `analysis/CLAUDE.md` explicitly
-protects it. Deleting it would break the tool layer and the Console. It is
-**kept**. The pure chart-pattern detectors that lived in `app.py` (and were
-imported by `research_engine._detect_all_patterns` for the `technicals` tool)
-were extracted to a new `pattern_detectors.py` so the scanner's HTTP routes
-could be removed without breaking the brain.
-
-**Data-tier badges.** `GET /api/settings/data-tier` reports which tiers are live
-from `os.environ` (free / +FMP / +UW / +Polygon) without returning any secret
-value. `SettingsPage` renders them under a Data Tiers tab.
-
-**Themes editor.** `SettingsPage` Themes tab (create/delete themes, add/remove
-tickers) over the Phase 2 theme CRUD endpoints.
-
-**Dashboard layout.** `dashboard_layout` table + `GET/POST /api/dashboard/layout`.
-`TerminalPage` panels are drag-to-reorder; the order persists and is
-forward-compatible (unknown saved panels dropped, new panels appended).
-
-After the reconciliation pass the app boots clean with no portfolio, monitoring,
-or background scanner code; the pull-based Market page reads the snapshot. The
-deep-research brain (`agent_loop`, `agents/`, `tools/`, `living_memo`, analyzers)
-is byte-for-byte the same engine, now fronted by the Edge terminal.
+- Backend: `cd analysis && python3 -m pytest tests/`
+- Frontend UAT: `cd analysis/web && npx playwright test`
+- New tools need mocked network tests.
+- Agent/orchestration changes need `tests/test_agent_loop.py` coverage.
+- New UI surfaces need Playwright specs.

@@ -6,7 +6,7 @@ category: Reference
 
 # Architecture Overview
 
-The engineering view of Portfolio Intelligence. For the full source-of-truth spec, see `next_gen_tool.md`; this page is the abridged tour.
+The engineering view of Edge. For the full source-of-truth spec, see `next_gen_tool.md`; this page is the abridged tour.
 
 ---
 
@@ -40,7 +40,7 @@ The loop is dynamic: planner and executor may iterate until the budget, wall-clo
 ## Backend stack
 
 - **Flask** on `:5001` (`analysis/app.py`) — routes only; logic belongs in service modules and tools.
-- **SQLite** at `~/.portfolio_intelligence/finance.db` (WAL mode) — schema in `db.py`.
+- **SQLite** at `~/.edge_terminal/finance.db` (WAL mode) — schema in `db.py`.
 - **LLM abstraction** in `llm_service.py` — provider/model routing for fast and deep tasks.
 - **Tools** in `analysis/tools/` — all new data fetches must live here and register through `tools/__init__.py`.
 - **Pull-based execution** — data refreshes happen only when requested by the user or an endpoint call.

@@ -37,7 +37,7 @@ class FakeProvider:
             return self._bull_response()
         if "skeptical short-seller" in system.lower():
             return self._bear_response()
-        if "portfolio manager about to allocate" in system.lower():
+        if "investment analyst about to allocate" in system.lower():
             return self._judge_response()
         if "risk officer" in system.lower():
             return self._critique_response()
@@ -383,25 +383,6 @@ def test_budget_profiles_distinct():
     assert deep.max_usd > quick.max_usd
     # Each call returns a *fresh* budget (started_at recent)
     assert quick.started_at < quick.started_at + 1
-
-
-def test_judge_receives_portfolio_context(fake_llm, mock_yfinance, mock_sentiment):
-    """When portfolio_context is passed, the judge prompt should include cost basis,
-    weight, and P&L so position-aware sizing can be applied."""
-    from agent_loop import run_deep_research
-
-    pc = {"weight_pct": 12.5, "avg_cost": 700.0, "unrealized_pnl_pct": 25.0}
-    report = run_deep_research("NVDA", portfolio_context=pc, budget_profile="quick")
-
-    # The judge call should have seen the portfolio context block in its user prompt.
-    judge_calls = [
-        c for c in fake_llm.calls
-        if c[0] == "json" and "portfolio manager about to allocate" in c[1].lower()
-    ]
-    assert judge_calls, "judge agent was never invoked"
-    # `calls` only retains the first 60 chars of user prompt — instead verify the
-    # report preserved the portfolio_context as passed.
-    assert report.get("portfolio_context") == pc
 
 
 def test_local_provider_verdict_not_persisted(fake_llm, mock_yfinance, mock_sentiment, monkeypatch):

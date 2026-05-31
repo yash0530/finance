@@ -52,7 +52,7 @@ New tables go in `init_db()` in `db.py` with `IF NOT EXISTS`. Add a correspondin
 
 ## External API etiquette
 
-- **SEC EDGAR**: `User-Agent: PortfolioIntelligence research@example.com`. Rate-limit to 10 req/sec (`time.sleep(0.15)` between calls).
+- **SEC EDGAR**: use a descriptive `User-Agent` via `EDGAR_USER_AGENT`. Rate-limit to 10 req/sec (`time.sleep(0.15)` between calls).
 - **yfinance**: free but can throttle — cache aggressively (TTLs in `next_gen_tool.md` §21).
 - **Finnhub / FMP**: API keys from env vars (`FINNHUB_API_KEY`, `FMP_API_KEY`). Tools must gracefully degrade when keys are absent — never crash.
 - **LLM providers**: only call via `llm_service._get_provider_and_model(task_type)`. Never instantiate providers directly from new code.

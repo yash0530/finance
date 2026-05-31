@@ -249,7 +249,6 @@ def _memo_open_questions(memo: Dict) -> List[str]:
 
 def stream_deep_research(
     ticker: str,
-    portfolio_context: Optional[Dict] = None,
     budget_profile: str = "normal",
     force_refresh: bool = False,
 ) -> Generator[str, None, None]:
@@ -416,7 +415,6 @@ def stream_deep_research(
         current_price=current_price,
         sector_prompt_prefix=sector_info["prompt_prefix"],
         memo_summary=memo_summary,
-        portfolio_context=portfolio_context,
     )
     yield _sse("debate_complete", {"verdict": verdict})
 
@@ -436,7 +434,6 @@ def stream_deep_research(
             current_price=current_price,
             sector_prompt_prefix=revised_prompt_prefix,
             memo_summary=memo_summary,
-            portfolio_context=portfolio_context,
         )
         yield _sse("debate_complete", {"verdict": verdict, "revised": True})
 
@@ -511,7 +508,6 @@ def stream_deep_research(
         "memo_delta": memo_delta,
         "recommendation_id": rec_id,
         "tracked_for_calibration": tracked,
-        "portfolio_context": portfolio_context,
         "price_at_report": current_price,
     }
 
@@ -546,7 +542,6 @@ def stream_deep_research(
 
 def run_deep_research(
     ticker: str,
-    portfolio_context: Optional[Dict] = None,
     budget_profile: str = "normal",
     force_refresh: bool = False,
 ) -> Dict[str, Any]:
@@ -557,9 +552,7 @@ def run_deep_research(
     final_report: Dict[str, Any] = {}
     last_complete: Dict[str, Any] = {}
 
-    for raw in stream_deep_research(
-        ticker, portfolio_context, budget_profile, force_refresh,
-    ):
+    for raw in stream_deep_research(ticker, budget_profile, force_refresh):
         # Lightweight SSE parse: we only need to catch report_complete
         if raw.startswith("event: report_complete"):
             # The next line in SSE is "data: <json>\n\n"
@@ -579,4 +572,3 @@ def run_deep_research(
         except Exception as e:
             logger.warning(f"Could not re-fetch persisted report: {e}")
     return final_report or last_complete
-

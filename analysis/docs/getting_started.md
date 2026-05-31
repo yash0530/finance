@@ -12,7 +12,7 @@ A 5-minute walkthrough from "I just opened the app" to "I have a research view I
 
 ## What you're looking at
 
-Portfolio Intelligence is a single-investor research and decision-support tool. It has one primary job: help you turn cited market data and Deep Research output into conservative, auditable decisions.
+Edge is a single-investor research and decision-support tool. It has one primary job: help you turn cited market data and Deep Research output into conservative, auditable decisions.
 
 The current Edge v3 navigation is:
 
