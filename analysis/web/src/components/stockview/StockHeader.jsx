@@ -17,14 +17,15 @@ export default function StockHeader({ ticker }) {
         return () => { cancelled = true; };
     }, [ticker]);
 
-    const price = d?.current_price;
+    const price = d?.current_price ?? d?.price;
     const target = d?.analyst_target;
     const upside = price && target ? (target - price) / price * 100 : null;
+    const name = d?.name || d?.company_name;
 
     return (
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, flexWrap: 'wrap' }}>
             <h1 className="page-title" style={{ margin: 0, fontFamily: 'var(--font-mono, monospace)' }}>{ticker}</h1>
-            {d?.name && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{d.name}</span>}
+            {name && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{name}</span>}
             {price != null && <span style={{ fontSize: '1.25rem', fontWeight: 700 }}>${Number(price).toFixed(2)}</span>}
             {d?.market_cap != null && (
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{formatCurrency(d.market_cap)}</span>

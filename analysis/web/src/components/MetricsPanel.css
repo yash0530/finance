@@ -1,19 +1,20 @@
 .metrics-panel {
-    margin-bottom: var(--spacing-xl);
+    margin-bottom: var(--spacing-lg);
 }
 
 .metrics-grid {
     display: grid;
     grid-template-columns: repeat(6, 1fr);
-    gap: var(--spacing-md);
-    margin-bottom: var(--spacing-lg);
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
 }
 
 .metric-card {
     display: flex;
     align-items: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-lg);
+    gap: var(--spacing-sm);
+    min-height: 72px;
+    padding: var(--spacing-md);
 }
 
 .metric-icon {
@@ -26,7 +27,7 @@
 }
 
 .metric-value {
-    font-size: 1.25rem;
+    font-size: 1.08rem;
     font-weight: 700;
     color: var(--text-primary);
     font-family: 'JetBrains Mono', 'Fira Code', monospace;
@@ -43,23 +44,23 @@
 .top-companies-section {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: var(--spacing-lg);
+    gap: var(--spacing-md);
 }
 
 .top-list {
-    padding: var(--spacing-lg);
+    padding: var(--spacing-md);
 }
 
 .top-list h3 {
     font-size: 0.875rem;
     color: var(--text-secondary);
-    margin-bottom: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
 }
 
 .top-items {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: 4px;
 }
 
 .top-item {
@@ -67,7 +68,8 @@
     grid-template-columns: 30px 60px 1fr auto;
     gap: var(--spacing-sm);
     align-items: center;
-    padding: var(--spacing-sm);
+    min-height: 34px;
+    padding: 6px 8px;
     border-radius: var(--radius-sm);
     transition: background var(--transition-fast);
 }

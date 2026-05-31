@@ -28,6 +28,15 @@ test.describe('Navigation — Edge reconciled nav', () => {
         await expect(page.locator('#nav-docs')).toBeVisible();
     });
 
+    test('sidebar can collapse to a compact rail', async ({ page }) => {
+        await page.goto('/');
+        await page.locator('#sidebar-collapse-toggle').click();
+        await expect(page.locator('.app-shell')).toHaveClass(/sidebar-is-collapsed/);
+        await expect(page.locator('#nav-market')).toBeVisible();
+        await expect(page.locator('#nav-market .nav-label')).toBeHidden();
+        await expect(page.locator('#nav-market .nav-short')).toBeVisible();
+    });
+
     for (const { id, heading } of PAGES) {
         test(`${id} renders a heading`, async ({ page }) => {
             await page.goto('/');

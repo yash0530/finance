@@ -2,7 +2,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright config for Portfolio Intelligence v2 UAT.
+ * Playwright config for Edge UAT.
  *
  * - Boots Vite dev server (npm run dev on :5173) automatically.
  * - Backend Flask (port 5001) must be started manually before running tests

@@ -26,7 +26,7 @@ export default function RiskCard({ riskData }) {
                             <span style={{ fontSize: '1.8rem', fontWeight: 700, fontFamily: 'monospace', color: 'var(--accent-blue-bright)' }}>
                                 {recommended_weight_pct}%
                             </span>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>of portfolio</span>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>of capital</span>
                         </div>
                         
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border-color)' }}>

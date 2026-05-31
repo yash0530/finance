@@ -17,7 +17,6 @@ const ConsolePage    = lazy(() => import('./pages/ConsolePage'));
 const LibraryPage    = lazy(() => import('./pages/LibraryPage'));
 const ScreenerPage   = lazy(() => import('./pages/ScreenerPage'));
 const TechnicalPatternsPage = lazy(() => import('./pages/TechnicalPatternsPage'));
-const PortfolioPage  = lazy(() => import('./pages/PortfolioPage'));
 const CalibrationPage = lazy(() => import('./pages/CalibrationPage'));
 const SettingsPage   = lazy(() => import('./pages/SettingsPage'));
 const DocsPage       = lazy(() => import('./pages/DocsPage'));
@@ -36,6 +35,10 @@ export default function App() {
     const [bootSha, setBootSha] = useState(null);
     const [liveSha, setLiveSha] = useState(null);
     const [pendingCommand, setPendingCommand] = useState(null);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        return window.localStorage.getItem('edge.sidebarCollapsed') === 'true';
+    });
 
     useEffect(() => {
         let cancelled = false;
@@ -55,6 +58,10 @@ export default function App() {
     }, []);
 
     const backendStale = bootSha && liveSha && bootSha !== liveSha;
+
+    useEffect(() => {
+        window.localStorage.setItem('edge.sidebarCollapsed', String(sidebarCollapsed));
+    }, [sidebarCollapsed]);
 
     const selectTicker = useCallback((ticker) => {
         go('stock', { t: ticker });
@@ -84,7 +91,6 @@ export default function App() {
             case 'stock':     return <ErrorBoundary><StockViewPage ticker={params.t} onRunCommand={runCommand} onRunResearch={runResearch} onSelectTicker={selectTicker} /></ErrorBoundary>;
             case 'research':  return <ErrorBoundary><DeepResearchPage initialTicker={params.t} /></ErrorBoundary>;
             case 'console':   return <ErrorBoundary><ConsolePage initialCommand={pendingCommand} onCommandConsumed={() => setPendingCommand(null)} /></ErrorBoundary>;
-            case 'portfolio': return <ErrorBoundary><PortfolioPage onSelectTicker={selectTicker} /></ErrorBoundary>;
             case 'library':   return <ErrorBoundary><LibraryPage /></ErrorBoundary>;
             case 'screener':  return <ErrorBoundary><ScreenerPage onSelectTicker={selectTicker} presetName={params.preset} /></ErrorBoundary>;
             case 'patterns':  return <ErrorBoundary><TechnicalPatternsPage onSelectTicker={selectTicker} /></ErrorBoundary>;
@@ -97,8 +103,13 @@ export default function App() {
 
     return (
         <ToastProvider>
-            <div className="app-shell">
-                <Sidebar currentPage={page} onNavigate={go} />
+            <div className={`app-shell ${sidebarCollapsed ? 'sidebar-is-collapsed' : ''}`}>
+                <Sidebar
+                    currentPage={page}
+                    onNavigate={go}
+                    collapsed={sidebarCollapsed}
+                    onToggleCollapsed={() => setSidebarCollapsed(collapsed => !collapsed)}
+                />
                 <main className="main-content">
                     {backendStale && (
                         <div

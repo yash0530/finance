@@ -52,6 +52,9 @@ export default function FundamentalsCard({ ticker }) {
 
     const f = fund || {};
     const signal = trends?.trend_signals || trends?.signals;
+    const revenue = f.revenue ?? f.total_revenue;
+    const weekHigh = f.week_52_high ?? f.fifty_two_week_high;
+    const weekLow = f.week_52_low ?? f.fifty_two_week_low;
 
     return (
         <SectionCard title="Key Fundamentals" id="section-fundamentals">
@@ -59,11 +62,11 @@ export default function FundamentalsCard({ ticker }) {
                 <Metric label="Market Cap" value={f.market_cap != null ? formatCurrency(f.market_cap) : 'N/A'} />
                 <Metric label="Fwd P/E" value={formatNumber(f.forward_pe)} />
                 <Metric label="Trailing P/E" value={formatNumber(f.trailing_pe)} />
-                <Metric label="Revenue" value={f.revenue != null ? formatCurrency(f.revenue) : 'N/A'} />
+                <Metric label="Revenue" value={revenue != null ? formatCurrency(revenue) : 'N/A'} />
                 <Metric label="Rev Growth" value={f.revenue_growth != null ? formatPercent(f.revenue_growth, true) : 'N/A'} />
                 <Metric label="Profit Margin" value={f.profit_margin != null ? formatPercent(f.profit_margin, true) : 'N/A'} />
-                <Metric label="52w High" value={f.week_52_high != null ? `$${formatNumber(f.week_52_high)}` : 'N/A'} />
-                <Metric label="52w Low" value={f.week_52_low != null ? `$${formatNumber(f.week_52_low)}` : 'N/A'} />
+                <Metric label="52w High" value={weekHigh != null ? `$${formatNumber(weekHigh)}` : 'N/A'} />
+                <Metric label="52w Low" value={weekLow != null ? `$${formatNumber(weekLow)}` : 'N/A'} />
                 <Metric label="Analyst Tgt" value={f.analyst_target != null ? `$${formatNumber(f.analyst_target)}` : 'N/A'} />
             </div>
             {trends?.quarter_count > 0 && (

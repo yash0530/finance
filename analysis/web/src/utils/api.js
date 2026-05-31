@@ -1,6 +1,6 @@
 /**
  * api.js — Unified API client for all backend endpoints.
- * Extends the existing S&P 500 calls with portfolio, research, settings, watchlist.
+ * Extends the existing S&P 500 calls with research, settings, and watchlist.
  */
 
 const API_BASE = 'http://localhost:5001/api';
@@ -76,36 +76,6 @@ export const getDoc = (slug) =>
 
 export const getResearchHistory = (ticker, limit = 10) =>
     apiFetch(`${API_BASE}/research/reports/${encodeURIComponent(ticker)}?limit=${limit}`);
-
-// ──────────────────────────────────────────────────────────
-// Manual Portfolio
-// ──────────────────────────────────────────────────────────
-
-export const getPortfolioHoldings = () => apiFetch(`${API_BASE}/portfolio/holdings`);
-
-export const createPortfolioHolding = (holding) =>
-    apiFetch(`${API_BASE}/portfolio/holdings`, {
-        method: 'POST',
-        body: JSON.stringify(holding),
-    });
-
-export const updatePortfolioHolding = (id, holding) =>
-    apiFetch(`${API_BASE}/portfolio/holdings/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(holding),
-    });
-
-export const deletePortfolioHolding = (id) =>
-    apiFetch(`${API_BASE}/portfolio/holdings/${id}`, { method: 'DELETE' });
-
-export const importPortfolioCsv = (csv, replaceManual = false) =>
-    apiFetch(`${API_BASE}/portfolio/import`, {
-        method: 'POST',
-        body: JSON.stringify({ csv, replace_manual: replaceManual }),
-    });
-
-export const getPortfolioSummary = (quotes = true) =>
-    apiFetch(`${API_BASE}/portfolio/summary?quotes=${quotes ? 'true' : 'false'}`);
 
 // ──────────────────────────────────────────────────────────
 // Deep Research — agentic loop + Memo + Calibration

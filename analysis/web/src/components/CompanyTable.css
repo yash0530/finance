@@ -1,12 +1,12 @@
 .company-table-wrapper {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     overflow: hidden;
 }
 
 .table-header {
-    padding: var(--spacing-md) var(--spacing-lg);
+    padding: var(--spacing-sm) var(--spacing-md);
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
@@ -40,7 +40,7 @@
 
 /* Filter Panel */
 .filter-panel {
-    padding: var(--spacing-md) var(--spacing-lg);
+    padding: var(--spacing-md);
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
     animation: slideDown 0.3s ease;
@@ -49,8 +49,8 @@
 .filter-row {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--spacing-lg);
-    margin-bottom: var(--spacing-md);
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
 }
 
 .filter-row:last-child {
@@ -61,7 +61,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xs);
-    min-width: 180px;
+    min-width: 170px;
     flex: 1;
 }
 
@@ -75,7 +75,7 @@
 
 .filter-group select,
 .filter-group input {
-    padding: var(--spacing-xs) var(--spacing-sm);
+    padding: 5px 8px;
     background: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
@@ -113,7 +113,7 @@
 .filter-actions {
     display: flex;
     justify-content: flex-end;
-    padding-top: var(--spacing-sm);
+    padding-top: var(--spacing-xs);
     border-top: 1px solid var(--border-color);
     margin-top: var(--spacing-sm);
 }
@@ -151,13 +151,13 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: var(--spacing-xl) * 2;
+    padding: var(--spacing-xl);
     gap: var(--spacing-md);
     color: var(--text-secondary);
 }
 
 .company-table {
-    min-width: 1200px;
+    min-width: 1120px;
 }
 
 .company-table th {
@@ -182,7 +182,7 @@
 
 .ticker-badge {
     display: inline-block;
-    padding: var(--spacing-xs) var(--spacing-sm);
+    padding: 2px 6px;
     background: var(--bg-secondary);
     border-radius: var(--radius-sm);
     font-weight: 600;
@@ -221,7 +221,7 @@
 
 .sector-badge {
     display: inline-block;
-    padding: var(--spacing-xs) var(--spacing-sm);
+    padding: 3px 7px;
     border-radius: var(--radius-sm);
     font-size: 0.7rem;
     font-weight: 500;

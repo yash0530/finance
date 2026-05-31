@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Stock View — full cockpit (Phase 3): header, chart with overlay toggles,
+ * Stock View — full cockpit: header, custom technical chart,
  * fundamentals, ownership, filings/news timeline, theme context, CTA bar.
  *
  * Sections lazy-fetch in parallel and fail independently; we assert the section
@@ -20,13 +20,11 @@ test.describe('Stock View — single-ticker cockpit', () => {
         await expect(page.locator('#cta-run-thesis')).toBeVisible();
     });
 
-    test('chart overlay toggles render without re-fetch error', async ({ page }) => {
+    test('custom chart shell renders without blocking the local research panels', async ({ page }) => {
         await page.goto('/#stock?t=NVDA');
         await expect(page.locator('#stock-chart')).toBeVisible({ timeout: 10_000 });
-        // Toggle MA20 and BB — buttons live inside the chart card.
-        await page.locator('#stock-chart').getByRole('button', { name: 'MA20' }).click();
-        await page.locator('#stock-chart').getByRole('button', { name: 'BB' }).click();
-        await expect(page.locator('#stock-chart')).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Price & Technicals' })).toBeVisible();
+        await expect(page.locator('#section-technicals')).toBeVisible({ timeout: 10_000 });
     });
 
     test('Run thesis CTA opens Research with ticker pre-filled', async ({ page }) => {

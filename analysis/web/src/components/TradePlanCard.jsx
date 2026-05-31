@@ -13,7 +13,7 @@ export default function TradePlanCard({ plan, currentPrice }) {
                 <h3 style={{ fontSize: '0.9rem', margin: 0, color: 'var(--text-primary)' }}>Trade Plan</h3>
                 {plan.position_size_pct != null && (
                     <span className="badge badge-blue" style={{ fontSize: '0.75rem' }}>
-                        {plan.position_size_pct.toFixed(1)}% of portfolio
+                        {plan.position_size_pct.toFixed(1)}% of capital
                     </span>
                 )}
             </div>

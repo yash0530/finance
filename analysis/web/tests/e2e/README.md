@@ -1,8 +1,7 @@
-# Portfolio Intelligence v2 — Playwright UAT
+# Edge — Playwright UAT
 
 Browser-level UAT for the React frontend, focused on the **Deep Research v2**
-surface introduced in `feat: Implement Next-Gen AI Portfolio Intelligence & Deep
-Research Terminal`. Backend SSE / agent-loop behavior is covered by pytest in
+surface. Backend SSE / agent-loop behavior is covered by pytest in
 `analysis/tests/test_agent_loop.py` — these tests assert the **UI is wired
 correctly**, not that the LLM produces a specific verdict.
 
@@ -45,7 +44,7 @@ The Vite dev server is started automatically by `playwright.config.js`
 |---|---|
 | `nav.spec.js` | Sidebar renders the v2 entry; clicking it shows the heading, ticker input (`#deep-research-v2-input`) and budget selector (`#budget-profile`). |
 | `v2-research-form.spec.js` | Typing `NVDA`, picking the **Quick** budget profile, and clicking **Research** triggers *some* observable outcome — the streaming button, an error alert, or an SSE-driven card. 15s test timeout. |
-| `nav-to-other-pages.spec.js` | Regression: Portfolio, Quick Research, Rebalance, Alerts still render an `<h1>` after the v2 addition (no blank screens). |
+| `nav.spec.js` | Sidebar renders the first-class routes and each page shows its heading. |
 
 ## Discovering tests without running them
 

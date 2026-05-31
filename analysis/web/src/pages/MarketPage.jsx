@@ -120,7 +120,7 @@ export default function MarketPage({ onSelectTicker, onOpenScreenerPreset, onOpe
 
             {!selectedSector && !searchResults && !showAllCompanies ? (
                 <>
-                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-lg)', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap' }}>
                         <button id="btn-all-companies" className="btn btn-primary" onClick={() => setShowAll(true)}>
                             All Companies
                         </button>
@@ -139,7 +139,7 @@ export default function MarketPage({ onSelectTicker, onOpenScreenerPreset, onOpe
                 </>
             ) : (
                 <>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
                         <button className="btn btn-secondary" onClick={back}>Back</button>
                         <h2 style={{ fontSize: '1.1rem' }}>{tableTitle}</h2>
                     </div>

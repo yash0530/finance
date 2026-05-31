@@ -1,22 +1,22 @@
 .dashboard {
-    margin-bottom: var(--spacing-xl);
+    margin-bottom: var(--spacing-lg);
 }
 
 .section-title {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     margin-bottom: var(--spacing-xs);
 }
 
 .section-subtitle {
     color: var(--text-muted);
-    font-size: 0.875rem;
-    margin-bottom: var(--spacing-lg);
+    font-size: 0.8rem;
+    margin-bottom: var(--spacing-md);
 }
 
 .sector-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: var(--spacing-md);
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: var(--spacing-sm);
 }
 
 .sector-card {
@@ -36,13 +36,13 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
     position: relative;
     z-index: 1;
 }
 
 .sector-name {
-    font-size: 1rem;
+    font-size: 0.92rem;
     font-weight: 600;
     color: var(--text-primary);
 }
@@ -59,7 +59,7 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
     position: relative;
     z-index: 1;
 }
@@ -78,7 +78,7 @@
 }
 
 .stat-value {
-    font-size: 1rem;
+    font-size: 0.92rem;
     font-weight: 600;
     color: var(--text-primary);
     font-family: 'JetBrains Mono', 'Fira Code', monospace;
@@ -101,7 +101,7 @@
 
 .dashboard-empty {
     text-align: center;
-    padding: var(--spacing-xl);
+    padding: var(--spacing-lg);
     color: var(--text-muted);
 }
 

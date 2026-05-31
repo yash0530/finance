@@ -14,27 +14,24 @@ const PROVIDERS = [
     },
     {
         id: 'gemini', label: 'Google Gemini',
-        description: 'Fast + high quality. Free tier available.',
+        description: 'Fast + high quality. Reads GOOGLE_API_KEY from the environment.',
         models: { fast: 'gemini-3.1-flash-lite', deep: 'gemini-3.5-flash' },
         fastOptions: ['gemini-3.1-flash-lite', 'gemini-3.5-flash'],
         deepOptions: ['gemini-3.1-flash-lite', 'gemini-3.5-flash'],
-        apiKeyLabel: 'Gemini API Key', apiKeyPlaceholder: 'AIza...',
         signupUrl: 'https://aistudio.google.com/app/apikey',
     },
     {
         id: 'claude', label: 'Anthropic Claude',
-        description: 'Best quality for research & analysis.',
+        description: 'Best quality for research. Reads ANTHROPIC_API_KEY from the environment.',
         models: { fast: 'claude-3-5-haiku-20241022', deep: 'claude-opus-4-5' },
         fastOptions: ['claude-3-5-haiku-20241022', 'claude-3-haiku-20240307'],
         deepOptions: ['claude-opus-4-5', 'claude-sonnet-4-5', 'claude-3-5-sonnet-20241022'],
-        apiKeyLabel: 'Anthropic API Key', apiKeyPlaceholder: 'sk-ant-...',
         signupUrl: 'https://console.anthropic.com/',
     },
 ];
 
 function LLMSettingsSection() {
     const [settings, setSettings] = useState({ provider: 'ollama', model_fast: 'llama3.2', model_deep: 'llama3.2', base_url: 'http://localhost:11434' });
-    const [apiKey, setApiKey]     = useState('');
     const [saving, setSaving]     = useState(false);
     const [testing, setTesting]   = useState(false);
     const [message, setMessage]   = useState(null);
@@ -48,10 +45,9 @@ function LLMSettingsSection() {
         e.preventDefault();
         setSaving(true); setMessage(null);
         try {
-            const res = await saveLLMSettings({ ...settings, api_key: apiKey });
+            const res = await saveLLMSettings(settings);
             if (res.success) {
                 setMessage({ type: 'success', text: 'Settings saved successfully' });
-                setApiKey(''); // clear from UI
             }
         } catch (err) { setMessage({ type: 'error', text: err.message }); }
         finally { setSaving(false); }
@@ -127,24 +123,6 @@ function LLMSettingsSection() {
                             <input id="llm-base-url" className="input" type="url"
                                 value={settings.base_url || 'http://localhost:11434'}
                                 onChange={e => setSettings(s => ({ ...s, base_url: e.target.value }))} />
-                        </div>
-                    )}
-
-                    {provider.apiKeyLabel && (
-                        <div className="input-group" style={{ marginBottom: 'var(--spacing-md)' }}>
-                            <label className="input-label">
-                                {provider.apiKeyLabel}
-                                {provider.signupUrl && (
-                                    <a href={provider.signupUrl} target="_blank" rel="noreferrer"
-                                        style={{ marginLeft: 8, fontSize: '0.7rem', color: 'var(--accent-blue-bright)' }}>
-                                        Get key ↗
-                                    </a>
-                                )}
-                            </label>
-                            <input id="llm-api-key" className="input" type="password"
-                                placeholder={settings.api_key ? '(saved — enter new to update)' : provider.apiKeyPlaceholder}
-                                value={apiKey}
-                                onChange={e => setApiKey(e.target.value)} />
                         </div>
                     )}
 
