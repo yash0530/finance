@@ -286,7 +286,9 @@ Usually multiple targets with `size_to_take_off_pct` at each. Standard pattern: 
 "If thesis hasn't started playing out by [date], reassess." Prevents thesis drift — you bought it for a reason, that reason has a timeline.
 
 ### Position size
-Computed via Half-Kelly with a conservative volatility budget and per-position caps. Treat the percentage as a ceiling, not a floor. Until calibration earns trust, size at 25-50% of the recommendation.
+Computed via Half-Kelly with a conservative volatility budget and per-position caps. Treat the percentage as a ceiling, not a floor.
+
+**The sizing governor enforces this automatically.** The Judge's raw size is now run through a governor that caps it until the relevant conviction tier (HIGH/MEDIUM/LOW) has an *earned, favorable* track record — at least 5 resolved calls at a favorable rate ≥ 50%. Until a tier proves out, recommended size is capped to a conservative ceiling (2%), and the verdict shows both the capped number and the Judge's raw number with the governor's reason. This is the "size at 25–50% of the recommendation until calibration earns trust" rule, moved from advice into code. The Review page's By-Conviction table is what lifts the cap as your record accumulates.
 
 ---
 
