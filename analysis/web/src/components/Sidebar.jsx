@@ -1,20 +1,41 @@
+import { useState } from 'react';
 import { useRipple } from '../hooks/useRipple';
 
-const NAV_ITEMS = [
-    { id: 'market',    label: 'Market', short: 'M' },
-    { id: 'stock',     label: 'Stock View', short: 'SV' },
-    { id: 'research',  label: 'Research', short: 'R' },
-    { id: 'terminal',  label: 'Daily Scan', short: 'DS' },
-    { id: 'console',   label: 'Console', short: 'C' },
-    { id: 'review',    label: 'Review', short: 'RV' },
-    { id: 'library',   label: 'Library', short: 'L' },
-    { id: 'screener',  label: 'Screener', short: 'SC' },
-    { id: 'patterns',  label: 'Patterns', short: 'PT' },
-    { id: 'settings',  label: 'Settings', short: 'SE' },
+const NAV_SECTIONS = [
+    {
+        section: 'Discover',
+        items: [
+            { id: 'discover', label: 'Discover', short: 'D' },
+        ],
+    },
+    {
+        section: 'Research',
+        items: [
+            { id: 'stock',    label: 'Stock View', short: 'SV' },
+            { id: 'research', label: 'Research', short: 'R' },
+            { id: 'console',  label: 'Console', short: 'C' },
+        ],
+    },
+    {
+        section: 'Track',
+        items: [
+            { id: 'library',  label: 'Library', short: 'L' },
+            { id: 'review',   label: 'Review', short: 'RV' },
+        ],
+    },
 ];
 
-export default function Sidebar({ currentPage, onNavigate, collapsed, onToggleCollapsed }) {
+export default function Sidebar({ currentPage, onNavigate, onSelectTicker, onRunResearch, collapsed, onToggleCollapsed }) {
     const createRipple = useRipple();
+    const [ticker, setTicker] = useState('');
+
+    const submitTicker = (action) => {
+        const t = ticker.trim().toUpperCase();
+        if (!t) return;
+        if (action === 'research') onRunResearch?.(t);
+        else onSelectTicker?.(t);
+        setTicker('');
+    };
 
     return (
         <aside className="sidebar">
@@ -39,23 +60,65 @@ export default function Sidebar({ currentPage, onNavigate, collapsed, onToggleCo
                 </button>
             </div>
 
+            <form
+                className="sidebar-ticker-entry"
+                onSubmit={(e) => { e.preventDefault(); submitTicker('stock'); }}
+            >
+                <input
+                    id="global-ticker-input"
+                    className="sidebar-ticker-input"
+                    type="text"
+                    value={ticker}
+                    onChange={(e) => setTicker(e.target.value)}
+                    placeholder="Go to ticker…"
+                    aria-label="Go to ticker"
+                    autoComplete="off"
+                    spellCheck={false}
+                />
+                <button
+                    id="global-ticker-research"
+                    type="button"
+                    className="sidebar-ticker-go"
+                    title="Run Deep Research on this ticker"
+                    aria-label="Run Deep Research"
+                    disabled={!ticker.trim()}
+                    onClick={() => submitTicker('research')}
+                >
+                    R→
+                </button>
+            </form>
+
             <nav className="sidebar-nav">
-                <div className="sidebar-section-label">Workspace</div>
-                {NAV_ITEMS.map(item => (
-                    <button
-                        key={item.id}
-                        id={`nav-${item.id}`}
-                        className={`nav-item ${currentPage === item.id ? 'active' : ''}`}
-                        onClick={(e) => { createRipple(e); onNavigate(item.id); }}
-                        title={item.label}
-                    >
-                        <span className="nav-short" aria-hidden="true">{item.short}</span>
-                        <span className="nav-label">{item.label}</span>
-                    </button>
+                {NAV_SECTIONS.map(group => (
+                    <div key={group.section} className="sidebar-section">
+                        <div className="sidebar-section-label">{group.section}</div>
+                        {group.items.map(item => (
+                            <button
+                                key={item.id}
+                                id={`nav-${item.id}`}
+                                className={`nav-item ${currentPage === item.id ? 'active' : ''}`}
+                                onClick={(e) => { createRipple(e); onNavigate(item.id); }}
+                                title={item.label}
+                            >
+                                <span className="nav-short" aria-hidden="true">{item.short}</span>
+                                <span className="nav-label">{item.label}</span>
+                            </button>
+                        ))}
+                    </div>
                 ))}
             </nav>
 
             <div className="sidebar-bottom">
+                <button
+                    id="nav-settings"
+                    className={`nav-item ${currentPage === 'settings' ? 'active' : ''}`}
+                    onClick={(e) => { createRipple(e); onNavigate('settings'); }}
+                    title="Settings"
+                    style={{ width: '100%' }}
+                >
+                    <span className="nav-short" aria-hidden="true">SE</span>
+                    <span className="nav-label">Settings</span>
+                </button>
                 <button
                     id="nav-docs"
                     className={`nav-item ${currentPage === 'docs' ? 'active' : ''}`}

@@ -26,7 +26,13 @@ One primary research path: **Deep Research** — agentic loop in `agent_loop.py`
 8. **Pull-based only.** No background workers, cron, queues, alerts, or push notifications.
 
 ## Current nav pages (Edge v3)
-`Terminal` · `Stock View` · `Console` · `Library` · `Screener` · `Settings` (+ `Docs` footer)
+Sidebar is grouped as a research funnel:
+- **Discover**: one front door (`DiscoverPage`) with tabs `Daily Scan` (default) · `Market` · `Screener` · `Patterns`
+- **Research**: `Stock View` · `Research` (Deep Research form) · `Console`
+- **Track**: `Library` · `Review` (calibration)
+- Footer: `Settings` · `Docs`
+
+The four discovery surfaces were consolidated into one tabbed page so the funnel has a single entrance. Hashes `#market` / `#terminal` / `#screener` / `#patterns` still work — they open Discover on the matching tab (deep-link / back-compat). The empty hash defaults to `#discover` (Daily Scan). Every discovery/track row exposes a one-click `R→` shortcut (`web/src/components/ResearchLink.jsx`) into Deep Research, and the sidebar has a global ticker entry. The funnel is **Discover → Stock View → Research**.
 
 ## Where things live
 - `analysis/agent_loop.py` — orchestrator + SSE streaming + `run_deep_research()`

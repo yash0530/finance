@@ -9,17 +9,18 @@ import { ToastProvider } from './components/Toast';
 
 
 
-const TerminalPage   = lazy(() => import('./pages/TerminalPage'));
-const MarketPage     = lazy(() => import('./pages/MarketPage'));
+const DiscoverPage   = lazy(() => import('./pages/DiscoverPage'));
 const StockViewPage  = lazy(() => import('./pages/StockViewPage'));
 const DeepResearchPage = lazy(() => import('./pages/DeepResearchPage'));
 const ConsolePage    = lazy(() => import('./pages/ConsolePage'));
 const LibraryPage    = lazy(() => import('./pages/LibraryPage'));
-const ScreenerPage   = lazy(() => import('./pages/ScreenerPage'));
-const TechnicalPatternsPage = lazy(() => import('./pages/TechnicalPatternsPage'));
 const CalibrationPage = lazy(() => import('./pages/CalibrationPage'));
 const SettingsPage   = lazy(() => import('./pages/SettingsPage'));
 const DocsPage       = lazy(() => import('./pages/DocsPage'));
+
+// The four discovery surfaces are now tabs inside DiscoverPage. These page ids
+// remain valid hashes (deep-links, back-compat) and open Discover on that tab.
+const DISCOVER_TABS = new Set(['market', 'terminal', 'screener', 'patterns']);
 
 function PageLoader() {
     return (
@@ -76,37 +77,45 @@ export default function App() {
         go('research', { t: ticker });
     }, [go]);
 
-    const openScreenerPreset = useCallback((preset) => {
-        go('screener', { preset });
-    }, [go]);
-
-    const openPatterns = useCallback(() => {
-        go('patterns');
-    }, [go]);
+    // Discovery surfaces collapse into one tabbed Discover page. A bare hash for
+    // any tab id (e.g. #patterns) opens Discover on that tab; #discover?tab= works too.
+    const discover = (tab) => (
+        <ErrorBoundary>
+            <DiscoverPage
+                initialTab={tab}
+                presetName={params.preset}
+                onSelectTicker={selectTicker}
+                onRunResearch={runResearch}
+            />
+        </ErrorBoundary>
+    );
 
     function renderPage() {
+        if (page === 'discover') return discover(params.tab);
+        if (DISCOVER_TABS.has(page)) return discover(page);
         switch (page) {
-            case 'market':    return <ErrorBoundary><MarketPage onSelectTicker={selectTicker} onOpenScreenerPreset={openScreenerPreset} onOpenPatterns={openPatterns} /></ErrorBoundary>;
-            case 'terminal':  return <ErrorBoundary><TerminalPage onSelectTicker={selectTicker} /></ErrorBoundary>;
             case 'stock':     return <ErrorBoundary><StockViewPage ticker={params.t} onRunCommand={runCommand} onRunResearch={runResearch} onSelectTicker={selectTicker} /></ErrorBoundary>;
             case 'research':  return <ErrorBoundary><DeepResearchPage initialTicker={params.t} /></ErrorBoundary>;
             case 'console':   return <ErrorBoundary><ConsolePage initialCommand={pendingCommand} onCommandConsumed={() => setPendingCommand(null)} /></ErrorBoundary>;
-            case 'library':   return <ErrorBoundary><LibraryPage /></ErrorBoundary>;
-            case 'screener':  return <ErrorBoundary><ScreenerPage onSelectTicker={selectTicker} presetName={params.preset} /></ErrorBoundary>;
-            case 'patterns':  return <ErrorBoundary><TechnicalPatternsPage onSelectTicker={selectTicker} /></ErrorBoundary>;
-            case 'review':    return <ErrorBoundary><CalibrationPage /></ErrorBoundary>;
+            case 'library':   return <ErrorBoundary><LibraryPage onSelectTicker={selectTicker} onRunResearch={runResearch} /></ErrorBoundary>;
+            case 'review':    return <ErrorBoundary><CalibrationPage onSelectTicker={selectTicker} onRunResearch={runResearch} /></ErrorBoundary>;
             case 'settings':  return <ErrorBoundary><SettingsPage /></ErrorBoundary>;
             case 'docs':      return <ErrorBoundary><DocsPage /></ErrorBoundary>;
-            default:          return <ErrorBoundary><MarketPage onSelectTicker={selectTicker} onOpenScreenerPreset={openScreenerPreset} onOpenPatterns={openPatterns} /></ErrorBoundary>;
+            default:          return discover('terminal');
         }
     }
+
+    // Treat the back-compat tab hashes as "discover" for nav highlighting.
+    const activeNav = (page === 'discover' || DISCOVER_TABS.has(page)) ? 'discover' : page;
 
     return (
         <ToastProvider>
             <div className={`app-shell ${sidebarCollapsed ? 'sidebar-is-collapsed' : ''}`}>
                 <Sidebar
-                    currentPage={page}
+                    currentPage={activeNav}
                     onNavigate={go}
+                    onSelectTicker={selectTicker}
+                    onRunResearch={runResearch}
                     collapsed={sidebarCollapsed}
                     onToggleCollapsed={() => setSidebarCollapsed(collapsed => !collapsed)}
                 />

@@ -7,7 +7,7 @@ function parseHash() {
     if (query) {
         for (const [k, v] of new URLSearchParams(query)) params[k] = v;
     }
-    return { page: path || 'market', params };
+    return { page: path || 'discover', params };
 }
 
 export function buildHash(page, params = {}) {

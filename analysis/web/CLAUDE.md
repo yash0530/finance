@@ -4,7 +4,15 @@ React 18 + Vite. Single-page app. Dark terminal aesthetic.
 
 ## Current pages (Edge v3)
 
-`Terminal` (#terminal, default) · `Stock View` (#stock?t=) · `Console` (#console) · `Library` (#library) · `Screener` (#screener) · `Settings` (#settings) · `Docs` (footer)
+Sidebar (`components/Sidebar.jsx`) is grouped as a research funnel:
+- **Discover** (#discover, default): one `DiscoverPage` with tabs `Daily Scan` (default) · `Market` · `Screener` · `Patterns`
+- **Research**: `Stock View` (#stock?t=) · `Research` (#research) · `Console` (#console)
+- **Track**: `Library` (#library) · `Review` (#review)
+- Footer: `Settings` (#settings) · `Docs` (#docs)
+
+The four discovery surfaces live as tabs in `pages/DiscoverPage.jsx` (lazy-loaded per tab, so only the active tab's chunk is fetched). The old hashes `#market` / `#terminal` / `#screener` / `#patterns` are kept as deep-link aliases — `App.jsx` maps them to Discover with that tab pre-selected (see `DISCOVER_TABS`), and treats them as `discover` for nav highlighting. Tab buttons carry ids `#discover-tab-<id>`. A screener-preset or patterns handoff from the Market tab switches tabs locally rather than navigating.
+
+The sidebar carries a global ticker entry (Enter → Stock View, `R→` → Research). Track rows render a shared `<ResearchLink>` (`components/ResearchLink.jsx`) that jumps straight to Deep Research. Page→Research handoff is the `onRunResearch` prop, prop-drilled from `App.jsx`.
 
 Routing is hash-based via `src/hooks/useHashRoute.js` — no router dependency. `App.jsx` maps `page` → component.
 
