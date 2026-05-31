@@ -33,6 +33,8 @@ def _wipe():
         conn.commit()
     finally:
         conn.close()
+    _app._FLOW_COOLDOWN["until"] = None
+    _app._FLOW_COOLDOWN["reason"] = ""
     yield
 
 
@@ -160,11 +162,69 @@ def test_theme_heat_endpoint(client, monkeypatch, _seed_theme):
 
 def test_flow_endpoint_degrades_without_uw_key(client, monkeypatch):
     monkeypatch.delenv("UNUSUAL_WHALES_API_KEY", raising=False)
+    res = client.get("/api/terminal/flow")
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["degraded"] is True
+    assert body["status"] == "degraded"
+
+
+def test_flow_endpoint_free_tier_returns_ticker_metrics(client, monkeypatch):
+    import tools
+    from tools import ToolResult
+
+    class _FlowTool:
+        def execute(self, **kwargs):
+            return ToolResult(
+                tool_name="options_flow",
+                data={
+                    "ticker": kwargs["ticker"],
+                    "atm_iv": 0.42,
+                    "put_call_ratio_oi": 0.8,
+                    "unusual_contracts": [],
+                },
+                confidence="medium",
+            )
+
+    monkeypatch.delenv("UNUSUAL_WHALES_API_KEY", raising=False)
+    monkeypatch.setattr(tools, "get_tool", lambda name: _FlowTool())
     res = client.get("/api/terminal/flow?ticker=NVDA")
     assert res.status_code == 200
     body = res.get_json()
     assert body["degraded"] is True
-    assert "reason" in body
+    assert body["provider"] == "yfinance"
+    assert body["data"]["atm_iv"] == 0.42
+
+
+def test_flow_endpoint_trips_cooldown_on_rate_limit(client, monkeypatch):
+    import tools
+    from tools import ToolResult
+
+    calls = {"n": 0}
+
+    class _RateLimitedFlowTool:
+        def execute(self, **kwargs):
+            calls["n"] += 1
+            return ToolResult(
+                tool_name="options_flow",
+                data={},
+                error="429 rate limit",
+                confidence="low",
+            )
+
+    _app._FLOW_COOLDOWN["until"] = None
+    _app._FLOW_COOLDOWN["reason"] = ""
+    monkeypatch.setenv("UNUSUAL_WHALES_API_KEY", "fake")
+    monkeypatch.setattr(tools, "get_tool", lambda name: _RateLimitedFlowTool())
+
+    first = client.get("/api/terminal/flow?ticker=NVDA").get_json()
+    second = client.get("/api/terminal/flow?ticker=AMD").get_json()
+    assert first["cooldown"] is True
+    assert second["cooldown"] is True
+    assert calls["n"] == 1
+
+    _app._FLOW_COOLDOWN["until"] = None
+    _app._FLOW_COOLDOWN["reason"] = ""
 
 
 def test_catalysts_endpoint_dedupes_market_wide_events(client, monkeypatch, _seed_theme):

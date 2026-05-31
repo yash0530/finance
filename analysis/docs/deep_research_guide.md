@@ -27,7 +27,7 @@ Pages in the sidebar:
 | **Market** | Rich S&P 500 discovery: spotlight categories, market stats, sector cards, sector charts, search, and a sortable/filterable company table. Refresh is manual through the S&P snapshot refresh. |
 | **Stock View** | Single-ticker cockpit. Click any ticker from Market, Daily Scan, Screener, or Library to open it. Price header, candlestick chart with MA/Bollinger/VWAP overlay toggles and multiple ranges, key fundamentals, ownership & insider activity, a merged filings/news timeline, theme-pack context, and thesis/quick-take CTAs. |
 | **Research** | The friendly Deep Research form. Enter a ticker, choose a budget, and watch the preserved agent loop stream through planner, tools, bull/bear/judge, self-critique, memo delta, and report. |
-| **Daily Scan** | Pull-based scan panels. Movers, Theme Heat, Watchlist, Hypotheses (on-demand AI "why" per ticker), Fresh Catalysts, News Tape, and Flow snapshot. No LLM spend on mount. |
+| **Daily Scan** | Morning scan cockpit. Run Scan builds one snapshot with quote coverage, source health, action queue, movers, theme heat, watchlist, on-demand hypotheses, catalysts, news, and flow status. No LLM spend on mount. |
 | **Console** | Power-user command runner: `/thesis <T>`, `/dossier <T>`, `/why <T>`, `/theme <slug>`, `/compare <A> <B> <C>`. Everything streams live. |
 | **Library** | Your saved reports and Living Memos. |
 | **Screener** | Rule-based screening over cached tool data. Build rules like "RSI < 30 AND yoy_revenue_growth > 0.20" over a theme/watchlist universe; matched tickers link straight to Stock View. Save configs for reuse. |
@@ -50,10 +50,16 @@ parallel, then ranks them head-to-head.
 ### Theme packs
 
 Daily Scan uses a universe defined by **theme packs** — named cohorts of
-tickers (e.g. `ai-infra`, `hbm-memory`, `dc-power`). A default AI/semis-pilled
-pack seeds on first boot; edit it in Settings. Theme Heat ranks each pack by its
-constituents' median move and surfaces the day's leader and laggard, so you can
-see which corner of the market is in play before you drill in.
+tickers (e.g. `ai-infra`, `hbm-memory`, `dc-power`) plus your watchlist. A
+default AI/semis-pilled pack seeds on first boot; edit it in Settings. Run Scan
+uses one shared quote snapshot with stale-good fallback, then ranks theme heat,
+movers, catalysts, and news into an Action Queue so the page starts with the
+names most worth inspecting.
+
+Flow is intentionally on demand. Without `UNUSUAL_WHALES_API_KEY`, the Daily
+Scan flow tile reports degraded provider status and per-ticker Stock View flow
+falls back to yfinance options-chain metrics. If a provider returns a rate-limit
+or quota error, Edge shows a cooldown state instead of retrying repeatedly.
 
 ### Hypotheses — cheap reads, on demand
 

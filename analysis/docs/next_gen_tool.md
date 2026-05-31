@@ -98,6 +98,17 @@ Every LLM-emitted claim must cite `evidence_refs`; validators should stay strict
 All refreshes are user-triggered. Do not add background workers, cron jobs,
 queues, push notifications, or silent sync loops.
 
+Daily Scan uses `/api/terminal/snapshot` as its morning-refresh envelope. The
+snapshot gathers quote coverage, movers, theme heat, catalysts, news, provider
+health, and flow status into one response so panels do not independently hammer
+the same providers. Quote-backed panels share the `quote_snapshot` tool, which
+uses a short live cache and stale-good fallback when yfinance throttles or fails.
+
+Flow is always on demand. The no-ticker Daily Scan flow panel reports provider
+status only. Per-ticker flow can show free yfinance options-chain metrics, while
+Unusual Whales-only data remains gated by `UNUSUAL_WHALES_API_KEY`. Rate-limit
+responses trip a short cooldown instead of retrying repeatedly.
+
 ## Tool Contract
 
 Each Tool returns a `ToolResult` with:

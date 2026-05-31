@@ -2,6 +2,40 @@ import { useState, useCallback, useEffect } from 'react';
 import { getFlow } from '../../utils/api';
 import PanelShell from './PanelShell';
 
+function fmtNumber(value, digits = 2) {
+    if (value == null || Number.isNaN(Number(value))) return '-';
+    return Number(value).toLocaleString(undefined, { maximumFractionDigits: digits });
+}
+
+function fmtPct(value) {
+    if (value == null || Number.isNaN(Number(value))) return '-';
+    return `${(Number(value) * 100).toFixed(1)}%`;
+}
+
+function FlowMetrics({ data }) {
+    if (!data || Object.keys(data).length === 0) return null;
+    const unusual = data.unusual_contracts || [];
+    return (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: '0.72rem' }}>
+            <Metric label="ATM IV" value={fmtPct(data.atm_iv)} />
+            <Metric label="P/C OI" value={fmtNumber(data.put_call_ratio_oi)} />
+            <Metric label="P/C Vol" value={fmtNumber(data.put_call_ratio_volume)} />
+            <Metric label="Net Prem" value={`$${fmtNumber(data.net_premium_proxy, 0)}`} />
+            <Metric label="Skew" value={fmtNumber(data.skew_proxy)} />
+            <Metric label="Unusual" value={String(unusual.length)} />
+        </div>
+    );
+}
+
+function Metric({ label, value }) {
+    return (
+        <div style={{ border: '1px solid var(--border-color)', borderRadius: 6, padding: '5px 7px', minWidth: 0 }}>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.62rem' }}>{label}</div>
+            <div style={{ color: 'var(--text-primary)', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</div>
+        </div>
+    );
+}
+
 /**
  * Flow Snapshot. On the free tier (no UNUSUAL_WHALES_API_KEY) the backend
  * returns {degraded:true} and we render a sparse state explaining the upgrade
@@ -40,6 +74,7 @@ export default function FlowPanel({ area = 'flow', ticker = '', initialStatus = 
     }, [initialStatus, ticker]);
 
     const degraded = payload?.degraded;
+    const metrics = payload?.data;
 
     return (
         <PanelShell
@@ -61,14 +96,15 @@ export default function FlowPanel({ area = 'flow', ticker = '', initialStatus = 
                 <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
                     <div style={{ marginBottom: 6 }}>{payload.reason}</div>
                     <div style={{ fontSize: '0.7rem' }}>{payload.free_tier}</div>
-                    <div style={{ marginTop: 8 }}>
+                    <div style={{ marginTop: 8, marginBottom: metrics ? 8 : 0 }}>
                         <span className="badge badge-yellow" style={{ fontSize: '0.62rem' }}>Add UNUSUAL_WHALES_API_KEY to unlock</span>
                     </div>
+                    <FlowMetrics data={metrics} />
                 </div>
             )}
             {!degraded && payload && (
                 <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
-                    {payload.note || (ticker ? 'No notable flow returned for this ticker.' : 'Provide a ticker via Stock View for a flow snapshot.')}
+                    {metrics ? <FlowMetrics data={metrics} /> : (payload.note || (ticker ? 'No notable flow returned for this ticker.' : 'Provide a ticker via Stock View for a flow snapshot.'))}
                 </div>
             )}
         </PanelShell>

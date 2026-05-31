@@ -718,6 +718,8 @@ def get_doc(slug):
 # Terminal — daily scan panels (pull-based, no background workers)
 # ============================================================================
 
+_FLOW_COOLDOWN: Dict[str, Any] = {"until": None, "reason": ""}
+
 def _watchlist_tickers() -> List[str]:
     try:
         return [w["ticker"] for w in db.get_watchlist()]
@@ -828,13 +830,34 @@ def _tool_health(label: str, result: Any) -> Dict[str, Any]:
 
 def _flow_provider_status() -> Dict[str, Any]:
     import os
+    from datetime import datetime
     has_key = bool(os.environ.get('UNUSUAL_WHALES_API_KEY', '').strip())
+    cooldown_until = _FLOW_COOLDOWN.get("until")
+    if cooldown_until and cooldown_until > datetime.now():
+        return {
+            "label": "Options flow",
+            "status": "cooldown",
+            "provider": "flow provider",
+            "message": _FLOW_COOLDOWN.get("reason") or "Flow provider is cooling down after a rate-limit response.",
+            "retry_after": cooldown_until.isoformat(),
+        }
     return {
         "label": "Options flow",
         "status": "available" if has_key else "degraded",
         "provider": "Unusual Whales" if has_key else "free-tier",
         "message": "Real unusual blocks, dark pool, and gamma available." if has_key else "Flow is on demand; no UNUSUAL_WHALES_API_KEY is configured.",
     }
+
+
+def _flow_rate_limited(error: Optional[str]) -> bool:
+    text = (error or "").lower()
+    return any(token in text for token in ("429", "rate limit", "ratelimit", "quota", "too many requests"))
+
+
+def _trip_flow_cooldown(reason: str, minutes: int = 15) -> None:
+    from datetime import datetime, timedelta
+    _FLOW_COOLDOWN["until"] = datetime.now() + timedelta(minutes=minutes)
+    _FLOW_COOLDOWN["reason"] = reason
 
 
 @app.route('/api/terminal/movers', methods=['GET'])
@@ -991,23 +1014,49 @@ def terminal_snapshot():
 
 @app.route('/api/terminal/flow', methods=['GET'])
 def terminal_flow():
-    """Options flow snapshot. Degrades to a sparse payload without an UW key."""
+    """Options flow snapshot. Market-wide flow is status-only; ticker flow is on demand."""
     import os
+    from datetime import datetime
     from tools import get_tool
     ticker = (request.args.get('ticker') or '').upper().strip()
-    if not os.environ.get('UNUSUAL_WHALES_API_KEY', '').strip():
+
+    cooldown_until = _FLOW_COOLDOWN.get("until")
+    if cooldown_until and cooldown_until > datetime.now():
         return jsonify({
             "degraded": True,
-            "reason": "No UNUSUAL_WHALES_API_KEY — real unusual blocks, dark pool, and gamma are gated.",
+            "cooldown": True,
             "ticker": ticker or None,
-            "free_tier": "yfinance options metrics available per-ticker via Stock View.",
+            "reason": _FLOW_COOLDOWN.get("reason") or "Flow provider is cooling down after a rate-limit response.",
+            "retry_after": cooldown_until.isoformat(),
         })
+
+    has_uw_key = bool(os.environ.get('UNUSUAL_WHALES_API_KEY', '').strip())
     if not ticker:
-        return jsonify({"degraded": False, "items": [], "note": "Provide ?ticker=<T> for a flow snapshot."})
+        return jsonify({
+            **_flow_provider_status(),
+            "degraded": not has_uw_key,
+            "ticker": None,
+        })
+
     result = get_tool('options_flow').execute(ticker=ticker)
     payload = result.to_dict()
-    payload["degraded"] = False
+    payload["degraded"] = not has_uw_key
+    payload["ticker"] = ticker
+    payload["provider"] = "Unusual Whales + yfinance metrics" if has_uw_key else "yfinance"
+    if not has_uw_key:
+        payload["reason"] = "No UNUSUAL_WHALES_API_KEY — showing free per-ticker options-chain metrics only."
+        payload["free_tier"] = "Real unusual blocks, dark pool, and gamma remain gated."
+    if _flow_rate_limited(payload.get("error")):
+        _trip_flow_cooldown(payload["error"])
+        payload["degraded"] = True
+        payload["cooldown"] = True
+        payload["retry_after"] = _FLOW_COOLDOWN["until"].isoformat()
     return jsonify(payload)
+
+
+@app.route('/api/terminal/flow/status', methods=['GET'])
+def terminal_flow_status():
+    return jsonify(_flow_provider_status())
 
 
 @app.route('/api/terminal/hypothesis', methods=['POST'])

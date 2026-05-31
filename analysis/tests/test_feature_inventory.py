@@ -23,6 +23,7 @@ def test_first_class_routes_registered():
         "/api/library/memos",
         "/api/screener/run",
         "/api/terminal/movers",
+        "/api/terminal/snapshot",
         "/api/calibration/dashboard",
         "/api/recommendations/<int:recommendation_id>/outcome",
         "/api/patterns/all",
