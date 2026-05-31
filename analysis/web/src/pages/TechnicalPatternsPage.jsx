@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getAllPatterns, getPatternsByType, formatPercent } from '../utils/api';
+import ResearchLink from '../components/ResearchLink';
 
 const FILTERS = [
     { key: 'all', label: 'All' },
@@ -26,7 +27,7 @@ function flattenPatterns(data) {
         .sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
 }
 
-export default function TechnicalPatternsPage({ onSelectTicker }) {
+export default function TechnicalPatternsPage({ onSelectTicker, onRunResearch }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -174,6 +175,7 @@ export default function TechnicalPatternsPage({ onSelectTicker }) {
                                     <th>Current</th>
                                     <th>Target</th>
                                     <th>Potential</th>
+                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -205,6 +207,9 @@ export default function TechnicalPatternsPage({ onSelectTicker }) {
                                             <td>{pattern.target_price != null ? `$${Number(pattern.target_price).toFixed(2)}` : 'N/A'}</td>
                                             <td className={potential == null ? '' : potential >= 0 ? 'value-positive' : 'value-negative'}>
                                                 {potential == null ? 'N/A' : formatPercent(potential, true)}
+                                            </td>
+                                            <td className="text-right">
+                                                <ResearchLink ticker={pattern.ticker} onRunResearch={onRunResearch} />
                                             </td>
                                         </tr>
                                     );

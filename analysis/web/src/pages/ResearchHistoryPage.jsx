@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { getAllResearchHistory, getResearchReportById, getResearchReportDrift, deleteResearchReport, deleteResearchReportsBulk } from '../utils/api';
 import ReportView from '../components/ReportView';
 import RecommendationPill from '../components/RecommendationPill';
+import ResearchLink from '../components/ResearchLink';
 
 // ── Formatters ────────────────────────────────────────────────────────
 
@@ -16,7 +17,7 @@ function formatDate(isoString) {
 
 // ── Main Component ────────────────────────────────────────────────────
 
-export default function ResearchHistoryPage({ embedded = false }) {
+export default function ResearchHistoryPage({ embedded = false, onSelectTicker, onRunResearch }) {
     const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -340,7 +341,15 @@ export default function ResearchHistoryPage({ embedded = false }) {
                                         />
                                     </td>
                                     <td style={tdStyle}>
-                                        <span className="ticker-badge">{report.ticker}</span>
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                            <button
+                                                type="button"
+                                                className="ticker-badge"
+                                                style={{ background: 'transparent', border: 'none', cursor: onSelectTicker ? 'pointer' : 'default', padding: 0 }}
+                                                onClick={() => onSelectTicker?.(report.ticker)}
+                                            >{report.ticker}</button>
+                                            <ResearchLink ticker={report.ticker} onRunResearch={onRunResearch} />
+                                        </span>
                                     </td>
                                     <td style={tdStyle}>
                                         <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>

@@ -6,6 +6,7 @@ import ThemeHeatPanel from '../components/terminal/ThemeHeatPanel';
 import HypothesesPanel from '../components/terminal/HypothesesPanel';
 import CatalystsPanel from '../components/terminal/CatalystsPanel';
 import FlowPanel from '../components/terminal/FlowPanel';
+import ResearchLink from '../components/ResearchLink';
 import { getDashboardLayout, saveDashboardLayout, getTerminalSnapshot, formatPercent } from '../utils/api';
 
 const DEFAULT_ORDER = ['movers', 'theme-heat', 'watchlist', 'hypotheses', 'catalysts', 'news-tape', 'flow'];
@@ -17,7 +18,7 @@ const COLSPAN = { movers: 2, 'news-tape': 2 };
  * Panels are drag-to-reorder; the order persists to dashboard_layout. The only
  * LLM spend is the Hypotheses panel's per-ticker Generate button.
  */
-export default function TerminalPage({ onSelectTicker }) {
+export default function TerminalPage({ onSelectTicker, onRunResearch }) {
     const [order, setOrder] = useState(DEFAULT_ORDER);
     const [snapshot, setSnapshot] = useState(null);
     const [snapshotLoading, setSnapshotLoading] = useState(false);
@@ -66,7 +67,7 @@ export default function TerminalPage({ onSelectTicker }) {
     }, [order, persist]);
 
     const renderPanel = (id) => {
-        const common = { onSelectTicker, area: id };
+        const common = { onSelectTicker, onRunResearch, area: id };
         const panels = snapshot?.panels || {};
         switch (id) {
             case 'movers': return <MoversPanel {...common} initialResult={panels.movers} deferInitialLoad />;
@@ -127,13 +128,16 @@ export default function TerminalPage({ onSelectTicker }) {
                 {queue.length ? (
                     <div className="daily-scan-queue">
                         {queue.slice(0, 8).map(item => (
-                            <button className="daily-scan-queue-row" key={item.ticker} onClick={() => onSelectTicker(item.ticker)}>
+                            <div className="daily-scan-queue-row" key={item.ticker} role="button" tabIndex={0}
+                                onClick={() => onSelectTicker(item.ticker)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') onSelectTicker(item.ticker); }}>
                                 <span className="ticker-badge">{item.ticker}</span>
                                 <span className="daily-scan-queue-reasons">{item.reasons.join(' / ')}</span>
                                 <span className={`daily-scan-queue-score ${item.movePct >= 0 ? 'up' : 'down'}`}>
                                     {item.movePct != null ? formatPercent(item.movePct, true) : `${item.score} pts`}
                                 </span>
-                            </button>
+                                <ResearchLink ticker={item.ticker} onRunResearch={onRunResearch} />
+                            </div>
                         ))}
                     </div>
                 ) : (

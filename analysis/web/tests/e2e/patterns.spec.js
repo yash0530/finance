@@ -132,12 +132,12 @@ test.describe('Technical Patterns workflow', () => {
         await expect(page.getByRole('heading', { name: 'Technical Patterns' })).toBeVisible();
         await expect(page.getByText(/3 tickers scanned .* 2 patterns found/)).toBeVisible();
         await expect(page.getByRole('button', { name: /Double Bottom 1/ })).toBeVisible();
-        await expect(page.getByRole('cell', { name: 'AAPL' })).toBeVisible();
-        await expect(page.getByRole('cell', { name: 'MSFT' })).toBeVisible();
+        await expect(page.getByRole('cell', { name: 'AAPL', exact: true })).toBeVisible();
+        await expect(page.getByRole('cell', { name: 'MSFT', exact: true })).toBeVisible();
 
         await page.getByRole('button', { name: 'Bearish' }).click();
-        await expect(page.getByRole('cell', { name: 'MSFT' })).toBeVisible();
-        await expect(page.getByRole('cell', { name: 'AAPL' })).toHaveCount(0);
+        await expect(page.getByRole('cell', { name: 'MSFT', exact: true })).toBeVisible();
+        await expect(page.getByRole('cell', { name: 'AAPL', exact: true })).toHaveCount(0);
     });
 
     test('opens Stock View from a pattern row and shows pattern detail', async ({ page }) => {

@@ -2,32 +2,39 @@ import { useState, useCallback, useEffect } from 'react';
 import { getMovers } from '../../utils/api';
 import { formatPercent } from '../../utils/api';
 import PanelShell from './PanelShell';
+import ResearchLink from '../ResearchLink';
 
-function MoverRow({ row, onClick }) {
+function MoverRow({ row, onClick, onRunResearch }) {
     const up = (row.change_pct ?? 0) >= 0;
     return (
-        <button
+        <div
             className="mover-row"
-            onClick={() => onClick(row.ticker)}
             style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                width: '100%', padding: '5px 8px', background: 'transparent', border: 'none',
-                borderBottom: '1px solid var(--border-color)', cursor: 'pointer',
+                width: '100%', padding: '5px 8px',
+                borderBottom: '1px solid var(--border-color)',
                 color: 'var(--text-primary)', fontSize: '0.78rem',
             }}
         >
-            <span style={{ fontWeight: 600, fontFamily: 'var(--font-mono, monospace)' }}>{row.ticker}</span>
+            <button
+                onClick={() => onClick(row.ticker)}
+                style={{
+                    background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
+                    fontWeight: 600, fontFamily: 'var(--font-mono, monospace)', color: 'inherit',
+                }}
+            >{row.ticker}</button>
             <span style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                 <span style={{ color: 'var(--text-muted)' }}>{row.price != null ? `$${row.price}` : '—'}</span>
                 <span style={{ color: up ? 'var(--accent-green)' : 'var(--accent-red)', minWidth: 64, textAlign: 'right' }}>
                     {row.change_pct != null ? formatPercent(row.change_pct, true) : '—'}
                 </span>
+                <ResearchLink ticker={row.ticker} onRunResearch={onRunResearch} />
             </span>
-        </button>
+        </div>
     );
 }
 
-export default function MoversPanel({ onSelectTicker, area = 'movers', initialResult = null, deferInitialLoad = false }) {
+export default function MoversPanel({ onSelectTicker, onRunResearch, area = 'movers', initialResult = null, deferInitialLoad = false }) {
     const [data, setData] = useState(null);
     const [confidence, setConfidence] = useState('high');
     const [loading, setLoading] = useState(false);
@@ -81,12 +88,12 @@ export default function MoversPanel({ onSelectTicker, area = 'movers', initialRe
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
                 <div>
                     <div style={{ fontSize: '0.68rem', color: 'var(--accent-green)', fontWeight: 700, marginBottom: 4 }}>GAINERS</div>
-                    {gainers.length ? gainers.map(r => <MoverRow key={r.ticker} row={r} onClick={onSelectTicker} />)
+                    {gainers.length ? gainers.map(r => <MoverRow key={r.ticker} row={r} onClick={onSelectTicker} onRunResearch={onRunResearch} />)
                         : <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>—</div>}
                 </div>
                 <div>
                     <div style={{ fontSize: '0.68rem', color: 'var(--accent-red)', fontWeight: 700, marginBottom: 4 }}>LOSERS</div>
-                    {losers.length ? losers.map(r => <MoverRow key={r.ticker} row={r} onClick={onSelectTicker} />)
+                    {losers.length ? losers.map(r => <MoverRow key={r.ticker} row={r} onClick={onSelectTicker} onRunResearch={onRunResearch} />)
                         : <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>—</div>}
                 </div>
             </div>

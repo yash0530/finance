@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
 import { getTerminalWatchlist, addWatchlistTicker, removeWatchlistTicker, formatPercent } from '../../utils/api';
 import PanelShell from './PanelShell';
+import ResearchLink from '../ResearchLink';
 
-export default function WatchlistPanel({ onSelectTicker, area = 'watchlist' }) {
+export default function WatchlistPanel({ onSelectTicker, onRunResearch, area = 'watchlist' }) {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -88,6 +89,7 @@ export default function WatchlistPanel({ onSelectTicker, area = 'watchlist' }) {
                                 <span style={{ color: up ? 'var(--accent-green)' : 'var(--accent-red)', minWidth: 60, textAlign: 'right' }}>
                                     {it.change_pct != null ? formatPercent(it.change_pct, true) : '—'}
                                 </span>
+                                <ResearchLink ticker={it.ticker} onRunResearch={onRunResearch} />
                                 <button
                                     onClick={() => remove(it.ticker)}
                                     title="Remove"

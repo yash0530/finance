@@ -8,7 +8,7 @@ function formatDate(iso) {
     });
 }
 
-function MemoDetail({ ticker, onBack }) {
+function MemoDetail({ ticker, onBack, onSelectTicker, onRunResearch }) {
     const [memo, setMemo] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -27,7 +27,11 @@ function MemoDetail({ ticker, onBack }) {
 
     return (
         <div className="fade-in">
-            <button className="btn btn-secondary" style={{ marginBottom: 'var(--spacing-md)' }} onClick={onBack}>← Back to memos</button>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 'var(--spacing-md)' }}>
+                <button className="btn btn-secondary" onClick={onBack}>← Back to memos</button>
+                {onSelectTicker && <button className="btn btn-secondary" onClick={() => onSelectTicker(ticker)}>Open Stock View</button>}
+                {onRunResearch && <button className="btn btn-primary" onClick={() => onRunResearch(ticker)}>Re-run research</button>}
+            </div>
             <h2 style={{ fontFamily: 'var(--font-mono, monospace)' }}>{ticker} Living Memo {memo?.current_version ? `· v${memo.current_version}` : ''}</h2>
             {loading && <div className="loading-state"><div className="spinner" /></div>}
             {error && <div className="alert alert-error">{error}</div>}
@@ -51,7 +55,7 @@ function MemoDetail({ ticker, onBack }) {
     );
 }
 
-export default function MemosTab() {
+export default function MemosTab({ onSelectTicker, onRunResearch }) {
     const [memos, setMemos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -72,7 +76,7 @@ export default function MemosTab() {
 
     useEffect(() => { load(); }, [load]);
 
-    if (selected) return <MemoDetail ticker={selected} onBack={() => setSelected(null)} />;
+    if (selected) return <MemoDetail ticker={selected} onBack={() => setSelected(null)} onSelectTicker={onSelectTicker} onRunResearch={onRunResearch} />;
 
     if (loading) return <div className="loading-state"><div className="spinner" /></div>;
     if (error) return <div className="alert alert-error">{error}</div>;

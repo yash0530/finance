@@ -1,4 +1,6 @@
-export default function ResultsTable({ result, onSelectTicker }) {
+import ResearchLink from '../ResearchLink';
+
+export default function ResultsTable({ result, onSelectTicker, onRunResearch }) {
     if (!result) return null;
     if (result.needs_scan) {
         return (
@@ -47,6 +49,7 @@ export default function ResultsTable({ result, onSelectTicker }) {
                                             partial
                                         </span>
                                     )}
+                                    <ResearchLink ticker={m.ticker} onRunResearch={onRunResearch} />
                                 </td>
                                 {fields.map(f => (
                                     <td key={f} style={{ padding: '4px 8px', color: 'var(--text-secondary)' }}>

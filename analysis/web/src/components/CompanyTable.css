@@ -203,10 +203,28 @@
 }
 
 .company-name {
-    max-width: 200px;
+    max-width: 240px;
+}
+
+.company-name {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.company-name .clickable-cell {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.company-name-research {
+    opacity: 0.45;
+}
+
+.company-table tr:hover .company-name-research {
+    opacity: 1;
 }
 
 .clickable-cell {

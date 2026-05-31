@@ -14,7 +14,7 @@ function formatSnapshot(timestamp) {
     return `Snapshot ${d.toLocaleString()}`;
 }
 
-export default function MarketPage({ onSelectTicker, onOpenScreenerPreset, onOpenPatterns }) {
+export default function MarketPage({ onSelectTicker, onRunResearch, onOpenScreenerPreset, onOpenPatterns }) {
     const [sectors, setSectors] = useState([]);
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -148,6 +148,7 @@ export default function MarketPage({ onSelectTicker, onOpenScreenerPreset, onOpe
                         searchResults={searchResults?.data}
                         showAll={showAllCompanies}
                         onCompanySelect={openTicker}
+                        onRunResearch={onRunResearch}
                     />
                 </>
             )}

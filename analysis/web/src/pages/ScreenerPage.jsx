@@ -20,7 +20,7 @@ async function fetchSavedScreeners() {
 /**
  * Screener — rule-based screening over cached tool data, with saved configs.
  */
-export default function ScreenerPage({ onSelectTicker, presetName }) {
+export default function ScreenerPage({ onSelectTicker, onRunResearch, presetName }) {
     const [spec, setSpec] = useState(DEFAULT_SPEC);
     const [result, setResult] = useState(null);
     const [running, setRunning] = useState(false);
@@ -104,7 +104,7 @@ export default function ScreenerPage({ onSelectTicker, presetName }) {
                             onChange={e => setName(e.target.value)} />
                         <button className="btn btn-secondary" onClick={save} disabled={!name.trim()}>Save</button>
                     </div>
-                    <ResultsTable result={result} onSelectTicker={onSelectTicker} />
+                    <ResultsTable result={result} onSelectTicker={onSelectTicker} onRunResearch={onRunResearch} />
                 </div>
 
                 <aside className="glass-card screener-saved-panel">

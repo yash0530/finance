@@ -8,7 +8,7 @@ import MemosTab from '../components/library/MemosTab';
  * Reports tab reuses the existing ResearchHistoryPage. Memos tab lists every
  * Living Memo and opens a section-by-section read-only view.
  */
-export default function LibraryPage() {
+export default function LibraryPage({ onSelectTicker, onRunResearch }) {
     const [tab, setTab] = useState('reports');
 
     return (
@@ -33,7 +33,9 @@ export default function LibraryPage() {
                 >Memos</button>
             </div>
 
-            {tab === 'reports' ? <ReportsPane /> : <MemosTab />}
+            {tab === 'reports'
+                ? <ReportsPane onSelectTicker={onSelectTicker} onRunResearch={onRunResearch} />
+                : <MemosTab onSelectTicker={onSelectTicker} onRunResearch={onRunResearch} />}
         </div>
     );
 }
@@ -43,7 +45,7 @@ export default function LibraryPage() {
  * Reports tab — the duplicate header is acceptable and avoids invasive edits to
  * a large, well-tested component.
  */
-function ReportsPane() {
-    return <ResearchHistoryPage embedded />;
+function ReportsPane({ onSelectTicker, onRunResearch }) {
+    return <ResearchHistoryPage embedded onSelectTicker={onSelectTicker} onRunResearch={onRunResearch} />;
 }
 

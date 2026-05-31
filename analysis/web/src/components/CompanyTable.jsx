@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { fetchCompaniesBySector, fetchCompanies, getSectorColor, formatNumber } from '../utils/api';
+import ResearchLink from './ResearchLink';
 import './CompanyTable.css';
 
-function CompanyTable({ sector, searchResults, showAll, onCompanySelect }) {
+function CompanyTable({ sector, searchResults, showAll, onCompanySelect, onRunResearch }) {
     const [companies, setCompanies] = useState([]);
     const [loading, setLoading] = useState(true);
     const [sortField, setSortField] = useState('forward_pe');
@@ -706,11 +707,18 @@ function CompanyTable({ sector, searchResults, showAll, onCompanySelect }) {
                                         </span>
                                     </a>
                                 </td>
-                                <td
-                                    className="company-name clickable-cell"
-                                    onClick={() => onCompanySelect?.(company.ticker)}
-                                >
-                                    {company.company_name}
+                                <td className="company-name">
+                                    <span
+                                        className="clickable-cell"
+                                        onClick={() => onCompanySelect?.(company.ticker)}
+                                    >
+                                        {company.company_name}
+                                    </span>
+                                    <ResearchLink
+                                        ticker={company.ticker}
+                                        onRunResearch={onRunResearch}
+                                        className="company-name-research"
+                                    />
                                 </td>
                                 <td>
                                     <span
