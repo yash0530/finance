@@ -435,7 +435,8 @@ def rebuild_snapshot(
         for ticker, row, error in pool.map(_one, universe):
             if row:
                 rows.append(row)
-                if _enrichment_score(previous_rows.get(ticker)) > _enrichment_score(_build_row(ticker, {}, quotes.get(ticker), metadata_by_ticker.get(ticker))):
+                quote_only = _build_row(ticker, {}, quotes.get(ticker), metadata_by_ticker.get(ticker))
+                if _enrichment_score(previous_rows.get(ticker)) > _enrichment_score(quote_only):
                     preserved_count += 1
             if error:
                 failures[ticker] = error
