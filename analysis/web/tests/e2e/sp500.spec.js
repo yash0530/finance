@@ -23,10 +23,10 @@ test.describe('S&P 500 revival', () => {
     });
 
     test('Market page exposes the rich S&P cockpit and company table', async ({ page }) => {
+        // #market is a back-compat alias that opens Discover on the Market tab.
         await page.goto('/#market');
         await expect(page.getByRole('heading', { name: 'S&P 500 Intelligence' })).toBeVisible({ timeout: 10_000 });
         await expect(page.getByRole('heading', { name: 'Spotlight Companies' })).toBeVisible({ timeout: 30_000 });
-        await page.locator('#nav-market').click();
         await page.locator('#btn-all-companies').click();
         await expect(page.locator('.company-table')).toBeVisible({ timeout: 30_000 });
     });
