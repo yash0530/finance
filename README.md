@@ -4,101 +4,139 @@
 
 ---
 
-## Current Navigation Pages (Edge v3)
+## 1. System Architecture
 
-The terminal is structured as a streamlined, dark-theme single-page cockpit with 6 core sections:
+Edge is a pull-based, single-investor market research cockpit. It is designed to be highly reliable, running entirely on a local development setup integrating a Flask backend, a SQLite storage system, and a React + Vite frontend dashboard.
 
-1. **Terminal**: The central dashboard displaying Movers (gainers/losers), Watchlists, Theme Heatmaps, Catalysts, and dynamic AI Hypotheses.
-2. **Stock View**: A single-ticker cock-pit displaying interactive candlestick charts, server-computed indicators (MA20, MA50, Bollinger, VWAP, RSI, MACD), fundamentals, insider/institutional flow, filings, and theme context.
-3. **Console**: A robust slash-command interface (`/thesis`, `/dossier`, `/why`, `/theme`, `/compare`) that drives live streaming agentic reasoning and parallel comparative research.
-4. **Library**: A versioned knowledge archive of previous Deep Research reports, Living Memos, and trade decisions.
-5. **Screener**: A rule-based scanner executing boolean filters and multi-variable logic over cached technical and fundamental metrics, gracefully handling partial data.
-6. **Settings**: A unified panel managing LLM providers (Google Gemini, Anthropic Claude, Ollama), Smart Cost Routing, data-tier badges, and theme pack configurations.
+```mermaid
+graph TD
+    subgraph Frontend [React + Vite - Port 5173]
+        UI[Console, Stock View, Market, Screener]
+        API[api.js client]
+        SSE[SSE Stream listener]
+    end
+
+    subgraph Backend [Flask - Port 5001]
+        App[app.py routes]
+        CO[console_orchestrator.py]
+        AL[agent_loop.py]
+        LLM[llm_service.py]
+        LM[living_memo.py]
+        DB[db.py SQLite wrapper]
+        
+        subgraph Agents
+            Bull[bull.py]
+            Bear[bear.py]
+            Judge[judge.py]
+            Planner[planner.py]
+            MemoSynth[memo_synth.py]
+            Critique[self_critique.py]
+        end
+        
+        subgraph ToolsRegistry [analysis/tools/]
+            T_Fund[fundamentals.py]
+            T_Tech[technicals.py]
+            T_SEC[edgar_filings.py]
+            T_Other[18+ Other Tools...]
+        end
+    end
+
+    subgraph Storage & External
+        SQLite[(~/.edge_terminal/finance.db)]
+        APIs[yfinance, Finnhub, SEC EDGAR, FMP]
+    end
+
+    UI --> API
+    API --> App
+    SSE <--> App
+    App --> CO
+    App --> AL
+    CO --> AL
+    AL --> Planner
+    Planner --> ToolsRegistry
+    ToolsRegistry --> APIs
+    ToolsRegistry --> SQLite
+    AL --> Bull & Bear & Judge & Critique & MemoSynth
+    MemoSynth --> LM
+    LM --> SQLite
+    DB --> SQLite
+```
+
+### Key Subsystems
+1. **Frontend App (`analysis/web/`)**: Built using React 18 and Vite. Styled with vanilla CSS variables using a dark glassmorphic UI aesthetic. Uses a custom hash-based router (`useHashRoute.js`) to keep dependencies low.
+2. **Flask API Core (`analysis/app.py`)**: Runs on port `5001`. Serves REST endpoints for configuration, screens, and charts, and implements SSE streams to emit deep research progress in real-time.
+3. **Agent Loop (`analysis/agent_loop.py`)**: Orchestrates the multi-agent research process. Runs the `planner` agent to schedule tools, parses outputs, fires adversarial debates (`bull` vs `bear`), calls the `judge` for verdicts/sizing, critiques reasoning, and triggers the `memo_synth` to stage Living Memo changes.
+4. **Tool Registry (`analysis/tools/`)**: Modular, autoloaded plugins subclassing `Tool`. Each tool is citation-aware and returns a `ToolResult` container with explicit confidence levels (`high`, `medium`, or `low`) and API cost calculation.
+5. **Database (`analysis/db.py`)**: Manages SQLite connections with WAL (Write-Ahead Logging) enabled.
 
 ---
 
-## Technical Architecture
+## 2. SQLite Database Schema
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    REACT FRONTEND (Vite)                        │
-│  Dark terminal aesthetic · Glassmorphism · SSE Streaming         │
-│                                                                 │
-│   Terminal  │  Stock View  │  Console  │  Library  │ Screener   │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │  REST API + SSE  (port 5173 → 5001)
-┌──────────────────────────▼──────────────────────────────────────┐
-│                    FLASK BACKEND  (app.py)                      │
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  v3 CONSOLE ORCHESTRATOR  (console_orchestrator.py)     │   │
-│  │  Parses /thesis, /dossier, /why, /theme, /compare commands│   │
-│  └─────────────────────────────────────────────────────────┘   │
-│  │  v3 AGENTIC DEBATE ENGINE  (agent_loop.py)              │   │
-│  │  Planner ──► Tool calls (parallel) ──► Re-plan          │   │
-│  │  Bull ──► Bear ──► Judge ──► Self-Critique              │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│  │  DATA LAYER                                             │   │
-│  │  SQLite (WAL mode) at ~/.edge_terminal/                 │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────────┐
-│                  EXTERNAL DATA INTEGRATIONS                     │
-│  yfinance (candlesticks, fundamentals, 13F holdings)            │
-│  Finnhub (market news)  ·  SEC EDGAR (10-K, 10-Q, Form 4 flow)  │
-│  Financial Modeling Prep (FMP) (transcripts, optional)          │
-│  Unusual Whales (options block flow, optional)                  │
-│  Polygon.io (intraday ticks, optional)                          │
-└─────────────────────────────────────────────────────────────────┘
-```
+The database resides at `~/.edge_terminal/finance.db`. Core tables include:
+
+* **`watchlist`**: Tickers added to the user's primary monitor.
+  - Columns: `ticker` (TEXT, PK), `added_at` (DATETIME).
+* **`research_reports`**: Archives completed deep research runs.
+  - Columns: `id` (INTEGER, PK), `ticker` (TEXT), `verdict` (TEXT, JSON), `bull_case` (TEXT), `bear_case` (TEXT), `budget_usd` (REAL), `cost_usd` (REAL), `created_at` (DATETIME).
+* **`living_memo`**: Evolving single-ticker notes.
+  - Columns: `ticker` (TEXT, PK), `content` (TEXT), `updated_at` (DATETIME).
+* **`living_memo_versions`**: Immutable log of past memo states for auditing.
+  - Columns: `id` (INTEGER, PK), `ticker` (TEXT), `version` (INTEGER), `content` (TEXT), `created_at` (DATETIME).
+* **`llm_settings`**: Stores chosen providers and model parameters.
+  - Columns: `provider` (TEXT, PK), `model_fast` (TEXT), `model_deep` (TEXT), `temperature` (REAL), `api_base_url` (TEXT).
+* **`tool_call_log`**: Traces execution of tools during research tasks.
+* **`recommendations`**: Tracked performance indicators for stops/targets.
+* **`screener_saved`**: Saved rule filters.
+* **`themes` & `theme_tickers`**: Cohorts of related tickers for heatmaps and scan grids.
 
 ---
 
-## Command Bar Suite (Console)
+## 3. Critical User Journeys (CUJs)
 
-The command line supports powerful on-demand analysis via slash commands:
+### CUJ 1: Discovery & Pulse Check
+1. Open the application. You land on the **Market** page or **Daily Scan**.
+2. Clicking "Run Scan" fires a batch request (`POST /api/terminal/snapshot`) compiling quote indicators, top market gainers/losers (Movers), S&P 500 thematic heat, and recent news tape.
+3. Observe which stock or theme is displaying unusual activity.
 
-* **`/thesis <T>`**: Runs a standard agentic debate cycle (~$0.60, 4 rounds). Returns bull/bear cases and a Judge trade recommendation.
-* **`/dossier <T>`**: Launches a deeper research run (~$2.00) including SEC EDGAR transcript extraction and extensive peer analytics.
-* **`/why <T>`**: Generates a quick 3-sentence on-demand read (~$0.05) using current indicators, cached 4 hours.
+### CUJ 2: Interactive Stock View Inspection
+1. Click any ticker in the Market table or watchlist.
+2. The page navigates to **Stock View** (`#stock?t=TICKER`), which triggers parallel API queries to load:
+   - Candlestick bars + indicators (MA20, MA50, Bollinger Bands, VWAP, RSI, MACD).
+   - Core fundamentals, margins, and P/E ratios.
+   - Form 4 insider flow and SEC 10-K/10-Q filing links.
+
+### CUJ 3: Server-Sent Agentic Research (Console / Research Form)
+1. Navigate to **Console** or **Research**.
+2. Run `/thesis AAPL` or click "Research" with `AAPL` selected.
+3. The front-end opens a streaming connection (`EventSource` to `/api/research/AAPL/v2/stream`).
+4. The backend boots:
+   - GICS industry classifications load sector-specific templates (e.g. SaaS, Semis).
+   - The **Planner** selects and runs tool batches (financial trends, technicals, transcripts).
+   - **Bull** and **Bear** agents debate the setup.
+   - The **Judge** recommends a trade plan (conviction level, position sizing, entry zone, stops, targets, and falsifiability guidelines).
+   - **Self-Critique** audits claims.
+   - **Memo Synth** proposes a staged Living Memo diff.
+
+### CUJ 4: Library Audit & Evolving Memo
+1. Open the **Library** page and click the ticker.
+2. Inspect the **Living Memo** version history.
+3. Track how the narrative changes: green additions denote new observations, while red strike-throughs represent debunked or stale items.
+
+---
+
+## 4. Console Commands
+
+Console command options:
+* **`/thesis <T>`**: Runs a normal agentic debate cycle (~$0.60 cost, 4 rounds). Returns bull/bear cases and a Judge trade recommendation.
+* **`/dossier <T>`**: Launches a deeper research run (~$2.00 cost) including transcript extraction and extensive peer analytics.
+* **`/why <T>`**: Generates a quick 3-sentence on-demand read (~$0.05 cost) using current indicators, cached 4 hours.
 * **`/theme <slug>`**: Aggregates constituent indicators and generates a cohesive theme-level investment argument and risk summary.
 * **`/compare <A> <B>...`**: Spawns parallel quick deep research runs for up to 5 tickers, generating a comparative score ranking and winner verdict.
 
 ---
 
-## Tool Registry (21 Tools)
-
-The Planner agent (and the terminal panels) dynamically load and invoke specialized data tools.
-
-**Research / fundamentals**
-1. `fundamentals`: Key metrics, market cap, margin structures.
-2. `financial_trends`: Multi-quarter growth rates.
-3. `technicals`: Volatility, MA crosses, RSI, MACD, relative strength vs SPY.
-4. `dcf_valuation`: Discounted cash flow intrinsic calculations.
-5. `sentiment`: Composite market news and rating sentiments.
-6. `edgar_filings`: SEC Form 10-K/10-Q extraction.
-7. `qoe_forensics`: Quality-of-Earnings accounting forensics.
-8. `macro_context`: Core interest-rate and index spreads.
-9. `insider_form4`: SEC insider trading flow.
-10. `institutional_13f`: Form 13F major holder positions.
-11. `options_flow`: Options block flow and put/call chains.
-12. `transcripts`: Earnings call transcript snippets (FMP, optional).
-13. `catalyst_lookup`: Calendar catalysts and macro dates.
-14. `peer_compare`: Sector cohort comparisons.
-15. `alt_data`: Google Trends tracking (optional).
-16. `memo_read`: Living Memo section retrieval.
-17. `sp500_lookup`: Ticker → name / sector / industry resolution.
-
-**Terminal panels**
-18. `movers`: Batched day-change gainers/losers across a universe.
-19. `news_tape`: Deduped company news across theme constituents (Finnhub).
-20. `price_history`: OHLCV candlestick bars + server-computed overlays for charts.
-21. `theme_heat`: Per-theme median move with leader/laggard.
-
----
-
-## Getting Started
+## 5. Quick Start
 
 ### 1. Installation
 
@@ -116,16 +154,15 @@ cd web
 npm install
 ```
 
-### 2. Configuration
-
-Do not store secrets in project files. If you use remote providers or paid data
-tiers, export credentials in the shell or your process manager before launch.
-The app never persists API keys in SQLite.
+### 2. Secrets Management
+The terminal never stores API keys in SQLite. Export keys in your shell:
+```bash
+export GOOGLE_API_KEY="your-gemini-key"
+export ANTHROPIC_API_KEY="your-claude-key"
+export FINNHUB_API_KEY="your-finnhub-key"
+```
 
 ### 3. Launching
-
-Run the unified start script to spin up the Flask backend on `:5001` and Vite development server on `:5173`:
-
 ```bash
 cd analysis
 bash start.sh
@@ -133,17 +170,17 @@ bash start.sh
 
 ---
 
-## Testing
+## 6. Testing
 
-Ensure the application is robust using the full test suites:
+### Run Python Tests
+```bash
+cd analysis
+python3 -m pytest tests/
+```
 
-* **Backend Unit & Integration Tests**:
-  ```bash
-  cd analysis
-  python3 -m pytest tests/
-  ```
-* **Frontend E2E Browser Tests (Playwright)**:
-  ```bash
-  cd analysis/web
-  npx playwright test
-  ```
+### Run Playwright UAT
+```bash
+cd analysis/web
+npm run test:e2e
+```
+
